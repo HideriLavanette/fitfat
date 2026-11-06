@@ -1,0 +1,62 @@
+name: Release
+
+# Публикация: git tag v0.2.0 && git push origin v0.2.0
+# Тег с дефисом (v0.3.0-beta1) уходит как бета — его увидят только те, у кого включены бета-версии.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Восстановить ключ подписи
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+
+      - name: Собрать подписанный APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          # versionCode обязан только расти: берём номер запуска этого workflow
+          VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))
+          gradle :app:assembleRelease -PversionName="$VERSION_NAME" -PversionCode="$VERSION_CODE"
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk "out/fitfat-${VERSION_NAME}-${VERSION_CODE}.apk"
+          (cd out && sha256sum *.apk > SHA256SUMS.txt)
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Описание из CHANGELOG.md
+        run: |
+          awk -v v="$VERSION_NAME" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            /^## \[/ { found = 0 }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "Исправления и улучшения." > notes.md; fi
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ env.VERSION_NAME }}
+          body_path: notes.md
+          files: out/*
+          prerelease: ${{ contains(github.ref_name, '-') }}
