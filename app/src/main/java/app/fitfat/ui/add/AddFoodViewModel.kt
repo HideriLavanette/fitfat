@@ -38,7 +38,9 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     val picked = mutableStateListOf<Picked>()
     var date: LocalDate = LocalDate.now()
     var time by mutableStateOf(LocalTime.now())
+        private set
     var meal by mutableStateOf(Meal.byTime(LocalTime.now()))
+        private set
     private var mealTouched = false
     private var nextKey = 1L
 
