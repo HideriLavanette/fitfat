@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -44,7 +45,15 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import app.fitfat.ui.screens.PlaceholderScreen
 import app.fitfat.ui.screens.ProfileScreen
+import app.fitfat.ui.add.AddFoodScreen
+import app.fitfat.ui.add.AddFoodViewModel
+import app.fitfat.ui.today.TodayScreen
+import app.fitfat.ui.today.TodayViewModel
+import app.fitfat.ui.weight.WeightDialog
+import app.fitfat.ui.weight.WeightScreen
+import app.fitfat.ui.weight.WeightViewModel
 import app.fitfat.update.UpdateDialog
+import java.time.LocalDate
 import app.fitfat.update.UpdateViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
@@ -55,7 +64,12 @@ private enum class Tab(val route: String, val label: String, val icon: ImageVect
 }
 
 @Composable
-fun AppRoot(updates: UpdateViewModel = viewModel()) {
+fun AppRoot(
+    updates: UpdateViewModel = viewModel(),
+    weight: WeightViewModel = viewModel(),
+    today: TodayViewModel = viewModel(),
+    add: AddFoodViewModel = viewModel(),
+) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
@@ -65,12 +79,16 @@ fun AppRoot(updates: UpdateViewModel = viewModel()) {
 
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         NavHost(navController = nav, startDestination = Tab.Today.route) {
-            composable(Tab.Today.route) { PlaceholderScreen("Сегодня", "Дневник, кольцо калорий и прогресс БЖУ") }
-            composable(Tab.Weight.route) { PlaceholderScreen("Вес", "История, тренд и календарь") }
+            composable(Tab.Today.route) { TodayScreen(today, onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") }) }
+            composable("add/{day}") { entry ->
+                val day = entry.arguments?.getString("day")?.toLongOrNull() ?: LocalDate.now().toEpochDay()
+                AddFoodScreen(add, LocalDate.ofEpochDay(day), onClose = { nav.popBackStack() })
+            }
+            composable(Tab.Weight.route) { WeightScreen(weight) }
             composable(Tab.Assistant.route) { PlaceholderScreen("Ассистент", "Советы и недельный отчёт") }
             composable(Tab.Profile.route) { ProfileScreen(updates) }
         }
-        FloatingNavBar(
+        if (current?.startsWith("add") != true) FloatingNavBar(
             current = current,
             onSelect = { tab ->
                 nav.navigate(tab.route) {
@@ -84,6 +102,21 @@ fun AppRoot(updates: UpdateViewModel = viewModel()) {
     }
 
     UpdateDialog(updates)
+
+    // Утренний вопрос о весе: один раз в день, пока не ответили или не пропустили
+    val ask by weight.askToday.collectAsStateWithLifecycle()
+    val wui by weight.ui.collectAsStateWithLifecycle()
+    if (ask) {
+        val today = LocalDate.now()
+        WeightDialog(
+            date = today,
+            initialKg = wui.last?.kg ?: 70.0,
+            previous = wui.all.lastOrNull { it.date.isBefore(today) }?.kg,
+            title = "Вес натощак",
+            onSave = { weight.save(today, it) },
+            onDismiss = weight::skipToday,
+        )
+    }
 }
 
 /** Плавающий навбар: капсула 72 dp, индикатор 56×32 по спецификации M3. */
