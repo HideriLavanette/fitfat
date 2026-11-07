@@ -25,8 +25,8 @@ import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Щелчок шага: короткая вибрация + тихий щелчок (свой, не зависит от системных звуков касания). */
-fun View.tick() = Feedback.tick(context)
+/** Щелчок шага барабанов и линеек: тихий щелчок + вибрация вполсилы (свой, не зависит от системных звуков касания). */
+fun View.tick() = Feedback.step(context)
 
 /** Упор в край диапазона: сильный отклик. */
 fun View.bump() = Feedback.bump(context)

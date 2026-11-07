@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.fitfat.ui.theme.MacroColors
 import kotlin.math.PI
-import androidx.compose.animation.core.animateFloat
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -82,12 +81,8 @@ fun WavyBar(
     extra: Double = 0.0, extraColor: Color = color, extraTrack: Color = track,
 ) {
     val over = MacroColors.over
-    // Волна бежит вправо: фаза 0…2π за 6 с
-    val phase by androidx.compose.animation.core.rememberInfiniteTransition(label = "wave").animateFloat(
-        0f, (2 * PI).toFloat(),
-        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(6000, easing = androidx.compose.animation.core.LinearEasing)),
-        label = "phase",
-    )
+    // Волна бежит вправо: фаза 0…2π за 6 с; на скрытой вкладке стоит (кадры не тратятся) и продолжает с того же места
+    val phase by rememberWavePhase()
     Canvas(modifier.fillMaxWidth().height(14.dp)) {
         val u = 1.dp.toPx()
         val cy = size.height / 2f
@@ -96,9 +91,10 @@ fun WavyBar(
         val end = x0 + wd // дорожка до края, как заполненная волна
         val fr = if (goal > 0) min(value / goal, 1.0).toFloat() else 0f
         val xe = x0 + wd * fr
-        val hasExtra = extra > 0 && goal > extra
+        val hasExtra = extra > 0.05 && goal > extra
         val xs = if (hasExtra) x0 + wd * ((goal - extra) / goal).toFloat() else Float.MAX_VALUE // начало доп. части
-        val gap = 8f * u // как зазор волна — дорожка у остальных полос
+        // Зазор как у остальных полос (8), но растёт вместе с добавкой — при анимации не появляется скачком
+        val gap = if (hasExtra) 8f * u * ((x0 + wd - xs) / (24f * u)).coerceIn(0f, 1f) else 0f
         fun wave(from: Float, to: Float, n: Int): Path {
             val p = Path()
             for (i in 0..n) {
@@ -129,4 +125,25 @@ fun WavyBar(
             drawPath(wave(x0, xo, 60), over, style = Stroke(6f * u, cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
     }
+}
+
+/** Идут ли бесконечные анимации на этом экране: false — вкладка скрыта, волны стоят. */
+val LocalAnimationsActive = androidx.compose.runtime.compositionLocalOf { true }
+
+/** Фаза бегущей волны (6 с на круг). Читать в отрисовке — тогда кадр только перерисовывается, без пересборки. */
+@Composable
+private fun rememberWavePhase(): androidx.compose.runtime.State<Float> {
+    val active = LocalAnimationsActive.current
+    val phase = androidx.compose.runtime.remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    androidx.compose.runtime.LaunchedEffect(active) {
+        if (!active) return@LaunchedEffect
+        var last = -1L
+        while (true) {
+            androidx.compose.runtime.withFrameNanos { t ->
+                if (last >= 0) phase.floatValue = ((phase.floatValue + (t - last) / 6e9f * (2 * PI).toFloat()) % (2 * PI).toFloat())
+                last = t
+            }
+        }
+    }
+    return phase
 }

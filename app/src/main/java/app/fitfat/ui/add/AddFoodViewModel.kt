@@ -79,6 +79,15 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
         rows.mapNotNull { r -> all.firstOrNull { it.id == r.productId }?.let { FrequentItem(it, r.grams, r.pieces) } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private var session: String? = null
+
+    /** Новое открытие экрана ([key] — запись навигации). Возврат на тот же экран с «Мои блюда» и т. п. ничего не сбрасывает. */
+    fun start(d: LocalDate, key: String) {
+        if (key == session) return
+        session = key
+        start(d)
+    }
+
     fun start(d: LocalDate) {
         setDay(d)
         text = ""; picked.clear()

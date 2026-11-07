@@ -72,7 +72,7 @@ class NormsStore(context: Context) {
         set(v) = prefs.edit { putBoolean("group_time", v) }
 }
 
-class FoodRepository(private val products: ProductDao, private val food: FoodDao) {
+class FoodRepository(private val products: ProductDao, private val food: FoodDao, private val dishes: DishDao) {
     val allProducts = products.observeAll()
     val recent = products.observeRecent(8)
     fun day(date: LocalDate) = food.observeDay(date.toEpochDay())
@@ -81,9 +81,31 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
 
     suspend fun createProduct(p: Product): Product = p.copy(id = products.insert(p))
     fun product(id: Long) = products.observe(id)
+    suspend fun byBarcode(code: String) = products.byBarcode(code)
     suspend fun updateProduct(p: Product) = products.update(p)
     /** Записи дневника не трогаем: КБЖУ в них сохранены копией. */
-    suspend fun deleteProduct(id: Long) = products.delete(id)
+    suspend fun deleteProduct(id: Long) { dishes.clear(id); products.delete(id) }
+
+    fun ingredients(dishId: Long) = dishes.observe(dishId)
+    val allIngredients = dishes.observeAll()
+
+    /**
+     * Сохранить блюдо: КБЖУ на 100 г готового = сумма ингредиентов × 100 / вес готового.
+     * Новое блюдо ([Product.id] = 0) создаётся. Возвращает id.
+     */
+    suspend fun saveDish(dish: Product, items: List<DishIngredient>, all: List<Product>): Long {
+        val total = dishTotals(items, all)
+        val raw = items.sumOf { it.grams }
+        val cooked = (dish.cookedGrams ?: raw).takeIf { it > 0 } ?: raw.coerceAtLeast(1.0)
+        val k = 100.0 / cooked
+        val p = dish.copy(
+            isDish = true, perPiece = false, pieceGrams = null, cookedGrams = cooked,
+            kcal = total.kcal * k, protein = total.protein * k, fat = total.fat * k, carbs = total.carbs * k,
+        )
+        val id = if (p.id == 0L) products.insert(p) else { products.update(p); p.id }
+        dishes.replace(id, items)
+        return id
+    }
 
     suspend fun add(date: LocalDate, time: LocalTime, meal: Meal, items: List<Pair<Product, Portion>>) {
         val now = System.currentTimeMillis()
@@ -118,3 +140,10 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
 /** [macros] — КБЖУ, поправленные вручную только для этой записи. */
 data class Portion(val grams: Double, val pieces: Double?, val macros: Macros? = null)
 const val CYCLE_EXTRA_CARBS = 25.0
+
+/** КБЖУ всего блюда по сырым весам ингредиентов. Штучные продукты пересчитываются через вес штуки. */
+fun dishTotals(items: List<DishIngredient>, all: List<Product>): Macros = items.fold(Macros()) { acc, i ->
+    val p = all.firstOrNull { it.id == i.productId } ?: return@fold acc
+    val pcs = if (p.perPiece) p.pieceGrams?.takeIf { it > 0 }?.let { i.grams / it } ?: 0.0 else null
+    acc + p.portion(i.grams, pcs)
+}

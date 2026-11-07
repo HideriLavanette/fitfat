@@ -18,6 +18,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -37,7 +42,7 @@ fun PlaceholderScreen(title: String, subtitle: String) {
 }
 
 @Composable
-fun ProfileScreen(updates: UpdateViewModel) {
+fun ProfileScreen(updates: UpdateViewModel, onProducts: () -> Unit = {}, onDishes: () -> Unit = {}) {
     Column(
         Modifier
             .fillMaxSize()
@@ -47,6 +52,15 @@ fun ProfileScreen(updates: UpdateViewModel) {
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text("Профиль", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp))
+
+        // База: все продукты и блюда, свои блюда
+        Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
+            Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Text("База продуктов", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                BaseRow(app.fitfat.ui.common.MockIcons.Search, "Все продукты и блюда", "Поиск, карточки, правка, штрихкоды", onProducts)
+                BaseRow(app.fitfat.ui.common.MockIcons.Dish, "Мои блюда", "Состав, вес готового, рецепты", onDishes)
+            }
+        }
 
         Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -69,5 +83,24 @@ fun ProfileScreen(updates: UpdateViewModel) {
             }
         }
         Spacer(Modifier.height(120.dp)) // место под плавающий навбар
+    }
+}
+
+@Composable
+private fun BaseRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(colors.secondaryContainer),
+            contentAlignment = Alignment.Center,
+        ) { androidx.compose.material3.Icon(icon, null, Modifier.size(22.dp), tint = colors.onSecondaryContainer) }
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
+        }
+        androidx.compose.material3.Icon(app.fitfat.ui.common.MockIcons.ChevronRight, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
     }
 }

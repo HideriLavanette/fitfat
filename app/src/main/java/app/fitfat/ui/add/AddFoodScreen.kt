@@ -69,14 +69,23 @@ import java.time.LocalDate
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, onAllProducts: () -> Unit = {}, productId: Long = 0) {
-    LaunchedEffect(date) { vm.start(date) }
+fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, onAllProducts: () -> Unit = {}, productId: Long = 0,
+    pendingProduct: Long = 0, onPendingTaken: () -> Unit = {},
+    onDishes: () -> Unit = {}, onCreateDish: (List<Picked>) -> Unit = {},
+    /** Штрихкод отсканирован: найти продукт ([onFound] — сразу порция) или завести новый. */
+    onBarcode: (code: String, onFound: (Product) -> Unit) -> Unit = { _, _ -> },
+    /** Ключ открытия экрана: тот же — значит вернулись, выбранное не сбрасывается. */
+    session: String = date.toString(),
+) {
+    LaunchedEffect(date, session) { vm.start(date, session) }
     val products by vm.products.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
     val frequent by vm.frequent.collectAsStateWithLifecycle()
     val left by vm.leftKcal.collectAsStateWithLifecycle()
     val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // Клавиатура — после разворота кнопки «+», иначе раскладка прыгает прямо во время анимации
+    // Клавиатура — почти сразу: её въезд прячется под размытием разворота
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(120); focus.requestFocus() }
     val recognized = remember(vm.text, products) { vm.recognized() }
 
     var focused by remember { mutableStateOf(false) }
@@ -94,6 +103,14 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     LaunchedEffect(productId, products) {
         if (productId > 0 && !preselected) products.firstOrNull { it.id == productId }?.let { p ->
             preselected = true
+            portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null)
+        }
+    }
+
+    // Вернулись сюда из «Всех продуктов» / карточки с «В дневник» — окно порции этого продукта
+    LaunchedEffect(pendingProduct, products) {
+        if (pendingProduct > 0) products.firstOrNull { it.id == pendingProduct }?.let { p ->
+            onPendingTaken()
             portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null)
         }
     }
@@ -144,6 +161,48 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
             )
         }
 
+        // «Добавить блюдо» · «Создать блюдо (N)» из того, что уже выбрано (макет Add-food)
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Сканер штрихкода (макет Add-food: маленькая кнопка 48 слева)
+            Surface(
+                onClick = { app.fitfat.ui.components.scanBarcode(ctx) { code -> onBarcode(code) { p -> portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null) } } },
+                shape = RoundedCornerShape(16.dp), color = colors.surfaceContainer, modifier = Modifier.size(48.dp),
+            ) { Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(22.dp), tint = colors.onSurfaceVariant) } }
+            // Блюдо собирается из продуктов, уже выбранных блюд в нём нет
+            val forDish = vm.picked.filter { !it.product.isDish }
+            val both = forDish.isNotEmpty()
+            Surface(onClick = onDishes, shape = RoundedCornerShape(16.dp), color = if (hasItems) colors.surfaceContainerHighest else colors.surfaceContainer, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) {
+                Row(Modifier.padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    // Рядом с «Создать блюдо» места мало — иконку убираем, чтобы надпись влезала целиком
+                    androidx.compose.animation.AnimatedVisibility(!both) { Icon(MockIcons.Dish, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant) }
+                    FitText("Добавить блюдо", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, minScale = 0.75f)
+                }
+            }
+            androidx.compose.animation.AnimatedVisibility(both, Modifier.weight(1.25f)) {
+                Surface(onClick = { onCreateDish(forDish) }, shape = RoundedCornerShape(24.dp), color = colors.secondaryContainer, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Row(Modifier.padding(start = 10.dp, end = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(MockIcons.PlusBold, null, Modifier.size(18.dp), tint = colors.onSecondaryContainer)
+                        FitText("Создать блюдо", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSecondaryContainer, minScale = 0.75f, modifier = Modifier.weight(1f, fill = false))
+                        // Число строго по центру кружка: без внутренних отступов шрифта
+                        Box(Modifier.size(22.dp).clip(RoundedCornerShape(11.dp)).background(colors.primary), contentAlignment = Alignment.Center) {
+                            Text(
+                                "${forDish.size}", color = colors.onPrimary,
+                                style = androidx.compose.ui.text.TextStyle(
+                                    fontSize = 12.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
+                                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                                    lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                                        androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                                        androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                                    ),
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp)) {
             unknown?.let { u -> UnknownBanner(u.fragment.query) { creating = u } }
 
@@ -173,7 +232,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                         frequent.forEach { fr ->
                             Surface(onClick = { portion = fr }, shape = RoundedCornerShape(8.dp), color = colors.surfaceContainerHigh, modifier = Modifier.heightIn(min = 32.dp)) {
                                 Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    CategoryIcon(fr.product.category, 24.dp, radius = 12.dp, iconSize = 16.dp)
+                                    CategoryIcon(fr.product.category, 24.dp, radius = 12.dp, iconSize = 16.dp, photo = fr.product.photo)
                                     Text("${fr.product.name} ${amount(fr.product, fr.grams, fr.pieces)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                                 }
                             }
@@ -182,10 +241,11 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                 }
             }
 
-            if (recent.isNotEmpty()) {
+            // «Посмотреть все» есть всегда, даже когда недавних ещё нет
+            run {
                 Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 4.dp else 6.dp)) {
                     Row(Modifier.fillMaxWidth().height(36.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        SectionTitle("Недавние", Modifier.weight(1f))
+                        SectionTitle(if (recent.isEmpty()) "Продукты и блюда" else "Недавние", Modifier.weight(1f))
                         Surface(onClick = onAllProducts, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.height(36.dp)) {
                             Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text("Посмотреть все", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurfaceVariant)
@@ -193,7 +253,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                             }
                         }
                     }
-                    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(if (hasItems) 22.dp else 24.dp)).background(colors.surfaceContainerLow)) {
+                    if (recent.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(if (hasItems) 22.dp else 24.dp)).background(colors.surfaceContainerLow)) {
                         recent.forEach { p ->
                             if (hasItems) RecentCompact(p) { vm.add(p, null, null) }
                             else RecentRow(p) { portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams else null) }
@@ -283,7 +343,7 @@ private fun PickedRow(item: Picked, onTap: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Surface(onClick = onTap, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHighest, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
         Row(Modifier.padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            CategoryIcon(item.product.category, 44.dp, radius = 14.dp, iconSize = 20.dp)
+            CategoryIcon(item.product.category, 44.dp, radius = 14.dp, iconSize = 20.dp, photo = item.product.photo)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(item.product.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Text(item.pieces?.let { "${fmt1(it)} шт · ~${fmt0(item.grams)} г" } ?: "${fmt0(item.grams)} г", fontSize = 12.sp, color = colors.onSurfaceVariant)
@@ -332,7 +392,7 @@ private fun RecentRow(p: Product, onClick: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CategoryIcon(p.category, 40.dp, radius = 12.dp, iconSize = 20.dp)
+        CategoryIcon(p.category, 40.dp, radius = 12.dp, iconSize = 20.dp, photo = p.photo)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(recentSub(p), fontSize = 13.sp, color = colors.onSurfaceVariant)
@@ -349,7 +409,7 @@ private fun RecentCompact(p: Product, onAdd: () -> Unit) {
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        CategoryIcon(p.category, 36.dp, radius = 12.dp, iconSize = 18.dp)
+        CategoryIcon(p.category, 36.dp, radius = 12.dp, iconSize = 18.dp, photo = p.photo)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(p.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(recentSub(p), fontSize = 12.sp, color = colors.onSurfaceVariant)

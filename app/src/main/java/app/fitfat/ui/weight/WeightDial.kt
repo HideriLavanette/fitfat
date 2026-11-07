@@ -170,12 +170,14 @@ fun WeightDial(
                         change.consume()
                     }
                     // Инерция: угловая скорость в °/с затухает экспоненциально
-                    val v = tracker.calculateVelocity().x.coerceIn(-2500f, 2500f)
+                    // Чем быстрее смахнули, тем дальше крутится: скорость растёт быстрее линейной, трение слабое
+                    val raw = tracker.calculateVelocity().x
+                    val v = (raw * (1f + abs(raw) / 900f)).coerceIn(-12000f, 12000f)
                     scope.launch {
-                        if (abs(v) > 60f) {
+                        if (abs(raw) > 60f) {
                             spin.snapTo(0f)
                             var prev = 0f
-                            spin.animateDecay(v, exponentialDecay(frictionMultiplier = 2.2f)) {
+                            spin.animateDecay(v, exponentialDecay(frictionMultiplier = 0.9f)) {
                                 val ok = turn(value - prev)
                                 prev = value
                                 if (!ok) scope.launch { spin.stop() }

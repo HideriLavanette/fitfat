@@ -41,6 +41,8 @@ object MockIcons {
     val Sweet = strokeIcon("M4 8h16v8H4ZM4 12h16M8 8V5M16 19v-3")
     val Clock = strokeIcon("M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 7.5V12l3 2")
     val Barcode = strokeIcon("M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8 8.5v7M11 8.5v7M13.5 8.5v7M16 8.5v7M3 12h18")
+    val Camera = strokeIcon("M4 8h3l2-3h6l2 3h3v11H4ZM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z")
+    val Gallery = strokeIcon("M4 5h16v14H4ZM4 16l5-5 4 4 3-3 4 4M15.5 7.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z")
     val Dish = strokeIcon("M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2")
 
     // Типы дня

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -48,8 +49,9 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val lastDeleted: StateFlow<FoodEntry?> = _lastDeleted.asStateFlow()
 
     val ui: StateFlow<TodayUi> = combine(
-        date.flatMapLatest { repo.day(it) }, date, dayType, groupByTime, normsStore.dayTypesVersion,
-    ) { entries, d, _, g, _ ->
+        // Дата едет вместе со своими записями — без промежуточного кадра «новый день, старые записи»
+        date.flatMapLatest { d -> repo.day(d).map { d to it } }, dayType, groupByTime, normsStore.dayTypesVersion,
+    ) { (d, entries), _, g, _ ->
         // Тип дня могли поменять в правке веса — читаем из хранилища
         val t = normsStore.dayType(d)
         TodayUi(

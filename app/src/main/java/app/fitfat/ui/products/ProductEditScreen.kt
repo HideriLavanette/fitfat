@@ -61,34 +61,50 @@ import app.fitfat.ui.components.PillToggle
 import app.fitfat.ui.components.VerticalDrum
 import app.fitfat.ui.theme.MacroColors
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
-private val shorts = mapOf("grain" to "Крупы", "meat" to "Мясо, рыба", "dairy" to "Молочное", "fruit" to "Фрукты", "veg" to "Овощи", "sauce" to "Сладкое")
+private val shorts = mapOf("grain" to "Крупы", "meat" to "Мясо, рыба", "dairy" to "Молочное", "fruit" to "Фрукты", "veg" to "Овощи", "sauce" to "Сладкое", "drink" to "Напитки")
 
 /**
  * Новый продукт / правка (макет Product-edit, 4.3). Закрыть · заголовок · корзина (с подтверждением).
  * Название, категория сеткой 3 × 2 (выбранная — рамка `onSurface`, скругление 22), «На 100 г / На 1 шт» и вес штуки,
  * ккал считаются из БЖУ, Б / Ж / У барабанами, обычная порция, другие названия, «Сохранить».
- * Фото, штрихкод и «Заполнить» (ассистент) появятся в своих версиях.
+ * Штрихкод — сканером или вручную, «Найти» берёт название и КБЖУ из Open Food Facts. Фото — плиткой у названия (камера или галерея). «Заполнить» (ассистент) — позже.
  */
 @Composable
 fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSaved: (Long) -> Unit, onDeleted: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // Новый продукт после скана приходит заготовкой (штрихкод и, может быть, данные Open Food Facts)
+    val prefill = remember(id) { if (id == 0L) vm.prefill.also { vm.prefill = null } else null }
     val existing = remember(id) { if (id > 0) vm.products.value.firstOrNull { it.id == id } else null }
-    var name by remember { mutableStateOf(existing?.name ?: "") }
-    var cat by remember { mutableStateOf(existing?.category ?: "grain") }
+    val start = existing ?: prefill
+    var name by remember { mutableStateOf(start?.name ?: "") }
+    var cat by remember { mutableStateOf(start?.category ?: "grain") }
     var piece by remember { mutableStateOf(existing?.perPiece ?: false) }
     var pieceG by remember { mutableStateOf(existing?.pieceGrams?.let { fmt0(it) } ?: "") }
-    var p by remember { mutableDoubleStateOf(existing?.protein ?: 0.0) }
-    var f by remember { mutableDoubleStateOf(existing?.fat ?: 0.0) }
-    var u by remember { mutableDoubleStateOf(existing?.carbs ?: 0.0) }
-    var touched by remember { mutableStateOf(existing == null) } // БЖУ меняли — ккал пересчитываем
+    var p by remember { mutableDoubleStateOf(start?.protein ?: 0.0) }
+    var f by remember { mutableDoubleStateOf(start?.fat ?: 0.0) }
+    var u by remember { mutableDoubleStateOf(start?.carbs ?: 0.0) }
+    var touched by remember { mutableStateOf(start == null) } // БЖУ меняли — ккал пересчитываем
     var portion by remember { mutableDoubleStateOf(existing?.defaultGrams ?: 100.0) }
     var aliases by remember { mutableStateOf(existing?.let { aliases(it).joinToString(", ") } ?: "") }
     var confirmDelete by remember { mutableStateOf(false) }
+    var barcode by remember { mutableStateOf(start?.barcode ?: "") }
+    var photo by remember { mutableStateOf(existing?.photo) }
+    var photoSheet by remember { mutableStateOf(false) }
+    val picker = app.fitfat.ui.components.rememberPhotoPicker { photo = it }
+    // Источник: данные из Open Food Facts, пока их не меняли руками
+    var offData by remember { mutableStateOf(if (start?.source == app.fitfat.data.SOURCE_OFF) listOf(start.protein, start.fat, start.carbs) else null) }
+    var offKcal by remember { mutableStateOf(if (start?.source == app.fitfat.data.SOURCE_OFF) start.kcal else null) }
+    var looking by remember { mutableStateOf(false) }
+    var lookNote by remember { mutableStateOf<String?>(if (prefill != null && prefill.source != app.fitfat.data.SOURCE_OFF) "В Open Food Facts этого штрихкода нет — заполните сами" else null) }
     LaunchedEffect(piece) { if (existing?.perPiece != piece) portion = if (piece) 1.0 else 100.0 }
 
     val calc = (p * 4 + f * 9 + u * 4)
-    val kcal = if (touched) calc else existing?.kcal ?: calc
+    val fromOff = offData != null && offData == listOf(p, f, u)
+    val kcal = if (fromOff) offKcal ?: calc else if (touched) calc else start?.kcal ?: calc
     val pg = pieceG.replace(',', '.').toDoubleOrNull()
     val valid = name.isNotBlank() && (!piece || (pg != null && pg > 0))
 
@@ -99,29 +115,57 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
             if (existing != null) IconBtn(MockIcons.Delete, "Удалить", { confirmDelete = true }, tint = colors.error)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Field("Название") {
-                TextInput(name, { name = it }, "Например: Сырники домашние", 56.dp, "Название")
+            // Фото 96 × 96 (скругление 20) слева от названия, как в макете 4.3
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                app.fitfat.ui.components.PhotoTile(photo, 96.dp, 20.dp, picker.busy) { photoSheet = true }
+                Box(Modifier.weight(1f)) {
+                    Field("Название") {
+                        TextInput(name, { name = it }, "Например: Сырники домашние", 56.dp, "Название")
+                    }
+                }
             }
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Caption("Категория")
-                Categories.chunked(3).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { c ->
-                            val sel = c.id == cat
-                            val r by animateDpAsState(if (sel) 22.dp else 14.dp, label = "r")
-                            val border by animateColorAsState(if (sel) colors.onSurface else Color.Transparent, label = "b")
-                            Surface(
-                                onClick = { cat = c.id }, shape = RoundedCornerShape(r), color = c.bg,
-                                modifier = Modifier.weight(1f).heightIn(min = 44.dp).border(2.dp, border, RoundedCornerShape(r)),
-                            ) {
-                                Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(c.icon, null, Modifier.size(20.dp), tint = colors.onSurface)
-                                    Text(shorts[c.id] ?: c.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            // Штрихкод: камерой или вручную; «Найти» — в Open Food Facts
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Caption("Штрихкод")
+                    Text(" · необязательно", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) {
+                        TextInput(barcode, { v -> barcode = v.filter { it.isDigit() }.take(14); lookNote = null }, "4600000000000", 56.dp, "Штрихкод", keyboard = KeyboardType.Number)
+                    }
+                    val canLook = barcode.length >= 8 && !looking
+                    if (barcode.length >= 8) {
+                        Surface(
+                            onClick = {
+                                looking = true; lookNote = null
+                                scope.launch {
+                                    val off = vm.lookup(barcode)
+                                    looking = false
+                                    if (off == null) lookNote = "В Open Food Facts не нашлось — заполните сами"
+                                    else {
+                                        name = name.ifBlank { off.name }; p = off.protein; f = off.fat; u = off.carbs
+                                        offData = listOf(off.protein, off.fat, off.carbs); offKcal = off.kcal; touched = false
+                                        lookNote = "Данные из Open Food Facts — проверьте по упаковке"
+                                    }
                                 }
+                            },
+                            enabled = canLook, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHighest, modifier = Modifier.height(56.dp),
+                        ) {
+                            Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                                Text(if (looking) "Ищу…" else "Найти", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
+                    Surface(onClick = { app.fitfat.ui.components.scanBarcode(ctx) { barcode = it; lookNote = null } }, shape = RoundedCornerShape(16.dp), color = colors.secondaryContainer, modifier = Modifier.size(56.dp)) {
+                        Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(24.dp), tint = colors.onSecondaryContainer) }
+                    }
                 }
+                lookNote?.let { Text(it, fontSize = 12.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp)) }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Caption("Категория")
+                CategoryGrid(cat) { cat = it }
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -178,6 +222,13 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                     (existing ?: Product(name = n, category = cat, kcal = 0.0, protein = 0.0, fat = 0.0, carbs = 0.0)).copy(
                         name = n, category = cat, kcal = kcal, protein = p, fat = f, carbs = u,
                         perPiece = piece, pieceGrams = if (piece) pg else null, aliases = list.joinToString(","), defaultGrams = portion,
+                        barcode = barcode.ifBlank { null }, photo = photo,
+                        // Встроенный остаётся встроенным, пока его КБЖУ не правили; данные Open Food Facts — пока совпадают
+                        source = when {
+                            fromOff -> app.fitfat.data.SOURCE_OFF
+                            existing?.source == app.fitfat.data.SOURCE_SEED && !touched -> app.fitfat.data.SOURCE_SEED
+                            else -> app.fitfat.data.SOURCE_MANUAL
+                        },
                     ),
                     onSaved,
                 )
@@ -191,6 +242,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
         }
     }
 
+    if (photoSheet) app.fitfat.ui.components.PhotoSheet(picker, photo != null, onDismiss = { photoSheet = false }, onRemove = { photo = null })
     if (confirmDelete && existing != null) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -212,11 +264,12 @@ private fun Field(label: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun TextInput(value: String, onChange: (String) -> Unit, hint: String, height: Dp, desc: String, size: androidx.compose.ui.unit.TextUnit = 16.sp) {
+private fun TextInput(value: String, onChange: (String) -> Unit, hint: String, height: Dp, desc: String, size: androidx.compose.ui.unit.TextUnit = 16.sp, keyboard: KeyboardType = KeyboardType.Text) {
     val colors = MaterialTheme.colorScheme
     BasicTextField(
         value, onChange, singleLine = true,
         textStyle = TextStyle(color = colors.onSurface, fontSize = size), cursorBrush = SolidColor(colors.primary),
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
         modifier = Modifier.fillMaxWidth().heightIn(min = height).clip(RoundedCornerShape(12.dp)).background(colors.surfaceContainerHigh)
             .semantics { contentDescription = desc },
         decorationBox = { inner ->
@@ -226,4 +279,31 @@ private fun TextInput(value: String, onChange: (String) -> Unit, hint: String, h
             }
         },
     )
+}
+
+/** Сетка категорий по 3 в ряд (выбранная — рамка `onSurface`, скругление 22); неполный ряд — той же ширины. */
+@Composable
+fun CategoryGrid(selected: String?, onSelect: (String) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Categories.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { c ->
+                    val sel = c.id == selected
+                    val r by animateDpAsState(if (sel) 22.dp else 14.dp, label = "r")
+                    val border by animateColorAsState(if (sel) colors.onSurface else Color.Transparent, label = "b")
+                    Surface(
+                        onClick = { onSelect(c.id) }, shape = RoundedCornerShape(r), color = c.bg,
+                        modifier = Modifier.weight(1f).heightIn(min = 44.dp).border(2.dp, border, RoundedCornerShape(r)),
+                    ) {
+                        Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(c.icon, null, Modifier.size(20.dp), tint = colors.onSurface)
+                            Text(shorts[c.id] ?: c.label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        }
+                    }
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
 }

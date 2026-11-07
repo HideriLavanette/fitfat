@@ -49,22 +49,32 @@ val Categories = listOf(
     Category("fruit", "Фрукты", strokeIcon("M12 7.5c-3.5-2.5-8-.5-8 4.5 0 4.5 3 9 6 9 1 0 1.5-.5 2-.5s1 .5 2 .5c3 0 6-4.5 6-9 0-5-4.5-7-8-4.5Z M12 7.5c0-2 1-4 3-4.5", 1.8f), Color(0xFF3A4224)),
     Category("veg", "Овощи", strokeIcon("M5 19C5 10 10 5 19 5c0 9-5 14-14 14Z M5 19l8-8", 1.8f), Color(0xFF24402F)),
     Category("sauce", "Соусы и сладкое", strokeIcon("M5 9h14v3a7 7 0 0 1-14 0ZM9 5h6", 1.8f), Color(0xFF3B2A33)),
+    // Напитки: стакан с трубочкой, фон в тон палитре категорий
+    Category("drink", "Напитки", strokeIcon("M6 8h12l-1.4 12.1a1 1 0 0 1-1 .9H8.4a1 1 0 0 1-1-.9Z M6.5 12.5h11 M13 8l1.6-5H18", 1.8f), Color(0xFF1F3D44)),
 )
 
 /** Яйца есть в дневнике макета, но не в списке выбора категории. */
 private val EggCategory = Category("egg", "Яйца", strokeIcon("M12 3c-4 0-7 6.5-7 11a7 7 0 0 0 14 0c0-4.5-3-11-7-11Z", 1.8f), Color(0xFF423A2C))
 
+/** Блюдо — отдельная плашка из макетов (Dishes, Products). */
+private val DishCategory = Category("dish", "Блюдо", strokeIcon("M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2", 1.8f), Color(0xFF5A3F48))
+
 /** Старые id из базы 0.3.0 показываем ближайшей категорией макета. */
 fun category(id: String): Category = when (id) {
     "egg" -> EggCategory
+    "dish" -> DishCategory
     "sweet", "oil" -> Categories.first { it.id == "sauce" }
     else -> Categories.firstOrNull { it.id == id } ?: Categories.first()
 }
 
-/** Плашка категории: в макете 44 dp, скругление 14, иконка 22. */
+/** Плашка категории: в макете 44 dp, скругление 14, иконка 22. Есть [photo] — вместо иконки фото продукта. */
 @Composable
-fun CategoryIcon(id: String, size: Dp = 44.dp, radius: Dp = size * (14f / 44f), iconSize: Dp = size * 0.5f) {
+fun CategoryIcon(id: String, size: Dp = 44.dp, radius: Dp = size * (14f / 44f), iconSize: Dp = size * 0.5f, photo: String? = null) {
     val c = category(id)
+    if (photo != null) {
+        app.fitfat.ui.components.PhotoImage(photo, Modifier.size(size).clip(RoundedCornerShape(radius)).background(c.bg))
+        return
+    }
     Box(Modifier.size(size).clip(RoundedCornerShape(radius)).background(c.bg), contentAlignment = Alignment.Center) {
         Icon(c.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(iconSize))
     }

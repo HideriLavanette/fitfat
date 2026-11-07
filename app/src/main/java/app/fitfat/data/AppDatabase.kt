@@ -1,6 +1,7 @@
 package app.fitfat.data
 
 import android.content.Context
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -9,6 +10,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.Update
 import androidx.room.Upsert
 import androidx.room.migration.Migration
@@ -46,6 +48,31 @@ data class Product(
     val defaultGrams: Double = 100.0,
     val useCount: Int = 0,
     val lastUsed: Long = 0,
+    /** Блюдо (0.4): КБЖУ на 100 г готового считаются из ингредиентов ([DishIngredient]). */
+    @ColumnInfo(defaultValue = "0") val isDish: Boolean = false,
+    /** Вес готового блюда, г. */
+    val cookedGrams: Double? = null,
+    /** Текст рецепта. */
+    val recipe: String? = null,
+    /** Штрихкод (EAN/UPC), 0.4. */
+    val barcode: String? = null,
+    /** Откуда данные: [SOURCE_SEED] встроенная база, [SOURCE_OFF] Open Food Facts, [SOURCE_MANUAL] введены вручную. */
+    val source: String? = null,
+    /** Фото — имя файла в `files/photos` (см. [Photos]), 0.4. */
+    val photo: String? = null,
+)
+
+const val SOURCE_SEED = "seed"
+const val SOURCE_OFF = "off"
+const val SOURCE_MANUAL = "manual"
+
+/** Ингредиент блюда: продукт и его сырой вес в рецепте. */
+@Entity(tableName = "dish_ingredient")
+data class DishIngredient(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val dishId: Long,
+    val productId: Long,
+    val grams: Double,
 )
 
 /** Запись дневника. КБЖУ сохраняются копией, чтобы правка продукта не меняла историю. */
@@ -101,14 +128,45 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): Product?
 
+    @Query("SELECT * FROM product WHERE barcode = :code LIMIT 1")
+    suspend fun byBarcode(code: String): Product?
+
     @Query("SELECT * FROM product WHERE id = :id")
     fun observe(id: Long): Flow<Product?>
+
+    @Query("SELECT photo FROM product WHERE photo IS NOT NULL")
+    suspend fun photos(): List<String>
 
     @Query("DELETE FROM product WHERE id = :id")
     suspend fun delete(id: Long)
 
     @Query("UPDATE product SET useCount = useCount + 1, lastUsed = :now WHERE id = :id")
     suspend fun markUsed(id: Long, now: Long)
+}
+
+@Dao
+interface DishDao {
+    @Query("SELECT * FROM dish_ingredient WHERE dishId = :dishId ORDER BY id")
+    fun observe(dishId: Long): Flow<List<DishIngredient>>
+
+    @Query("SELECT * FROM dish_ingredient WHERE dishId = :dishId ORDER BY id")
+    suspend fun get(dishId: Long): List<DishIngredient>
+
+    @Query("SELECT * FROM dish_ingredient ORDER BY id")
+    fun observeAll(): Flow<List<DishIngredient>>
+
+    @Query("DELETE FROM dish_ingredient WHERE dishId = :dishId")
+    suspend fun clear(dishId: Long)
+
+    @Insert
+    suspend fun insertAll(list: List<DishIngredient>)
+
+    /** Состав целиком: старый стираем, новый пишем. */
+    @Transaction
+    suspend fun replace(dishId: Long, list: List<DishIngredient>) {
+        clear(dishId)
+        insertAll(list.map { it.copy(id = 0, dishId = dishId) })
+    }
 }
 
 @Dao
@@ -185,18 +243,49 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class], version = 2, exportSchema = false)
+/** 0.3 → 0.4: блюда. Продукту добавлены признак блюда, вес готового и рецепт; новая таблица состава. Данные не трогаются. */
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `isDish` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `cookedGrams` REAL")
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `recipe` TEXT")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `dish_ingredient` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dishId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `grams` REAL NOT NULL)")
+    }
+}
+
+/** 0.4: штрихкод и источник данных продукта. Встроенные продукты помечаются как встроенные, остальные — как введённые вручную. */
+private val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `barcode` TEXT")
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `source` TEXT")
+        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED' WHERE `id` <= ${SEED_ROWS.size}")
+        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_MANUAL' WHERE `id` > ${SEED_ROWS.size}")
+    }
+}
+
+/** 0.4: фото продукта и блюда — только новая пустая колонка. */
+private val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `photo` TEXT")
+    }
+}
+
+@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class], version = 5, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
     abstract fun productDao(): ProductDao
     abstract fun foodDao(): FoodDao
+    abstract fun dishDao(): DishDao
 
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "fitfat.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .addCallback(object : Callback() {
-                    override fun onCreate(db: SupportSQLiteDatabase) = seed(db)
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        seed(db)
+                        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED'")
+                    }
                 })
                 .build()
     }

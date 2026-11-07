@@ -87,7 +87,7 @@ fun PillToggle(
                     .clip(shape)
                     .background(bg)
                     .selectable(selected = sel, role = Role.RadioButton, onClick = { if (!sel) Feedback.light(view.context); onSelect(i) })
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = if (fill) 8.dp else 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -95,7 +95,9 @@ fun PillToggle(
                     val tint by androidx.compose.animation.animateColorAsState(if (sel) colors.onSecondary else iconTints?.getOrNull(i) ?: colors.onSurface, androidx.compose.animation.core.tween(220), label = "tint")
                     Icon(it, null, Modifier.size(18.dp), tint = tint)
                 }
-                Text(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, color = ink)
+                // При крупном шрифте подпись чуть ужимается, а не обрезается
+                if (fill) FitText(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, color = ink, minScale = 0.75f)
+                else Text(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, color = ink)
             }
         }
     }

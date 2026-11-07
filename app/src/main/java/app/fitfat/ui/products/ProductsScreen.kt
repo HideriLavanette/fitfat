@@ -1,6 +1,41 @@
 package app.fitfat.ui.products
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableDoubleStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntOffset
+import app.fitfat.ui.components.Feedback
+import app.fitfat.ui.components.FfSheet
+import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.VerticalDrum
+import app.fitfat.ui.components.showUndo
+import app.fitfat.ui.theme.MacroColors
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.exp
+import kotlin.math.min
+import kotlin.math.roundToInt
+import kotlin.math.sign
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -57,7 +92,7 @@ import app.fitfat.ui.common.macroLine
 import java.util.concurrent.TimeUnit
 
 /** Теги фильтра (макет Products): id, подпись, иконка. */
-private enum class Tag(val label: String) { Meat("Мясо и яйца"), Dairy("Молочное"), Grain("Крупы"), Plant("Овощи и фрукты"), Sweet("Сладкое и соусы"), Piece("Штучные") }
+private enum class Tag(val label: String) { Meat("Мясо и яйца"), Dairy("Молочное"), Grain("Крупы"), Plant("Овощи и фрукты"), Sweet("Сладкое и соусы"), Drink("Напитки"), Piece("Штучные") }
 
 private fun Tag.icon(): ImageVector = when (this) {
     Tag.Meat -> category("meat").icon
@@ -65,6 +100,7 @@ private fun Tag.icon(): ImageVector = when (this) {
     Tag.Grain -> category("grain").icon
     Tag.Plant -> category("veg").icon
     Tag.Sweet -> MockIcons.Sweet
+    Tag.Drink -> category("drink").icon
     Tag.Piece -> MockIcons.Pieces
 }
 
@@ -74,6 +110,7 @@ private fun Tag.matches(p: Product) = when (this) {
     Tag.Grain -> p.category == "grain"
     Tag.Plant -> p.category == "veg" || p.category == "fruit"
     Tag.Sweet -> p.category == "sauce" || p.category == "sweet" || p.category == "oil"
+    Tag.Drink -> p.category == "drink"
     Tag.Piece -> p.perPiece
 }
 
@@ -91,20 +128,36 @@ fun usedAgo(lastUsed: Long): String? = daysAgo(lastUsed)?.let { d ->
 /**
  * Все продукты (макет Products, 4.1): поиск по названию и другим именам, период по последней записи,
  * теги категорий (несколько сразу), список «N из M». Кнопка «+ Продукт» — новый продукт.
- * Переключатель «Все / Продукты / Блюда» и сканер появятся вместе с блюдами и штрихкодами.
+ * «Все / Продукты / Блюда» — тип; сканер появится вместе со штрихкодами.
  */
 @Composable
-fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit) {
+fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit, onNewFromScan: () -> Unit = onNew, onAddToDiary: (Long) -> Unit = {}) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     val all by vm.products.collectAsStateWithLifecycle()
     var q by rememberSaveable { mutableStateOf("") }
     var period by rememberSaveable { mutableIntStateOf(0) }
     var tags by remember { mutableStateOf(setOf<Tag>()) }
+    var type by rememberSaveable { mutableIntStateOf(0) } // 0 все, 1 продукты, 2 блюда
     val colors = MaterialTheme.colorScheme
+    val scope = rememberCoroutineScope()
+    val snack = remember { SnackbarHostState() }
+    // Выбор нескольких: зажать строку; дальше тап добавляет / убирает
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    val selecting = selected.isNotEmpty()
+    var bulk by remember { mutableStateOf(Bulk.None) }
+    var confirmDelete by remember { mutableStateOf<Set<Long>?>(null) }
+    androidx.activity.compose.BackHandler(enabled = selecting) { selected = emptySet() }
+    // Выбранные, которые пропали из базы, из выбора убираем
+    LaunchedEffect(all) { val ids = all.map { it.id }.toSet(); if (!ids.containsAll(selected)) selected = selected intersect ids }
+    fun undoable(msg: String, old: List<Product>) {
+        selected = emptySet()
+        if (old.isNotEmpty()) scope.launch { if (snack.showUndo(msg)) vm.restore(old) }
+    }
 
     val query = Recognizer.normalize(q)
-    val items = remember(all, query, period, tags) {
+    val items = remember(all, query, period, tags, type) {
         all.filter { p ->
-            (query.isEmpty() || (listOf(p.name) + p.aliases.split(',')).any { Recognizer.normalize(it).contains(query) }) &&
+            (type == 0 || (type == 2) == p.isDish) && (query.isEmpty() || (listOf(p.name) + p.aliases.split(',')).any { Recognizer.normalize(it).contains(query) }) &&
                 (period == 0 || (daysAgo(p.lastUsed)?.let { it <= periods[period].second } ?: false)) &&
                 (tags.isEmpty() || tags.any { it.matches(p) })
         }.sortedWith(compareByDescending<Product> { it.lastUsed }.thenBy { it.name })
@@ -112,16 +165,47 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
 
     Box(Modifier.fillMaxSize().statusBarsPadding().imePadding()) {
         Column(Modifier.fillMaxSize().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Surface(onClick = onBack, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
-                    Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronLeft, "Назад", Modifier.size(24.dp), tint = colors.onSurface) }
+            // Шапка: обычная или режим выбора (закрыть выбор — слева)
+            androidx.compose.animation.AnimatedContent(
+                selecting, label = "head",
+                transitionSpec = { (fadeIn(tween(200)) + slideInVertically(tween(220)) { -it / 4 }).togetherWith(fadeOut(tween(150))) },
+            ) { sel ->
+                Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (!sel) {
+                        Surface(onClick = onBack, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronLeft, "Назад", Modifier.size(24.dp), tint = colors.onSurface) }
+                        }
+                        Text("Все продукты", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("${items.size} из ${all.size}", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp))
+                    } else {
+                        Surface(onClick = { selected = emptySet() }, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Close, "Отменить выбор", Modifier.size(24.dp), tint = colors.onSurface) }
+                        }
+                        androidx.compose.animation.AnimatedContent(selected.size, label = "n") { n ->
+                            Text("Выбрано: $n", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        Spacer(Modifier.weight(1f))
+                        val allIn = items.isNotEmpty() && items.all { it.id in selected }
+                        Surface(onClick = { selected = if (allIn) selected - items.map { it.id }.toSet() else selected + items.map { it.id } }, shape = RoundedCornerShape(18.dp), color = Color.Transparent) {
+                            Text(if (allIn) "Снять все" else "Выбрать все", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.primary, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+                        }
+                        Surface(onClick = { confirmDelete = selected }, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Delete, "Удалить выбранные", Modifier.size(22.dp), tint = colors.error) }
+                        }
+                    }
                 }
-                Text("Все продукты", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Text("${items.size} из ${all.size}", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(end = 8.dp))
             }
+            // В режиме выбора вместо поиска — действия над выбранными
+            if (selecting) {
+                Row(Modifier.fillMaxWidth().height(52.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    BulkChip(category("grain").icon, "Категория") { bulk = Bulk.Category }
+                    BulkChip(MockIcons.Edit, "БЖУ") { bulk = Bulk.Macros }
+                    BulkChip(MockIcons.Pieces, "Порция") { bulk = Bulk.Portion }
+                }
+            } else
             // Поиск
             Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(colors.surfaceContainer).padding(start = 16.dp, end = 16.dp),
+                Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(52.dp).clip(RoundedCornerShape(26.dp)).background(colors.surfaceContainer).padding(start = 16.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(MockIcons.Search, null, Modifier.size(22.dp), tint = colors.onSurfaceVariant)
@@ -142,7 +226,17 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                         Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Close, "Очистить", Modifier.size(18.dp), tint = colors.onSurfaceVariant) }
                     }
                 }
+                // Скан: есть в базе — карточка, нет — новый продукт со штрихкодом
+                Surface(
+                    onClick = { app.fitfat.ui.components.scanBarcode(ctx) { code -> vm.resolveBarcode(code, onFound = { onOpen(it.id) }, onNew = onNewFromScan) } },
+                    shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerHighest, modifier = Modifier.size(40.dp),
+                ) { Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(20.dp), tint = colors.onSurface) } }
             }
+            // Тип: все / продукты / блюда
+            app.fitfat.ui.components.PillToggle(
+                listOf("Все", "Продукты", "Блюда"), type, onSelect = { type = it },
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(), height = 40.dp, fontSize = 13.sp,
+            )
             // Период + теги в один ряд с прокруткой
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -183,12 +277,22 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                     )
                 }
                 LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-                    items(items, key = { it.id }) { p -> ProductRow(p) { onOpen(p.id) } }
+                    items(items, key = { it.id }) { p ->
+                        val sel = p.id in selected
+                        ProductRow(
+                            p, selecting, sel,
+                            onClick = { if (selecting) selected = if (sel) selected - p.id else selected + p.id else onOpen(p.id) },
+                            onLongClick = { selected = selected + p.id },
+                            onAdd = { onAddToDiary(p.id) },
+                            onDelete = { confirmDelete = setOf(p.id) },
+                        )
+                    }
                 }
             }
         }
+        SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
         // «+ Продукт»
-        Surface(
+        if (!selecting) Surface(
             onClick = onNew, shape = RoundedCornerShape(16.dp), color = colors.primaryContainer, shadowElevation = 6.dp,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 24.dp).height(56.dp),
         ) {
@@ -198,25 +302,204 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
             }
         }
     }
+
+    val sel = all.filter { it.id in selected }
+    when (bulk) {
+        Bulk.None -> {}
+        Bulk.Category -> BulkSheet("Категория", sel.size, sel.count { it.isDish }.takeIf { it > 0 }?.let { "Блюда не меняются" }, onDismiss = { bulk = Bulk.None }) {
+            CategoryGrid(null) { c -> bulk = Bulk.None; vm.setCategoryMany(selected, c) { old -> undoable("Категория изменена: ${productsWord(old.size)}", old) } }
+        }
+        Bulk.Macros -> {
+            val first = sel.firstOrNull { !it.isDish }
+            var p by remember { mutableDoubleStateOf(first?.protein ?: 0.0) }
+            var f by remember { mutableDoubleStateOf(first?.fat ?: 0.0) }
+            var u by remember { mutableDoubleStateOf(first?.carbs ?: 0.0) }
+            val notes = listOfNotNull(
+                sel.count { it.isDish }.takeIf { it > 0 }?.let { "блюда считаются из состава и не меняются" },
+                sel.count { it.perPiece && !it.isDish }.takeIf { it > 0 }?.let { "у штучных — на 1 шт" },
+            ).joinToString("; ").ifEmpty { null }?.replaceFirstChar { it.uppercase() }
+            BulkSheet("БЖУ на 100 г", sel.size, notes, onDismiss = { bulk = Bulk.None }) {
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(fmt0(p * 4 + f * 9 + u * 4), fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+                    Text("ккал · считается из БЖУ", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (p % 1.0 != 0.0) 1 else 0)
+                    VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (f % 1.0 != 0.0) 1 else 0)
+                    VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (u % 1.0 != 0.0) 1 else 0)
+                }
+                ApplyButton(sel.count { !it.isDish }) { bulk = Bulk.None; vm.setMacrosMany(selected, p, f, u) { old -> undoable("БЖУ изменены: ${productsWord(old.size)}", old) } }
+            }
+        }
+        Bulk.Portion -> {
+            var g by remember { mutableDoubleStateOf(sel.firstOrNull { !it.perPiece }?.defaultGrams ?: 100.0) }
+            BulkSheet("Обычная порция", sel.size, sel.count { it.perPiece }.takeIf { it > 0 }?.let { "У штучных порция в штуках — они не меняются" }, onDismiss = { bulk = Bulk.None }) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+                    Text(fmt0(g), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(" г", fontSize = 15.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                }
+                GramRuler(g.roundToInt(), { g = it.toDouble() }, max = 3000)
+                ApplyButton(sel.count { !it.perPiece }) { bulk = Bulk.None; vm.setPortionMany(selected, g) { old -> undoable("Порция изменена: ${productsWord(old.size)}", old) } }
+            }
+        }
+    }
+    confirmDelete?.let { ids ->
+        val one = if (ids.size == 1) all.firstOrNull { it.id in ids } else null
+        val what = when {
+            one?.isDish == true -> "Блюдо и его рецепт исчезнут из базы."
+            one != null -> "Продукт исчезнет из базы."
+            else -> "Они исчезнут из базы."
+        }
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = null },
+            icon = { Icon(MockIcons.Delete, null, tint = colors.error) },
+            title = { Text(if (one != null) "Удалить «${one.name}»?" else "Удалить ${productsWord(ids.size)}?") },
+            text = { Text("$what Записи в дневнике останутся — их КБЖУ сохранены.") },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null }) { Text("Отмена") } },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { confirmDelete = null; vm.deleteMany(ids) { selected = selected - ids } }) { Text("Удалить", color = colors.error) } },
+        )
+    }
 }
 
-/** Строка продукта: 62+, плашка 44, название 15 / 600, Б · Ж · У [· 1 шт ≈ 50 г] · когда; справа ккал и «ккал/100 г». */
+private enum class Bulk { None, Category, Macros, Portion }
+
+/** «1 продукт», «3 продукта», «5 продуктов». */
+fun productsWord(n: Int) = "$n " + when {
+    n % 10 == 1 && n % 100 != 11 -> "продукт"
+    n % 10 in 2..4 && n % 100 !in 12..14 -> "продукта"
+    else -> "продуктов"
+}
+
+/** Действие над выбранными: чип 40 dp, `surfaceContainerHigh`; удаление — `errorContainer`. */
 @Composable
-private fun ProductRow(p: Product, onClick: () -> Unit) {
+private fun BulkChip(icon: ImageVector, label: String, danger: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val tail = (if (p.perPiece && p.pieceGrams != null) " · 1 шт ≈ ${fmt0(p.pieceGrams)} г" else "") + (usedAgo(p.lastUsed)?.let { " · $it" } ?: "")
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 62.dp).clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        CategoryIcon(p.category, 44.dp, radius = 14.dp, iconSize = 22.dp)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(macroLine(p.protein, p.fat, p.carbs, tail = tail), fontSize = 12.sp, color = colors.onSurfaceVariant)
+    val ink = if (danger) colors.onErrorContainer else colors.onSurface
+    Surface(onClick = onClick, shape = RoundedCornerShape(20.dp), color = if (danger) colors.errorContainer else colors.surfaceContainerHigh, modifier = Modifier.height(40.dp)) {
+        Row(Modifier.padding(start = 12.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, null, Modifier.size(18.dp), tint = ink)
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = ink, maxLines = 1)
         }
-        Column(horizontalAlignment = Alignment.End) {
-            Text(fmt0(p.kcal), fontSize = 15.sp, fontWeight = FontWeight(650))
-            Text(if (p.perPiece) "ккал/шт" else "ккал/100 г", fontSize = 11.sp, color = colors.onSurfaceVariant)
+    }
+}
+
+/** Шторка массовой правки: заголовок, «для N продуктов», пояснение, что не меняется. */
+@Composable
+private fun BulkSheet(title: String, n: Int, note: String?, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    FfSheet(onDismiss = onDismiss) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+            Text("Для $n " + if (n % 10 == 1 && n % 100 != 11) "продукта" else "продуктов", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            note?.let { Text(it, fontSize = 12.sp, color = colors.onSurfaceVariant) }
+        }
+        content()
+    }
+}
+
+@Composable
+private fun ApplyButton(n: Int, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val ok = n > 0
+    Surface(
+        onClick = onClick, enabled = ok, shape = RoundedCornerShape(28.dp), color = if (ok) colors.primary else colors.surfaceContainerHighest,
+        modifier = Modifier.fillMaxWidth().height(56.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(if (ok) "Применить" else "Нечего менять", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (ok) colors.onPrimary else colors.outline)
+        }
+    }
+}
+
+private const val SWIPE_RESIST = 56f // dp: до «срыва» строка тянется с сопротивлением не дальше этого
+private const val SWIPE_SOFT = 70f
+private const val SWIPE_SNAP = 110f  // dp пальца: порог срабатывания
+
+/**
+ * Строка продукта: 62+, плашка 44, название 15 / 600, Б · Ж · У [· 1 шт ≈ 50 г] · когда; справа ккал и «ккал/100 г».
+ * Смахнуть вправо — в дневник, влево — удалить (с подтверждением): как строки дневника — сопротивление,
+ * на пороге «срыв» с вибрацией (без звука), дальше строка идёт за пальцем. Зажать — выбор нескольких; в выборе свайпа нет.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onAdd: () -> Unit, onDelete: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val density = LocalDensity.current
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val dx = remember { Animatable(0f) }
+    var released by remember { mutableStateOf(false) }
+    val d = dx.value
+    val tail = (if (p.perPiece && p.pieceGrams != null) " · 1 шт ≈ ${fmt0(p.pieceGrams)} г" else "") + (usedAgo(p.lastUsed)?.let { " · $it" } ?: "")
+    val bg by animateColorAsState(if (selected) colors.secondaryContainer else colors.surfaceContainerLow, label = "rowbg")
+    Box(Modifier.fillMaxWidth().heightIn(min = 62.dp)) {
+        // Подложка: слева «В дневник», справа «Удалить»
+        Row(
+            Modifier.matchParentSize().background(if (d > 0) colors.primaryContainer else if (d < 0) colors.errorContainer else Color.Transparent).padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(Modifier.alpha(if (d > 0) (if (released) 1f else 0.55f * min(d / SWIPE_RESIST, 1f)) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(MockIcons.Plus, null, Modifier.size(22.dp), tint = colors.onPrimaryContainer)
+                Text("В дневник", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimaryContainer)
+            }
+            Spacer(Modifier.weight(1f))
+            Row(Modifier.alpha(if (d < 0) (if (released) 1f else 0.55f * min(-d / SWIPE_RESIST, 1f)) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Удалить", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onErrorContainer)
+                Icon(MockIcons.Delete, null, Modifier.size(22.dp), tint = colors.onErrorContainer)
+            }
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .heightIn(min = 62.dp)
+                .offset { IntOffset(with(density) { d.dp.roundToPx() }, 0) }
+                .clip(RoundedCornerShape((20f * min(abs(d) / 24f, 1f)).dp))
+                .background(bg)
+                .pointerInput(p.id, selecting) {
+                    if (selecting) return@pointerInput
+                    var raw = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { raw = dx.value; released = false },
+                        onDragEnd = {
+                            val v = dx.value
+                            val was = released
+                            released = false
+                            if (was && v > 0) onAdd()
+                            if (was && v < 0) onDelete()
+                            scope.launch { dx.animateTo(0f, spring(dampingRatio = 0.6f, stiffness = 500f)) }
+                        },
+                        onDragCancel = { released = false; scope.launch { dx.animateTo(0f) } },
+                    ) { ch, amountPx ->
+                        ch.consume()
+                        raw = (raw + amountPx / density.density).coerceIn(-320f, 320f)
+                        val a = abs(raw)
+                        if (!released && a >= SWIPE_SNAP) { released = true; Feedback.tickSilent(view.context) }
+                        else if (released && a < SWIPE_SNAP * 0.75f) { released = false; Feedback.light(view.context) }
+                        val target = if (released) raw else sign(raw) * SWIPE_RESIST * (1f - exp(-a / SWIPE_SOFT))
+                        scope.launch {
+                            if (released) dx.animateTo(target, spring(dampingRatio = 0.85f, stiffness = 1600f)) else dx.snapTo(target)
+                        }
+                    }
+                }
+                .combinedClickable(onClick = onClick, onLongClick = { Feedback.tickSilent(view.context); onLongClick() })
+                .semantics { contentDescription = "${p.name}. Смахните вправо — в дневник, влево — удалить; удерживайте, чтобы выбрать несколько" }
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // В выборе плашка превращается в галочку
+            androidx.compose.animation.Crossfade(selected, animationSpec = tween(160), label = "check") { s ->
+                if (s) Box(Modifier.size(44.dp).clip(CircleShape).background(colors.primary), contentAlignment = Alignment.Center) {
+                    Icon(MockIcons.Check, null, Modifier.size(22.dp), tint = colors.onPrimary)
+                } else CategoryIcon(p.category, 44.dp, radius = 14.dp, iconSize = 22.dp, photo = p.photo)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(macroLine(p.protein, p.fat, p.carbs, tail = tail), fontSize = 12.sp, color = colors.onSurfaceVariant)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(fmt0(p.kcal), fontSize = 15.sp, fontWeight = FontWeight(650))
+                Text(if (p.perPiece) "ккал/шт" else "ккал/100 г", fontSize = 11.sp, color = colors.onSurfaceVariant)
+            }
         }
     }
 }

@@ -101,7 +101,7 @@ private fun DialogCard(gap: Dp, content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun DialogHeader(p: Product, sub: androidx.compose.ui.text.AnnotatedString) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        CategoryIcon(p.category, 48.dp, radius = 16.dp, iconSize = 24.dp)
+        CategoryIcon(p.category, 48.dp, radius = 16.dp, iconSize = 24.dp, photo = p.photo)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(p.name, fontSize = 18.sp, fontWeight = FontWeight(650))
             Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -366,7 +366,7 @@ fun VariantsDialog(r: Recognized, onDismiss: () -> Unit, onPick: (Product) -> Un
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     ) {
                         Row(Modifier.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            CategoryIcon(p.category, 36.dp, radius = 12.dp, iconSize = 18.dp)
+                            CategoryIcon(p.category, 36.dp, radius = 12.dp, iconSize = 18.dp, photo = p.photo)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 val ink = if (sel) colors.onTertiaryContainer else colors.onSurface
                                 Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ink)

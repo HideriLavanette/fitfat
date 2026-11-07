@@ -76,12 +76,12 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
         val prod = p ?: return@Column
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                CategoryIcon(prod.category, 76.dp, radius = 26.dp, iconSize = 38.dp)
+                CategoryIcon(prod.category, 76.dp, radius = 26.dp, iconSize = 38.dp, photo = prod.photo)
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(prod.name, fontSize = 24.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(MockIcons.Check, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
-                        Text(if (prod.id <= SEED_COUNT) "Из встроенной базы" else "Ваш продукт", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        Text(sourceLabel(prod), fontSize = 13.sp, color = colors.onSurfaceVariant)
                     }
                 }
             }
@@ -152,6 +152,13 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
         )
     }
 }
+
+/** Откуда данные продукта. */
+fun sourceLabel(p: Product) = when (p.source ?: if (p.id <= SEED_COUNT) app.fitfat.data.SOURCE_SEED else app.fitfat.data.SOURCE_MANUAL) {
+    app.fitfat.data.SOURCE_SEED -> "Из встроенной базы"
+    app.fitfat.data.SOURCE_OFF -> "Из Open Food Facts"
+    else -> "Введён вручную"
+} + (p.barcode?.let { " · штрихкод $it" } ?: "")
 
 /** Слова распознавания без самого названия. */
 fun aliases(p: Product) = p.aliases.split(',').map { it.trim() }.filter { it.isNotBlank() && !it.equals(p.name, ignoreCase = true) }.distinct()
