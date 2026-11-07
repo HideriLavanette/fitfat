@@ -199,6 +199,11 @@ abstract class AppDatabase : RoomDatabase() {
 class WeightRepository(private val dao: WeightDao) {
     val entries: Flow<List<WeightEntry>> = dao.observeAll()
     suspend fun get(date: LocalDate) = dao.get(date.toEpochDay())
-    suspend fun save(date: LocalDate, kg: Double) = dao.upsert(WeightEntry(date.toEpochDay(), Math.round(kg * 10) / 10.0))
+    /** [note] = null — заметку не трогать (утреннее окно), пустая строка — стереть. */
+    suspend fun save(date: LocalDate, kg: Double, note: String? = null) {
+        val old = dao.get(date.toEpochDay())
+        val n = if (note == null) old?.note else note.trim().ifEmpty { null }
+        dao.upsert(WeightEntry(date.toEpochDay(), Math.round(kg * 10) / 10.0, n))
+    }
     suspend fun delete(date: LocalDate) = dao.delete(date.toEpochDay())
 }

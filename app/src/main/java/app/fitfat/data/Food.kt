@@ -2,6 +2,9 @@ package app.fitfat.data
 
 import android.content.Context
 import androidx.core.content.edit
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -55,7 +58,14 @@ class NormsStore(context: Context) {
     fun dayType(date: LocalDate): DayType =
         DayType.entries.getOrNull(prefs.getInt("day_${date.toEpochDay()}", 0)) ?: DayType.Normal
 
-    fun setDayType(date: LocalDate, t: DayType) = prefs.edit { putInt("day_${date.toEpochDay()}", t.ordinal) }
+    private val _dayTypesVersion = MutableStateFlow(0)
+    /** Растёт при каждой смене типа дня — экраны перечитывают отметки (главный, вес). */
+    val dayTypesVersion: StateFlow<Int> = _dayTypesVersion.asStateFlow()
+
+    fun setDayType(date: LocalDate, t: DayType) {
+        prefs.edit { putInt("day_${date.toEpochDay()}", t.ordinal) }
+        _dayTypesVersion.value++
+    }
 
     var groupByTime: Boolean
         get() = prefs.getBoolean("group_time", false)

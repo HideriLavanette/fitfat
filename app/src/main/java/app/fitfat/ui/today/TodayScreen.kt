@@ -65,6 +65,7 @@ import app.fitfat.ui.common.category
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.common.fmtF1
+import app.fitfat.ui.common.macroLine
 import app.fitfat.ui.components.AddFab
 import app.fitfat.ui.components.FitText
 import app.fitfat.ui.components.PillToggle
@@ -85,12 +86,28 @@ private val ru = Locale("ru")
 private val longDate = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
 private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
+/** Разрыв между записями, после которого начинается новый блок в режиме «Время». */
+private const val BLOCK_GAP_MIN = 10
+
+/**
+ * Блоки по времени: записи (по убыванию времени) идут в один блок, пока соседние отличаются не больше
+ * чем на [BLOCK_GAP_MIN] минут. Заголовок блока — время самой ранней записи в нём.
+ */
+private fun timeBlocks(entries: List<FoodEntry>): List<List<FoodEntry>> {
+    val blocks = mutableListOf<MutableList<FoodEntry>>()
+    entries.forEach { e ->
+        val cur = blocks.lastOrNull()
+        if (cur != null && cur.last().minute - e.minute <= BLOCK_GAP_MIN) cur += e else blocks += mutableListOf(e)
+    }
+    return blocks
+}
+
 /**
  * Главный экран (макет `Today.dc.html`, 2.1–2.3). Отступы корня 12 / 16, промежуток 16;
  * отрицательные отступы макета (−4, −8, −6) учтены в верхних отступах элементов.
  */
 @Composable
-fun TodayScreen(vm: TodayViewModel, weightKg: Double?, onWeight: () -> Unit, onAdd: (LocalDate) -> Unit) {
+fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight: (LocalDate) -> Unit, onAdd: (LocalDate) -> Unit) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val deleted by vm.lastDeleted.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
@@ -108,11 +125,10 @@ fun TodayScreen(vm: TodayViewModel, weightKg: Double?, onWeight: () -> Unit, onA
             // Снизу: 120 по макету + 80 под FAB, чтобы последнюю запись можно было прокрутить выше него
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 200.dp),
         ) {
-            item(key = "head") { Header(ui.date, weightKg, onSelect = vm::setDate, onPick = { picking = true }, onWeight = onWeight, dayType = ui.dayType) }
+            item(key = "head") { Header(ui.date, weightFor(ui.date), onSelect = vm::setDate, onPick = { picking = true }, onWeight = { onWeight(ui.date) }, dayType = ui.dayType) }
             item(key = "types") {
                 DayTypes(ui, onPick = vm::setDayType, modifier = Modifier.padding(top = 12.dp))
             }
-            if (ui.dayType != DayType.Normal) item(key = "note") { DayNote(ui, Modifier.padding(top = 8.dp, start = 4.dp, end = 4.dp)) }
             item(key = "card") { ProgressCard(ui, Modifier.padding(top = 16.dp)) }
             item(key = "diary") {
                 Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -128,9 +144,11 @@ fun TodayScreen(vm: TodayViewModel, weightKg: Double?, onWeight: () -> Unit, onA
             if (ui.entries.isEmpty()) item(key = "empty") { EmptyDay(Modifier.padding(top = 10.dp)) }
             // Группы: новые сверху. Записи уже отсортированы по времени по убыванию.
             val byMeal = !ui.groupByTime
-            val groups = ui.entries.groupBy { if (byMeal) Meal.of(it.meal).label else hhmm(it.minute) }
-            groups.entries.forEachIndexed { gi, (title, list) ->
-                item(key = "g_$title") {
+            val groups: List<Pair<String, List<FoodEntry>>> =
+                if (byMeal) ui.entries.groupBy { Meal.of(it.meal).label }.toList()
+                else timeBlocks(ui.entries).map { hhmm(it.last().minute) to it }
+            groups.forEachIndexed { gi, (title, list) ->
+                item(key = "g_${title}_${list.first().id}") {
                     MealSection(
                         title = title,
                         sub = if (byMeal) "" else "  ·  " + Meal.of(list.first().meal).label,
@@ -176,11 +194,13 @@ fun TodayScreen(vm: TodayViewModel, weightKg: Double?, onWeight: () -> Unit, onA
 private fun Header(date: LocalDate, weightKg: Double?, onSelect: (LocalDate) -> Unit, onPick: () -> Unit, onWeight: () -> Unit, dayType: DayType) {
     Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         DateCapsule(date, dayType, onSelect, onPick, Modifier.weight(1f))
-        if (weightKg != null) {
-            Surface(onClick = onWeight, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(40.dp)) {
-                Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                    Text("${formatKg(weightKg)} кг", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
+        // Вес выбранного дня; тап — шторка с кругом для этой даты. Нет веса — «— кг».
+        Surface(onClick = onWeight, shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.height(40.dp)) {
+            Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    (weightKg?.let { formatKg(it) } ?: "—") + " кг", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = if (weightKg == null) 0.7f else 1f),
+                )
             }
         }
     }
@@ -278,17 +298,6 @@ private fun DayTypes(ui: TodayUi, onPick: (DayType) -> Unit, modifier: Modifier)
     }
 }
 
-@Composable
-private fun DayNote(ui: TodayUi, modifier: Modifier) {
-    val text = when (ui.dayType) {
-        DayType.Training -> "День тренировки: норма углеводов +${fmt0(ui.norms.carbs - ui.baseNorms.carbs)} г, итого ${fmt0(ui.norms.kcal)} ккал"
-        DayType.Cycle -> "Дни цикла: +${fmt0(ui.norms.carbs - ui.baseNorms.carbs)} г углеводов и +${fmt0(ui.norms.kcal - ui.baseNorms.kcal)} ккал к норме"
-        DayType.Normal -> return
-    }
-    val c = if (ui.dayType == DayType.Training) MacroColors.training else MacroColors.cycle
-    FitText(text, fontSize = 12.sp, color = c, modifier = modifier)
-}
-
 /** Карточка прогресса: скругление 32, `surfaceContainer`, поля 20, промежуток 20; кольцо 256. */
 @Composable
 private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
@@ -303,7 +312,9 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
             ) {
                 WavyRing(
                     fraction = if (n.kcal > 0) (e.kcal / n.kcal).toFloat() else 0f,
-                    color = colors.primary, track = colors.secondaryContainer,
+                    // Цвет кольца — по типу дня: тренировка голубая, цикл красный, обычный — primary
+                    color = when (ui.dayType) { DayType.Training -> MacroColors.training; DayType.Cycle -> MacroColors.cycle; DayType.Normal -> colors.primary },
+                    track = when (ui.dayType) { DayType.Training -> MacroColors.trainingContainer; DayType.Cycle -> MacroColors.cycleContainer; DayType.Normal -> colors.secondaryContainer },
                     modifier = Modifier.fillMaxSize(),
                 )
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -319,21 +330,28 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 MacroBar("Белки", e.protein, n.protein, MacroColors.protein, MacroColors.proteinContainer)
                 MacroBar("Жиры", e.fat, n.fat, MacroColors.fat, MacroColors.fatContainer)
-                MacroBar("Углеводы", e.carbs, n.carbs, MacroColors.carbs, MacroColors.carbsContainer)
+                // Прибавка углеводов в день тренировки / цикла — отдельной частью полосы своим цветом
+                val extra = (n.carbs - ui.baseNorms.carbs).coerceAtLeast(0.0)
+                val (xc, xt) = if (ui.dayType == DayType.Cycle) MacroColors.cycle to MacroColors.cycleContainer else MacroColors.training to MacroColors.trainingContainer
+                MacroBar("Углеводы", e.carbs, n.carbs, MacroColors.carbs, MacroColors.carbsContainer, extra, xc, xt)
             }
         }
     }
 }
 
 @Composable
-private fun MacroBar(label: String, v: Double, goal: Double, color: Color, track: Color) {
+private fun MacroBar(
+    label: String, v: Double, goal: Double, color: Color, track: Color,
+    extra: Double = 0.0, extraColor: Color = color, extraTrack: Color = track,
+) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f).alignByBaseline())
             Text(fmt0(v), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.alignByBaseline())
             Text(" / ${fmt0(goal)} г", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.alignByBaseline())
+            if (extra > 0) Text(" (+${fmt0(extra)})", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = extraColor, modifier = Modifier.alignByBaseline())
         }
-        WavyBar(v, goal, color, track)
+        WavyBar(v, goal, color, track, extra = extra, extraColor = extraColor, extraTrack = extraTrack)
     }
 }
 
@@ -447,7 +465,7 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
                 CategoryIcon(e.category)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Б ${fmtF1(e.protein)} · Ж ${fmtF1(e.fat)} · У ${fmtF1(e.carbs)}", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                    Text(macroLine(e.protein, e.fat, e.carbs, fmt = ::fmtF1), fontSize = 13.sp, color = colors.onSurfaceVariant)
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(fmt0(e.kcal), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)

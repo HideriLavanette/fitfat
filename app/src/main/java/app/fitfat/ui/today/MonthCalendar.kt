@@ -51,7 +51,7 @@ private val weekDays = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "�
 /**
  * Календарь месяца (макет Today, pickOpen): окно 350 dp сверху (отступ 90), скругление 28, `surfaceContainerHigh`,
  * поля 18, скрим 50 %. Ячейки 40: выбранный день — `primary`, сегодня — обводка `primary`, будущее недоступно,
- * точка 4 dp `outline` — в этот день есть записи. Внизу «Сегодня» / «Закрыть».
+ * точка 4 dp `outline` — в этот день есть записи. Внизу «Закрыть» (текстом) / «Сегодня» (залитая `primary`, как действие в остальных окнах).
  */
 @Composable
 fun MonthCalendar(
@@ -100,11 +100,12 @@ fun MonthCalendar(
                         }
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Surface(onClick = { onPick(today) }, shape = RoundedCornerShape(24.dp), color = colors.surfaceContainerHigh, modifier = Modifier.weight(1f).height(48.dp)) {
-                            Box(contentAlignment = Alignment.Center) { Text("Сегодня", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurface) }
-                        }
+                        // Закрывающее — слева (правило приложения)
                         Surface(onClick = onDismiss, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.weight(1f).height(48.dp)) {
                             Box(contentAlignment = Alignment.Center) { Text("Закрыть", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.primary) }
+                        }
+                        Surface(onClick = { onPick(today) }, shape = RoundedCornerShape(24.dp), color = colors.primary, modifier = Modifier.weight(1f).height(48.dp)) {
+                            Box(contentAlignment = Alignment.Center) { Text("Сегодня", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimary) }
                         }
                     }
                 }

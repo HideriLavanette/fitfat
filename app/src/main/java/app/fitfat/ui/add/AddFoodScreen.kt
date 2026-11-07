@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +45,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +58,8 @@ import app.fitfat.ui.common.CategoryIcon
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
+import app.fitfat.ui.common.macroLine
+import app.fitfat.ui.components.FitText
 import java.time.LocalDate
 
 /**
@@ -76,25 +80,25 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
     val recognized = remember(vm.text, products) { vm.recognized() }
 
     var focused by remember { mutableStateOf(false) }
-    var pick by remember { mutableStateOf<PickState?>(null) }
+    // Продукт выбран, но вес не написан — окно порции (как правка продукта)
+    var pending by remember { mutableStateOf<Pair<Recognized, Product>?>(null) }
     var editing by remember { mutableStateOf<Picked?>(null) }
     var portion by remember { mutableStateOf<FrequentItem?>(null) }
     var variants by remember { mutableStateOf<Recognized?>(null) }
     var creating by remember { mutableStateOf<Recognized?>(null) }
     var whenOpen by remember { mutableStateOf(false) }
     // Фрагмент, для которого выбирали порцию, исчез из текста — закрываем выбор
-    LaunchedEffect(vm.text) { pick?.let { if (!vm.text.contains(it.r.fragment.raw)) pick = null } }
 
     fun accept(r: Recognized, p: Product) {
         // Вес написан — сразу в список, иначе «Сколько съели»
         if (r.fragment.grams != null || r.fragment.pieces != null) vm.confirm(r, p, r.fragment.grams, r.fragment.pieces)
-        else pick = PickState(r, p)
+        else pending = r to p
     }
 
     val colors = MaterialTheme.colorScheme
     val hasItems = vm.picked.isNotEmpty()
     val unknown = recognized.firstOrNull { it.candidates.isEmpty() && it.fragment.query.isNotBlank() }
-    val modal = editing != null || portion != null || variants != null || creating != null || whenOpen
+    val modal = pending != null || editing != null || portion != null || variants != null || creating != null || whenOpen
 
     Column(
         Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
@@ -106,7 +110,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
             Surface(onClick = onClose, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
                 Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Close, "Закрыть", Modifier.size(24.dp), tint = colors.onSurface) }
             }
-            Text("Добавить", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            FitText("Добавить", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Surface(onClick = { whenOpen = true }, shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(40.dp)) {
                 Row(Modifier.padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(MockIcons.Clock, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
@@ -118,16 +122,9 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
         Composer(focused, hasItems, onTap = { focus.requestFocus() }) {
             vm.picked.forEach { item -> PickedRow(item) { editing = item } }
             RecognizeField(
-                text = vm.text, onText = vm::onText, recognized = recognized, pick = pick,
+                text = vm.text, onText = vm::onText, recognized = recognized,
                 onAccept = ::accept,
                 onVariants = { variants = it },
-                onPickDone = {
-                    pick?.let { s ->
-                        val p = s.product
-                        vm.confirm(s.r, p, if (p.perPiece) null else s.grams, if (p.perPiece) s.pieces else null)
-                    }
-                    pick = null
-                },
                 onFocus = { focused = it },
                 popupsEnabled = !modal,
                 placeholder = !hasItems,
@@ -148,7 +145,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
                 ) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("+${fmt0(total.kcal)} ккал", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("Б ${fmt1(total.protein)} · Ж ${fmt1(total.fat)} · У ${fmt1(total.carbs)}", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        Text(macroLine(total.protein, total.fat, total.carbs), fontSize = 13.sp, color = colors.onSurfaceVariant)
                     }
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("останется", fontSize = 12.sp, color = colors.onSurfaceVariant)
@@ -158,12 +155,16 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
             } else if (frequent.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SectionTitle("Часто ${mealIn(vm.meal)}", Modifier.padding(horizontal = 8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // В один ряд с прокруткой, от края до края экрана
+                    Row(
+                        Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
                         frequent.forEach { fr ->
-                            Surface(onClick = { portion = fr }, shape = RoundedCornerShape(8.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(32.dp)) {
-                                Row(Modifier.padding(start = 4.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(onClick = { portion = fr }, shape = RoundedCornerShape(8.dp), color = colors.surfaceContainerHigh, modifier = Modifier.heightIn(min = 32.dp)) {
+                                Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     CategoryIcon(fr.product.category, 24.dp, radius = 12.dp, iconSize = 16.dp)
-                                    Text("${fr.product.name} ${amount(fr.product, fr.grams, fr.pieces)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                    Text("${fr.product.name} ${amount(fr.product, fr.grams, fr.pieces)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
                                 }
                             }
                         }
@@ -201,6 +202,15 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
         }
     }
 
+    pending?.let { (r, p) ->
+        val pcs = if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null
+        val draft = Picked(0, p, if (p.perPiece) (p.pieceGrams ?: 0.0) * pcs!! else p.defaultGrams, pcs)
+        EditPickedDialog(
+            draft, adding = true,
+            onDismiss = { pending = null }, onRemove = { pending = null },
+            onSave = { g, n, ov -> vm.confirm(r, p, if (p.perPiece) null else g, n, ov); pending = null },
+        )
+    }
     editing?.let { item ->
         EditPickedDialog(
             item, onDismiss = { editing = null },
@@ -262,7 +272,7 @@ private fun PickedRow(item: Picked, onTap: () -> Unit) {
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text("${fmt0(m.kcal)} ккал", fontSize = 15.sp, fontWeight = FontWeight(650))
-                Text("Б ${fmt1(m.protein)} · Ж ${fmt1(m.fat)} · У ${fmt1(m.carbs)}", fontSize = 11.sp, color = colors.onSurfaceVariant)
+                Text(macroLine(m.protein, m.fat, m.carbs), fontSize = 11.sp, color = colors.onSurfaceVariant)
             }
         }
     }
@@ -301,7 +311,7 @@ private fun SectionTitle(text: String, modifier: Modifier = Modifier) =
 private fun RecentRow(p: Product, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(60.dp).clickable(onClick = onClick).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CategoryIcon(p.category, 40.dp, radius = 12.dp, iconSize = 20.dp)
@@ -318,7 +328,7 @@ private fun RecentRow(p: Product, onClick: () -> Unit) {
 private fun RecentCompact(p: Product, onAdd: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.fillMaxWidth().height(56.dp).padding(start = 12.dp, end = 8.dp),
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         CategoryIcon(p.category, 36.dp, radius = 12.dp, iconSize = 18.dp)
@@ -352,4 +362,11 @@ private fun plural(n: Int) = when {
     n % 10 == 1 && n % 100 != 11 -> "продукт"
     n % 10 in 2..4 && n % 100 !in 12..14 -> "продукта"
     else -> "продуктов"
+}
+
+/** Расширяет элемент на [by] за поля родителя с обеих сторон. */
+private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { m, c ->
+    val extra = (by * 2).roundToPx()
+    val pl = m.measure(c.copy(minWidth = c.minWidth + extra, maxWidth = c.maxWidth + extra))
+    layout(c.maxWidth, pl.height) { pl.place(-extra / 2, 0) }
 }

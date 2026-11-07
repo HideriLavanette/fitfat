@@ -48,8 +48,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val lastDeleted: StateFlow<FoodEntry?> = _lastDeleted.asStateFlow()
 
     val ui: StateFlow<TodayUi> = combine(
-        date.flatMapLatest { repo.day(it) }, date, dayType, groupByTime,
-    ) { entries, d, t, g ->
+        date.flatMapLatest { repo.day(it) }, date, dayType, groupByTime, normsStore.dayTypesVersion,
+    ) { entries, d, _, g, _ ->
+        // Тип дня могли поменять в правке веса — читаем из хранилища
+        val t = normsStore.dayType(d)
         TodayUi(
             d, t, normsStore.norms(t), entries.fold(Macros()) { a, e -> a + e.macros }, entries, g,
             baseNorms = normsStore.norms(DayType.Normal), showCycle = normsStore.isFemale,

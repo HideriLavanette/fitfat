@@ -78,3 +78,28 @@ fun fmt0(v: Double): String =
 fun fmtF1(v: Double): String = String.format(Locale("ru"), "%.1f", v)
 fun fmt1(v: Double): String = if (v >= 100 || v == Math.floor(v)) Math.round(v).toString() else String.format(Locale("ru"), "%.1f", v)
 
+
+/**
+ * «Б 12,6 · Ж 3,3 · У 68»: буквы жирные в цвете макроса, числа — цветом текста вокруг.
+ * [c] = null — без углеводов. [prefix] / [tail] — текст до и после.
+ */
+@Composable
+fun macroLine(
+    p: Double, f: Double, c: Double?,
+    prefix: String = "", tail: String = "",
+    fmt: (Double) -> String = ::fmt1,
+): androidx.compose.ui.text.AnnotatedString {
+    val pc = app.fitfat.ui.theme.MacroColors.protein
+    val fc = app.fitfat.ui.theme.MacroColors.fat
+    val cc = app.fitfat.ui.theme.MacroColors.carbs
+    return androidx.compose.ui.text.buildAnnotatedString {
+        append(prefix)
+        fun part(letter: String, color: Color, v: Double) {
+            pushStyle(androidx.compose.ui.text.SpanStyle(color = color, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)); append(letter); pop()
+            append(" " + fmt(v))
+        }
+        part("Б", pc, p); append(" · "); part("Ж", fc, f)
+        if (c != null) { append(" · "); part("У", cc, c) }
+        append(tail)
+    }
+}

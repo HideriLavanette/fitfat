@@ -110,6 +110,10 @@ data class MacroPalette(
     val training: Color,
     val trainingContainer: Color,
     val cycle: Color,
+    /** Ячейка дня цикла в календаре веса: фон, рамка, число. */
+    val cycleContainer: Color,
+    val cycleBorder: Color,
+    val cycleInk: Color,
     /** Пунктир под словом, которого нет в базе. */
     val unknown: Color,
 )
@@ -122,6 +126,7 @@ private val DarkMacros = MacroPalette(
     over = Color(0xFFFF5C63),
     training = Color(0xFF8AB4FF), trainingContainer = Color(0xFF1F2A40),
     cycle = Color(0xFFFF8A8A),
+    cycleContainer = Color(0xFF4A2228), cycleBorder = Color(0xFF8C3B45), cycleInk = Color(0xFFFFB3B3),
     unknown = Color(0xFFFFB86B),
 )
 
@@ -133,6 +138,7 @@ private val LightMacros = MacroPalette(
     over = Color(0xFFD93A42),
     training = Color(0xFF2F5EA8), trainingContainer = Color(0xFFD9E3FF),
     cycle = Color(0xFFC23B3B),
+    cycleContainer = Color(0xFFFFDAD9), cycleBorder = Color(0xFFC23B3B), cycleInk = Color(0xFF8C1D2B),
     unknown = Color(0xFFA35A00),
 )
 
@@ -150,6 +156,9 @@ object MacroColors {
     val training: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.training
     val trainingContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.trainingContainer
     val cycle: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycle
+    val cycleContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycleContainer
+    val cycleBorder: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycleBorder
+    val cycleInk: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycleInk
     val unknown: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.unknown
 }
 

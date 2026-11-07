@@ -118,16 +118,16 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     fun remember(r: Recognized, p: Product) = choices.edit { putLong(r.fragment.query, p.id) }
 
     /** Подтверждение продукта: фрагмент уходит из текста, продукт появляется в карточке «Что съели». */
-    fun confirm(r: Recognized, p: Product, grams: Double?, pieces: Double?) {
-        add(p, grams, pieces)
+    fun confirm(r: Recognized, p: Product, grams: Double?, pieces: Double?, override: Macros? = null) {
+        add(p, grams, pieces, override)
         text = removeFragment(text, r.fragment.raw)
     }
 
     /** Добавить продукт с порцией; без порции — порция продукта по умолчанию. */
-    fun add(p: Product, grams: Double?, pieces: Double?) {
+    fun add(p: Product, grams: Double?, pieces: Double?, override: Macros? = null) {
         val pcs = if (p.perPiece) (pieces ?: grams?.let { g -> p.pieceGrams?.takeIf { it > 0 }?.let { g / it } } ?: p.defaultGrams.coerceAtLeast(1.0)) else null
         val g = if (p.perPiece) (p.pieceGrams ?: 0.0) * (pcs ?: 1.0) else (grams ?: p.defaultGrams)
-        picked += Picked(nextKey++, p, g, pcs)
+        picked += Picked(nextKey++, p, g, pcs, override)
     }
 
     fun update(item: Picked, grams: Double, pieces: Double?, override: Macros?) {

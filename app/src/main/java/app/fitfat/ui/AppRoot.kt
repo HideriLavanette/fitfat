@@ -22,6 +22,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.components.FloatingNavBar
 import app.fitfat.ui.components.NavGuardZone
@@ -48,7 +50,8 @@ import app.fitfat.ui.add.AddFoodScreen
 import app.fitfat.ui.add.AddFoodViewModel
 import app.fitfat.ui.today.TodayScreen
 import app.fitfat.ui.today.TodayViewModel
-import app.fitfat.ui.weight.WeightDialog
+import app.fitfat.ui.weight.MorningWeightDialog
+import app.fitfat.ui.weight.WeightEditSheet
 import app.fitfat.ui.weight.WeightScreen
 import app.fitfat.ui.weight.WeightViewModel
 import app.fitfat.update.UpdateDialog
@@ -78,6 +81,8 @@ fun AppRoot(
 
     val haze = remember { HazeState() }
     val wuiTop by weight.ui.collectAsStateWithLifecycle()
+    // Дата, для которой открыта шторка веса с главного экрана
+    var weighing by remember { mutableStateOf<LocalDate?>(null) }
     fun goTab(tab: Tab) = nav.navigate(tab.route) {
         popUpTo(nav.graph.findStartDestination().id) { saveState = true }
         launchSingleTop = true
@@ -89,8 +94,8 @@ fun AppRoot(
         NavHost(navController = nav, startDestination = Tab.Today.route, modifier = Modifier.fillMaxSize().haze(haze)) {
             composable(Tab.Today.route) {
                 TodayScreen(
-                    today, weightKg = wuiTop.last?.kg,
-                    onWeight = { goTab(Tab.Weight) }, // чип веса переключает на вкладку «Вес»
+                    today, weightFor = { d -> wuiTop.byDay[d.toEpochDay()]?.kg },
+                    onWeight = { d -> weighing = d }, // чип веса — шторка с кругом для выбранного дня
                     onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") },
                 )
             }
@@ -98,7 +103,7 @@ fun AppRoot(
                 val day = entry.arguments?.getString("day")?.toLongOrNull() ?: LocalDate.now().toEpochDay()
                 AddFoodScreen(add, LocalDate.ofEpochDay(day), onClose = { nav.popBackStack() })
             }
-            composable(Tab.Weight.route) { WeightScreen(weight) }
+            composable(Tab.Weight.route) { WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) }) }
             composable(Tab.Assistant.route) { PlaceholderScreen("Ассистент", "Советы и недельный отчёт") }
             composable(Tab.Profile.route) { ProfileScreen(updates) }
         }
@@ -120,15 +125,17 @@ fun AppRoot(
     // Утренний вопрос о весе: один раз в день, пока не ответили или не пропустили
     val ask by weight.askToday.collectAsStateWithLifecycle()
     val wui by weight.ui.collectAsStateWithLifecycle()
+    val dialHint by weight.hint.collectAsStateWithLifecycle()
     if (ask) {
         val today = LocalDate.now()
-        WeightDialog(
-            date = today,
-            initialKg = wui.last?.kg ?: 70.0,
-            previous = wui.all.lastOrNull { it.date.isBefore(today) }?.kg,
-            title = "Вес натощак",
-            onSave = { weight.save(today, it) },
-            onDismiss = weight::skipToday,
+        MorningWeightDialog(weight, wui, dialHint, onSave = { weight.save(today, it) }, onSkip = weight::skipToday)
+    }
+    weighing?.let { d ->
+        WeightEditSheet(
+            date = d, ui = wui, hint = dialHint, initialType = weight.dayType(d), onLearned = weight::learned,
+            onDismiss = { weighing = null },
+            onSave = { kg, note, type -> weight.saveDay(d, kg, note, type); weighing = null },
+            onDelete = { weight.delete(d); weighing = null },
         )
     }
 }

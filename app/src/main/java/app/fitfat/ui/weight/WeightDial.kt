@@ -1,14 +1,21 @@
 package app.fitfat.ui.weight
 
-import app.fitfat.ui.components.tick
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +31,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalView
@@ -34,12 +45,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.fitfat.ui.components.tick
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -48,6 +61,22 @@ private const val DEG_PER_STEP = 12f
 
 fun formatKg(kg: Double) = String.format(Locale("ru"), "%.1f", kg)
 
+/** «+0,3», «−0,2», «±0,0». */
+fun signedKg(d: Double): String {
+    val r = (d * 10).roundToInt()
+    return (if (r > 0) "+" else if (r < 0) "−" else "±") + formatKg(abs(r) / 10.0)
+}
+
+/** Палец подсказки из макета (вьюбокс 24). */
+private val fingerPath = PathParser().parsePathString(
+    "M8.5 13V4.8a1.6 1.6 0 0 1 3.2 0V11l.1-1.2a1.6 1.6 0 0 1 3.2.2v1l.1-.4a1.6 1.6 0 0 1 3.1.5v.6a1.6 1.6 0 0 1 3.1.5V16a6 6 0 0 1-6 6h-1.4a6 6 0 0 1-4.7-2.3l-3.3-4.2a1.6 1.6 0 0 1 2.4-2.1Z",
+).toPath()
+
+/**
+ * Круг веса (макеты Main / Weight-edit): 280 dp, дорожка 18 `surfaceContainerHighest`, шкала крутится вместе со значением,
+ * «печенька» `primaryContainer`, число 64 / 750 + «кг» 20 / 500, подпись 14. Пока [hint] — палец показывает,
+ * как крутить (дуга −40° → 50°, цикл 2,6 с); первое касание вызывает [onTouched].
+ */
 @Composable
 fun WeightDial(
     valueKg: Double,
@@ -55,6 +84,8 @@ fun WeightDial(
     caption: String,
     modifier: Modifier = Modifier,
     size: Dp = 280.dp,
+    hint: Boolean = false,
+    onTouched: () -> Unit = {},
 ) {
     val view = LocalView.current
     val scope = rememberCoroutineScope()
@@ -62,9 +93,27 @@ fun WeightDial(
     val latest = remember { doubleArrayOf(valueKg) }
     latest[0] = valueKg
     val onChange by rememberUpdatedState(onValueChange)
+    val touched by rememberUpdatedState(onTouched)
     var residual by remember { mutableFloatStateOf(0f) } // доля шага, которую палец уже провернул
     val spin = remember { Animatable(0f) }
     val colors = MaterialTheme.colorScheme
+
+    // Подсказка: фаза 0..1 за 2,6 с
+    val phase = if (hint) {
+        val tr = rememberInfiniteTransition(label = "hint")
+        tr.animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "phase").value
+    } else 0f
+    val a0 = -40f; val a1 = 50f
+    fun ease(x: Float) = if (x < 0.5f) 2 * x * x else 1 - (-2 * x + 2).pow(2) / 2
+    var demoAng = a0; var fade = 0f
+    if (hint) when {
+        phase < 0.12f -> { fade = phase / 0.12f }
+        phase < 0.62f -> { fade = 1f; demoAng = a0 + (a1 - a0) * ease((phase - 0.12f) / 0.5f) }
+        phase < 0.78f -> { fade = 1 - (phase - 0.62f) / 0.16f; demoAng = a1 }
+        else -> {}
+    }
+    val demoSteps = if (hint && phase >= 0.12f && phase < 0.78f) ((demoAng - a0) / DEG_PER_STEP).roundToInt() else 0
+    val shown = ((valueKg * 10).roundToInt() + demoSteps) / 10.0
 
     fun turn(deg: Float): Boolean {
         residual += deg
@@ -73,7 +122,7 @@ fun WeightDial(
         while (residual <= -DEG_PER_STEP) { residual += DEG_PER_STEP; steps-- }
         if (steps == 0) return true
         val now = latest[0]
-        val next = ((now * 10).roundToInt() + steps).coerceIn(0, 3000) / 10.0
+        val next = ((now * 10).roundToInt() + steps).coerceIn(0, 2000) / 10.0
         if (next == now) { residual = 0f; return false }
         latest[0] = next
         onChange(next)
@@ -90,6 +139,7 @@ fun WeightDial(
                 fun angleOf(p: Offset) = Math.toDegrees(atan2((p.y - center.y).toDouble(), (p.x - center.x).toDouble())).toFloat()
                 awaitEachGesture {
                     val down = awaitFirstDown()
+                    touched()
                     scope.launch { spin.stop() }
                     var last = angleOf(down.position)
                     var total = 0f
@@ -136,52 +186,68 @@ fun WeightDial(
         contentAlignment = Alignment.Center,
     ) {
         Canvas(Modifier.matchParentSize()) {
-            val r = this.size.minDimension / 2f
-            val ring = r * 0.885f
-            // Трек кольца
-            drawCircle(colors.surfaceContainerHighest, radius = ring, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 18.dp.toPx()))
-            // Шкала крутится вместе со значением
-            val rot = (valueKg * 10).toFloat() * DEG_PER_STEP + residual
+            val k = this.size.minDimension / 280f // единица макета
+            val c = center
+            val ring = 124 * k
+            drawCircle(colors.surfaceContainerHighest, radius = ring, style = Stroke(width = 18 * k))
+            val rot = (valueKg * 10).toFloat() * DEG_PER_STEP + residual + (if (hint) demoAng - a0 else 0f)
             rotate(rot) {
                 for (i in 0 until 30) {
                     val a = (i * DEG_PER_STEP - 90f) * (PI / 180f).toFloat()
-                    val c = Offset(center.x + ring * cos(a), center.y + ring * sin(a))
                     if (i % 5 == 0) {
-                        val inner = Offset(center.x + (ring - 6.dp.toPx()) * cos(a), center.y + (ring - 6.dp.toPx()) * sin(a))
-                        val outer = Offset(center.x + (ring + 6.dp.toPx()) * cos(a), center.y + (ring + 6.dp.toPx()) * sin(a))
-                        drawLine(colors.onSurface, inner, outer, strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
+                        drawLine(
+                            colors.onSurface,
+                            Offset(c.x + 118 * k * cos(a), c.y + 118 * k * sin(a)),
+                            Offset(c.x + 130 * k * cos(a), c.y + 130 * k * sin(a)),
+                            strokeWidth = 3 * k, cap = StrokeCap.Round,
+                        )
                     } else {
-                        drawCircle(colors.outline, radius = 1.9.dp.toPx(), center = c)
+                        drawCircle(colors.outline, radius = 1.9f * k, center = Offset(c.x + ring * cos(a), c.y + ring * sin(a)))
                     }
                 }
             }
-            // Неподвижный указатель сверху
-            val tip = Path().apply {
-                moveTo(center.x, center.y - ring + 12.dp.toPx() + 8.dp.toPx())
-                lineTo(center.x - 6.dp.toPx(), center.y - ring + 12.dp.toPx() - 2.dp.toPx())
-                lineTo(center.x + 6.dp.toPx(), center.y - ring + 12.dp.toPx() - 2.dp.toPx())
-                close()
-            }
-            drawPath(tip, colors.primary)
             // «Печенька» под числом
             val cookie = Path()
-            val steps = 240
-            for (k in 0..steps) {
-                val t = k / steps.toFloat() * 2f * PI.toFloat()
-                val rr = r * 0.66f + r * 0.043f * cos(9 * t)
-                val p = Offset(center.x + rr * cos(t), center.y + rr * sin(t))
-                if (k == 0) cookie.moveTo(p.x, p.y) else cookie.lineTo(p.x, p.y)
+            for (s in 0..240) {
+                val t = s / 240f * 2f * PI.toFloat()
+                val rr = (92 + 6 * cos(9 * t)) * k
+                val x = c.x + rr * cos(t); val y = c.y + rr * sin(t)
+                if (s == 0) cookie.moveTo(x, y) else cookie.lineTo(x, y)
             }
             cookie.close()
             drawPath(cookie, colors.primaryContainer)
+
+            if (hint && fade > 0f) {
+                // След пальца по дорожке и сам палец
+                val rad = { deg: Float -> (deg - 90f) * (PI / 180f).toFloat() }
+                drawArc(
+                    colors.primary.copy(alpha = 0.35f * fade),
+                    startAngle = a0 - 90f, sweepAngle = demoAng - a0, useCenter = false,
+                    topLeft = Offset(c.x - ring, c.y - ring), size = androidx.compose.ui.geometry.Size(2 * ring, 2 * ring),
+                    style = Stroke(width = 18 * k, cap = StrokeCap.Round),
+                )
+                val fr = rad(demoAng)
+                val fx = c.x + ring * cos(fr) - 22 * k
+                val fy = c.y + ring * sin(fr) - 22 * k
+                val sc = 0.9f + 0.1f * fade
+                scale(sc, Offset(fx + 22 * k, fy + 22 * k)) {
+                    drawCircle(colors.primary.copy(alpha = 0.3f * fade), 22 * k, Offset(fx + 22 * k, fy + 22 * k))
+                    drawCircle(colors.onPrimary.copy(alpha = fade), 21 * k, Offset(fx + 22 * k, fy + 22 * k), style = Stroke(2 * k))
+                    translate(fx + 14 * k, fy + 12 * k) {
+                        scale(40 * k / 24f, Offset.Zero) {
+                            drawPath(fingerPath, colors.onPrimary.copy(alpha = fade))
+                            drawPath(fingerPath, colors.onSurface.copy(alpha = fade), style = Stroke(1.4f, cap = StrokeCap.Round))
+                        }
+                    }
+                }
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                formatKg(valueKg) + " кг",
-                fontSize = 44.sp, fontWeight = FontWeight.Bold,
-                color = colors.onPrimaryContainer,
-            )
-            Text(caption, style = MaterialTheme.typography.bodyMedium, color = colors.onPrimaryContainer.copy(alpha = 0.8f))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(formatKg(shown), fontSize = 64.sp, lineHeight = 64.sp, fontWeight = FontWeight(750), letterSpacing = (-2).sp, color = colors.onPrimaryContainer)
+                Text(" кг", fontSize = 20.sp, fontWeight = FontWeight.Medium, color = colors.onPrimaryContainer, modifier = Modifier.padding(bottom = 8.dp))
+            }
+            Text(caption, fontSize = 14.sp, color = colors.onPrimaryContainer, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }

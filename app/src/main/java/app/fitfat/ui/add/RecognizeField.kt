@@ -67,33 +67,25 @@ import app.fitfat.ui.common.CategoryIcon
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
+import app.fitfat.ui.common.macroLine
 import app.fitfat.ui.components.GramRuler
 import app.fitfat.ui.components.tick
 import app.fitfat.ui.components.bump
 import app.fitfat.ui.theme.MacroColors
 import kotlin.math.roundToInt
 
-/** «Сколько съели» для продукта, подтверждённого без веса в тексте. */
-@Stable
-class PickState(val r: Recognized, val product: Product) {
-    var grams by mutableDoubleStateOf(if (product.perPiece) 0.0 else product.defaultGrams)
-    var pieces by mutableDoubleStateOf(if (product.perPiece) product.defaultGrams.coerceAtLeast(1.0) else 1.0)
-}
-
 /**
  * Текст в карточке «Что съели» (макет Add-food): 18 sp, строка 26. Распознанное слово под курсором (или первое
  * распознанное) подсвечено `secondaryContainer`, над ним меню: продукт · стрелка «Другой вариант».
- * Слова, которых нет в базе, — оранжевый пунктир. После «принять» без веса меню становится «Сколько съели».
+ * Слова, которых нет в базе, — оранжевый пунктир. Без веса после выбора открывается окно порции (как правка продукта).
  */
 @Composable
 fun RecognizeField(
     text: String,
     onText: (String) -> Unit,
     recognized: List<Recognized>,
-    pick: PickState?,
     onAccept: (Recognized, Product) -> Unit,
     onVariants: (Recognized) -> Unit,
-    onPickDone: () -> Unit,
     onFocus: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     popupsEnabled: Boolean = true,
@@ -112,7 +104,6 @@ fun RecognizeField(
     val known = recognized.filter { it.candidates.isNotEmpty() }
     val active = when {
         !synced -> null
-        pick != null -> recognized.firstOrNull { it.fragment.raw == pick.r.fragment.raw }
         else -> known.firstOrNull { focused && cursor in it.fragment.start..it.fragment.end } ?: known.firstOrNull()
     }
     val unknown = recognized.filter { it.candidates.isEmpty() && it.fragment.query.isNotBlank() }
@@ -165,8 +156,7 @@ fun RecognizeField(
             popupPositionProvider = AboveWord(word.translate(origin), gap),
             properties = PopupProperties(focusable = false), // клавиатура остаётся открытой
         ) {
-            if (pick != null) PickCard(pick, onPickDone)
-            else SuggestionMenu(active, onAccept = { onAccept(active, it) }, onVariants = { onVariants(active) })
+            SuggestionMenu(active, onAccept = { onAccept(active, it) }, onVariants = { onVariants(active) })
         }
     }
 }
@@ -193,87 +183,29 @@ private fun SuggestionMenu(r: Recognized, onAccept: (Product) -> Unit, onVariant
     val best = r.candidates.first().product
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.shadow(12.dp, menuShape).clip(menuShape).background(colors.surfaceContainerHighest).height(52.dp).widthIn(max = 358.dp),
+        Modifier.shadow(12.dp, menuShape).clip(menuShape).background(colors.surfaceContainerHighest).heightIn(min = 52.dp).widthIn(max = 358.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(onClick = { onAccept(best) }, color = Color.Transparent, modifier = Modifier.weight(1f, fill = false).fillMaxHeight()) {
-            Row(Modifier.padding(start = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Surface(onClick = { onAccept(best) }, color = Color.Transparent, modifier = Modifier.weight(1f, fill = false).heightIn(min = 52.dp)) {
+            Row(Modifier.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 CategoryIcon(best.category, 32.dp)
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                     Text(best.name, fontSize = 14.sp, fontWeight = FontWeight(650), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(perLine(best), fontSize = 11.sp, color = colors.onSurfaceVariant, maxLines = 1)
+                    Text(perLine(best), fontSize = 11.sp, color = colors.onSurfaceVariant)
                 }
             }
         }
-        Box(Modifier.width(1.dp).fillMaxHeight().padding(vertical = 8.dp).background(colors.outlineVariant))
-        Surface(onClick = onVariants, color = Color.Transparent, modifier = Modifier.width(51.dp).fillMaxHeight()) {
+        Box(Modifier.width(1.dp).height(36.dp).background(colors.outlineVariant))
+        Surface(onClick = onVariants, color = Color.Transparent, modifier = Modifier.width(51.dp).height(52.dp)) {
             Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronRight, "Другой вариант", Modifier.size(20.dp), tint = colors.onSurface) }
         }
     }
 }
 
-/** «Сколько съели»: 300 dp, поля 12, скругление 20; штуки — «−/+» 44, граммы — линейка; «Готово» 44. */
-@Composable
-private fun PickCard(s: PickState, onDone: () -> Unit) {
-    val p = s.product
-    val colors = MaterialTheme.colorScheme
-    val view = androidx.compose.ui.platform.LocalView.current
-    val kcal = p.portion(if (p.perPiece) (p.pieceGrams ?: 0.0) * s.pieces else s.grams, if (p.perPiece) s.pieces else null).kcal
-    val shape = RoundedCornerShape(20.dp)
-    Column(
-        Modifier.width(300.dp).shadow(12.dp, shape).clip(shape).background(colors.surfaceContainerHighest).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryIcon(p.category, 32.dp)
-            Text(p.name, fontSize = 14.sp, fontWeight = FontWeight(650), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${fmt0(kcal)} ккал", fontSize = 14.sp, fontWeight = FontWeight(650))
-        }
-        if (p.perPiece) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                SmallStep(MockIcons.Minus, "Меньше") { if (s.pieces > 1) { s.pieces -= 1; view.tick() } else view.bump() }
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
-                    Text("${fmt1(s.pieces)} шт", fontSize = 24.sp, fontWeight = FontWeight(750))
-                    Text(" · ~${fmt0((p.pieceGrams ?: 0.0) * s.pieces)} г", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
-                }
-                SmallStep(MockIcons.Plus, "Больше") { s.pieces += 1; view.tick() }
-            }
-        } else {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(fmt0(s.grams), fontSize = 22.sp, fontWeight = FontWeight(750))
-                Text(" г", fontSize = 16.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 2.dp))
-            }
-            GramRuler(s.grams.roundToInt(), { s.grams = it.toDouble() })
-        }
-        Surface(onClick = onDone, shape = RoundedCornerShape(22.dp), color = colors.primary, modifier = Modifier.fillMaxWidth().height(44.dp)) {
-            Box(contentAlignment = Alignment.Center) { Text("Готово", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimary) }
-        }
-    }
-}
-
-@Composable
-private fun SmallStep(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.size(44.dp)) {
-        Box(contentAlignment = Alignment.Center) { Icon(icon, desc, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface) }
-    }
-}
-
 /** «110 ккал · Б 4,2 · Ж 1,1 · У 21,3 на 100 г» (или «на 1 шт»). */
-fun perLine(p: Product) = "${fmt0(p.kcal)} ккал · Б ${fmt1(p.protein)} · Ж ${fmt1(p.fat)} · У ${fmt1(p.carbs)} " + if (p.perPiece) "на 1 шт" else "на 100 г"
-
-/** «Б 12,6 · Ж 3,3 · У 68»: буквы жирные в цвете макроса, всё в одну строку. */
 @Composable
-fun macroLine(p: Double, f: Double, c: Double, tail: String = ""): AnnotatedString {
-    val pc = MacroColors.protein; val fc = MacroColors.fat; val cc = MacroColors.carbs
-    return buildAnnotatedString {
-        fun part(letter: String, color: Color, v: Double) {
-            pushStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)); append(letter); pop()
-            append(" " + fmt1(v))
-        }
-        part("Б", pc, p); append(" · "); part("Ж", fc, f); append(" · "); part("У", cc, c)
-        append(tail)
-    }
-}
+fun perLine(p: Product): AnnotatedString =
+    macroLine(p.protein, p.fat, p.carbs, prefix = "${fmt0(p.kcal)} ккал · ", tail = if (p.perPiece) " на 1 шт" else " на 100 г")
 
 /** Ставит меню над словом от его левого края (−4 dp); если сверху не помещается — под словом. */
 private class AboveWord(private val word: Rect, private val gap: Int) : PopupPositionProvider {

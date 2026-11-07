@@ -71,10 +71,13 @@ import app.fitfat.ui.common.CategoryIcon
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
+import app.fitfat.ui.common.macroLine
+import app.fitfat.ui.components.FfDialog
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.components.GramRuler
 import app.fitfat.ui.components.PieceStepper
 import app.fitfat.ui.components.PillToggle
+import app.fitfat.ui.components.PopDrumChip
 import app.fitfat.ui.components.VerticalDrum
 import app.fitfat.ui.theme.MacroColors
 import app.fitfat.ui.today.MonthCalendar
@@ -87,28 +90,6 @@ import kotlin.math.roundToInt
 
 private val ru = Locale("ru")
 
-/**
- * Окно макетов поверх экрана: скрим 50 % (свой, системное затемнение выключено), карточка сверху с отступом [top].
- * [start] — отступ слева; null — по центру.
- */
-@Composable
-fun FfDialog(onDismiss: () -> Unit, top: Dp, width: Dp, start: Dp? = null, content: @Composable BoxScope.() -> Unit) {
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
-        Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
-        ) {
-            Box(
-                Modifier.align(if (start == null) Alignment.TopCenter else Alignment.TopStart).statusBarsPadding().imePadding()
-                    .padding(top = top, start = start ?: 0.dp).width(width)
-                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
-                content = content,
-            )
-        }
-    }
-}
-
 /** Карточка окна: поля 20, скругление 28, `surfaceContainerHigh`, тень. */
 @Composable
 private fun DialogCard(gap: Dp, content: @Composable ColumnScope.() -> Unit) {
@@ -118,7 +99,7 @@ private fun DialogCard(gap: Dp, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun DialogHeader(p: Product, sub: String) {
+private fun DialogHeader(p: Product, sub: androidx.compose.ui.text.AnnotatedString) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CategoryIcon(p.category, 48.dp, radius = 16.dp, iconSize = 24.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -168,9 +149,15 @@ fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> U
                 GramRuler(g.roundToInt(), { g = it.toDouble() })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                MacroChip(fmt1(m.protein), MacroColors.protein, MacroColors.proteinContainer, "Белки")
-                MacroChip(fmt1(m.fat), MacroColors.fat, MacroColors.fatContainer, "Жиры")
-                MacroChip(fmt1(m.carbs), MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
+                val per = if (p.perPiece) 1.0 else 0.01
+                fun aim(target: Double, perUnit: Double) {
+                    if (perUnit <= 0) return
+                    if (p.perPiece) n = ((target / perUnit) * 2).roundToInt().coerceAtLeast(1) / 2.0
+                    else g = (target / perUnit).roundToInt().coerceIn(0, 2000).toDouble()
+                }
+                PopDrumChip(m.protein, { aim(it, p.protein * per) }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки", bubbleRight = true)
+                PopDrumChip(m.fat, { aim(it, p.fat * per) }, "г", MacroColors.fat, MacroColors.fatContainer, "Жиры")
+                PopDrumChip(m.carbs, { aim(it, p.carbs * per) }, "г", MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogButtons("Отмена", colors.primary, onDismiss, "Добавить", { onAdd(gramsNow, if (p.perPiece) n else null) })
@@ -187,39 +174,36 @@ private fun KcalText(kcal: Double) {
     }
 }
 
-/** Чип макроса: 36, скругление 12, число 15 / 600 + «г» 11 / 500 с прозрачностью 75 %. */
-@Composable
-private fun RowScope.MacroChip(value: String, ink: Color, bg: Color, label: String) {
-    Row(
-        Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 6.dp)
-            .semantics(mergeDescendants = true) { contentDescription = "$label $value г" },
-        horizontalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ink, maxLines = 1)
-        Text("г", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = ink.copy(alpha = 0.75f))
-    }
-}
-
 /**
  * Правка подтверждённого продукта (макет Add-food, окно 350, сверху 170): порция, четыре поля ккал / Б / Ж / У —
  * правка только для этой записи. «Убрать» / «Сохранить».
  */
 @Composable
-fun EditPickedDialog(item: Picked, onDismiss: () -> Unit, onRemove: () -> Unit, onSave: (Double, Double?, Macros?) -> Unit) {
+fun EditPickedDialog(
+    item: Picked,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit,
+    onSave: (Double, Double?, Macros?) -> Unit,
+    /** Новый продукт (вес не был написан): слева «Отмена», справа «Добавить». */
+    adding: Boolean = false,
+) {
     val p = item.product
     var g by remember { mutableDoubleStateOf(item.grams) }
     var n by remember { mutableDoubleStateOf(item.pieces ?: 1.0) }
-    val o = item.override
-    var k by remember { mutableStateOf(o?.let { fmt0(it.kcal) }) }
-    var pr by remember { mutableStateOf(o?.let { fmt1(it.protein) }) }
-    var f by remember { mutableStateOf(o?.let { fmt1(it.fat) }) }
-    var u by remember { mutableStateOf(o?.let { fmt1(it.carbs) }) }
     val gramsNow = if (p.perPiece) (p.pieceGrams ?: 0.0) * n else g
     val calc = p.portion(gramsNow, if (p.perPiece) n else null)
-    val edited = listOf(k, pr, f, u).any { it != null }
     val colors = MaterialTheme.colorScheme
-    fun num(s: String?) = s?.replace(',', '.')?.replace(" ", "")?.toDoubleOrNull()
+
+    /**
+     * Подбор порции под нужное количество нутриента: [perUnit] — сколько его в 1 г (или в 1 шт).
+     * Граммы округляются до 1 г (0…2000), штуки — до 0,5 (не меньше 0,5).
+     */
+    fun aim(target: Double, perUnit: Double) {
+        if (perUnit <= 0) return
+        if (p.perPiece) n = ((target / perUnit) * 2).roundToInt().coerceAtLeast(1) / 2.0
+        else g = (target / perUnit).roundToInt().coerceIn(0, 2000).toDouble()
+    }
+    val per = if (p.perPiece) 1.0 else 0.01 // КБЖУ продукта — на 1 шт или на 100 г
 
     FfDialog(onDismiss, top = 170.dp, width = 350.dp) {
         DialogCard(14.dp) {
@@ -235,44 +219,20 @@ fun EditPickedDialog(item: Picked, onDismiss: () -> Unit, onRemove: () -> Unit, 
                     GramRuler(g.roundToInt(), { g = it.toDouble() })
                 }
             }
+            // Тап или удержание — барабан: крутите нутриент, порция подстроится под выбранное число
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                NumCell(k ?: fmt0(calc.kcal), { k = it }, "ккал", colors.onSurface, colors.surfaceContainerHigh, "Калории")
-                NumCell(pr ?: fmt1(calc.protein), { pr = it }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки")
-                NumCell(f ?: fmt1(calc.fat), { f = it }, "г", MacroColors.fat, MacroColors.fatContainer, "Жиры")
-                NumCell(u ?: fmt1(calc.carbs), { u = it }, "г", MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
+                PopDrumChip(calc.kcal, { aim(it, p.kcal * per) }, "ккал", colors.onSurface, colors.surfaceContainerHighest, "Калории", bubbleRight = true, stepFor = { 10.0 }, display = { fmt0(it) })
+                PopDrumChip(calc.protein, { aim(it, p.protein * per) }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки")
+                PopDrumChip(calc.fat, { aim(it, p.fat * per) }, "г", MacroColors.fat, MacroColors.fatContainer, "Жиры")
+                PopDrumChip(calc.carbs, { aim(it, p.carbs * per) }, "г", MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
             }
-            Text(
-                if (edited) "БЖУ изменены вручную только для этой записи" else "Можно поправить БЖУ только для этой записи",
-                fontSize = 12.sp, color = colors.onSurfaceVariant,
-            )
+            Text("Нажмите на калории или БЖУ и покрутите — порция подстроится", fontSize = 12.sp, color = colors.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DialogButtons("Убрать", colors.error, onRemove, "Сохранить", {
-                    val ov = if (!edited) null else Macros(
-                        num(k) ?: calc.kcal, num(pr) ?: calc.protein, num(f) ?: calc.fat, num(u) ?: calc.carbs,
-                    )
-                    onSave(gramsNow, if (p.perPiece) n else null, ov)
+                DialogButtons(if (adding) "Отмена" else "Убрать", if (adding) colors.primary else colors.error, onRemove, if (adding) "Добавить" else "Сохранить", {
+                    onSave(gramsNow, if (p.perPiece) n else null, null)
                 })
             }
         }
-    }
-}
-
-/** Поле числа: 44, скругление 12, число 16 / 600 вправо + единица 11 с прозрачностью 75 %. */
-@Composable
-private fun RowScope.NumCell(value: String, onChange: (String) -> Unit, unit: String, ink: Color, bg: Color, label: String) {
-    Row(
-        Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(12.dp)).background(bg).padding(horizontal = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        BasicTextField(
-            value, { s -> onChange(s.filter { it.isDigit() || it == ',' || it == '.' }) },
-            singleLine = true,
-            textStyle = TextStyle(color = ink, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End),
-            cursorBrush = SolidColor(ink),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-            modifier = Modifier.weight(1f).semantics { contentDescription = label },
-        )
-        Text(unit, fontSize = 11.sp, color = ink.copy(alpha = 0.75f))
     }
 }
 
@@ -410,15 +370,15 @@ fun VariantsDialog(r: Recognized, onDismiss: () -> Unit, onPick: (Product) -> Un
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 val ink = if (sel) colors.onTertiaryContainer else colors.onSurface
                                 Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = ink)
-                                Text("${fmt0(p.kcal)} ккал · Б ${fmt1(p.protein)} · Ж ${fmt1(p.fat)} · ${usedLabel(p.useCount)}", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                                Text(macroLine(p.protein, p.fat, null, prefix = "${fmt0(p.kcal)} ккал · ", tail = " · " + usedLabel(p.useCount)), fontSize = 12.sp, color = colors.onSurfaceVariant)
                             }
                             if (sel) Icon(MockIcons.Check, "Выбрано", Modifier.size(20.dp), tint = colors.tertiary)
                         }
                     }
                 }
                 Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp).fillMaxWidth().height(1.dp).background(colors.outlineVariant))
-                Surface(onClick = onCreate, shape = RoundedCornerShape(14.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                    Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Surface(onClick = onCreate, shape = RoundedCornerShape(14.dp), color = Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Icon(MockIcons.Plus, null, Modifier.size(20.dp), tint = colors.onSurfaceVariant)
                         Text("Создать новый продукт", fontSize = 15.sp, fontWeight = FontWeight.Medium)
                     }

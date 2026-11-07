@@ -69,35 +69,56 @@ fun WavyRing(fraction: Float, color: Color, track: Color, modifier: Modifier = M
 
 /**
  * Волнистая полоска макроса (макет Today: 310×14, линия 4, волна 2,6 / период 9).
- * Ровный трек остатка с зазором 8, точка-ограничитель r 2 на конце, перебор — красная волна 6.
+ * Ровный трек остатка с зазором 8, перебор — красная волна 6. Точки-ограничителя на конце нет:
+ * она не совпадала с волной (решение 07.11.2026).
+ * [extra] > 0 — часть нормы сверху (тренировка / цикл): последняя доля полосы, отделённая тем же зазором 8, что волна от дорожки,
+ * рисуется [extraColor] на дорожке [extraTrack].
  */
 @Composable
-fun WavyBar(value: Double, goal: Double, color: Color, track: Color, modifier: Modifier = Modifier) {
+fun WavyBar(
+    value: Double, goal: Double, color: Color, track: Color, modifier: Modifier = Modifier,
+    extra: Double = 0.0, extraColor: Color = color, extraTrack: Color = track,
+) {
     val over = MacroColors.over
     Canvas(modifier.fillMaxWidth().height(14.dp)) {
         val u = 1.dp.toPx()
         val cy = size.height / 2f
         val x0 = 3f * u
         val wd = size.width - 6f * u                      // в макете 304 из 310
+        val end = x0 + wd // дорожка до края, как заполненная волна
         val fr = if (goal > 0) min(value / goal, 1.0).toFloat() else 0f
         val xe = x0 + wd * fr
-        fun wave(to: Float, n: Int): Path {
+        val hasExtra = extra > 0 && goal > extra
+        val xs = if (hasExtra) x0 + wd * ((goal - extra) / goal).toFloat() else Float.MAX_VALUE // начало доп. части
+        val gap = 8f * u // как зазор волна — дорожка у остальных полос
+        fun wave(from: Float, to: Float, n: Int): Path {
             val p = Path()
             for (i in 0..n) {
-                val x = x0 + (to - x0) * i / n
+                val x = from + (to - from) * i / n
                 val y = cy + 2.6f * u * sin(x / (9f * u))
                 if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
             }
             return p
         }
-        if (xe + 8f * u < x0 + wd - 6f * u) {
-            drawLine(track, Offset(xe + 8f * u, cy), Offset(x0 + wd - 6f * u, cy), strokeWidth = 4f * u, cap = StrokeCap.Round)
+        fun line(c: Color, a: Float, b: Float) { if (b > a) drawLine(c, Offset(a, cy), Offset(b, cy), strokeWidth = 4f * u, cap = StrokeCap.Round) }
+        val stroke = Stroke(4f * u, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        // Дорожка остатка: обычная часть и доп. часть с зазором между ними
+        val t0 = xe + 8f * u
+        if (hasExtra) {
+            line(track, t0, xs - gap / 2)
+            line(extraTrack, maxOf(t0, xs + gap / 2), end)
+        } else line(track, t0, end)
+        // Заполнение: до границы — цветом макроса, дальше — цветом доп. части
+        if (fr > 0f) {
+            if (xe <= xs) drawPath(wave(x0, xe, 120), color, style = stroke)
+            else {
+                drawPath(wave(x0, xs - gap / 2, 120), color, style = stroke)
+                if (xe > xs + gap / 2) drawPath(wave(xs + gap / 2, xe, 60), extraColor, style = stroke)
+            }
         }
-        if (fr > 0f) drawPath(wave(xe, 120), color, style = Stroke(4f * u, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawCircle(color, 2f * u, Offset(size.width - 5f * u, cy))
         if (goal > 0 && value > goal) {
             val xo = x0 + wd * min((value - goal) / goal, 1.0).toFloat()
-            drawPath(wave(xo, 60), over, style = Stroke(6f * u, cap = StrokeCap.Round, join = StrokeJoin.Round))
+            drawPath(wave(x0, xo, 60), over, style = Stroke(6f * u, cap = StrokeCap.Round, join = StrokeJoin.Round))
         }
     }
 }
