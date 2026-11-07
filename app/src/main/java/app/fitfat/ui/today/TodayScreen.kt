@@ -34,7 +34,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -127,8 +127,8 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Дневник", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
                     SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(selected = !ui.groupByTime, onClick = { vm.setGroupByTime(false) }, shape = SegmentedButtonDefaults.itemShape(0, 2), icon = {}) { Text("Приёмы", fontSize = 13.sp) }
-                        SegmentedButton(selected = ui.groupByTime, onClick = { vm.setGroupByTime(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2), icon = {}) { Text("По времени", fontSize = 13.sp) }
+                        SegmentedButton(selected = !ui.groupByTime, onClick = { vm.setGroupByTime(false) }, shape = SegmentedButtonDefaults.itemShape(0, 2), icon = {}) { Text("Приёмы", fontSize = 13.sp, maxLines = 1) }
+                        SegmentedButton(selected = ui.groupByTime, onClick = { vm.setGroupByTime(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2), icon = {}) { Text("Время", fontSize = 13.sp, maxLines = 1) }
                     }
                 }
             }
@@ -163,11 +163,11 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
             }
         }
 
-        LargeFloatingActionButton(
+        FloatingActionButton(
             onClick = { onAdd(ui.date) },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 120.dp),
-        ) { Icon(Icons.Outlined.Add, contentDescription = "Добавить еду", modifier = Modifier.size(32.dp)) }
+        ) { Icon(Icons.Outlined.Add, contentDescription = "Добавить еду") }
 
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 210.dp))
     }
@@ -289,13 +289,14 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
         backgroundContent = {
             val dir = state.dismissDirection
             val bg = when (dir) { SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.errorContainer; SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer; else -> Color.Transparent }
+            val fg = when (dir) { SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.onErrorContainer; else -> MaterialTheme.colorScheme.onPrimaryContainer }
             Row(
                 Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(bg).padding(horizontal = 20.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = if (dir == SwipeToDismissBoxValue.EndToStart) Arrangement.End else Arrangement.Start,
             ) {
-                if (dir == SwipeToDismissBoxValue.StartToEnd) { Icon(Icons.Outlined.Repeat, null); Spacer(Modifier.size(8.dp)); Text("Повторить") }
-                if (dir == SwipeToDismissBoxValue.EndToStart) { Text("Удалить"); Spacer(Modifier.size(8.dp)); Icon(Icons.Outlined.Delete, null) }
+                if (dir == SwipeToDismissBoxValue.StartToEnd) { Icon(Icons.Outlined.Repeat, null, tint = fg); Spacer(Modifier.size(8.dp)); Text("Повторить", color = fg) }
+                if (dir == SwipeToDismissBoxValue.EndToStart) { Text("Удалить", color = fg); Spacer(Modifier.size(8.dp)); Icon(Icons.Outlined.Delete, null, tint = fg) }
             }
         },
     ) {

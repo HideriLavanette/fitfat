@@ -77,7 +77,8 @@ fun AppRoot(
     // Тихая проверка обновлений при запуске — не чаще раза в 12 часов
     LaunchedEffect(Unit) { updates.autoCheck() }
 
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+    Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = Tab.Today.route) {
             composable(Tab.Today.route) { TodayScreen(today, onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") }) }
             composable("add/{day}") { entry ->
@@ -99,6 +100,7 @@ fun AppRoot(
             },
             modifier = Modifier.align(Alignment.BottomCenter),
         )
+    }
     }
 
     UpdateDialog(updates)

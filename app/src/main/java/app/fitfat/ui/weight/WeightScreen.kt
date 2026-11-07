@@ -96,7 +96,7 @@ fun WeightScreen(vm: WeightViewModel) {
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    "Добавить или изменить запись за день",
+                    "Записать вес",
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
