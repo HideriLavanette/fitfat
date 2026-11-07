@@ -1,6 +1,6 @@
 package app.fitfat.ui.weight
 
-import android.view.HapticFeedbackConstants
+import app.fitfat.ui.common.tick
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
@@ -77,7 +77,7 @@ fun WeightDial(
         if (next == now) { residual = 0f; return false }
         latest[0] = next
         onChange(next)
-        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        view.tick() // вибрация + щелчок
         return true
     }
 

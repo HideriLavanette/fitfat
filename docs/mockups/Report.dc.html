@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Неделя</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 900px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 12px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 56px; flex-shrink: 0">
+    <a href="Assistant.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ECE0E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Неделя</h1>
+    <span style="font-size: 13px; color: #d5c2c6; padding-right: 8px">31 окт — 6 нояб</span>
+  </div>
+  <section aria-label="Итоги недели" style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 28px; background: #261d20">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <div style="{{balBox}}">
+        <span style="font-size: 12px; color: #d5c2c6">Баланс за 6 дней</span>
+        <span style="{{balStyle}}">{{balVal}}</span>
+        <span style="font-size: 12px; color: #d5c2c6">{{balSub}}</span>
+      </div>
+      <div style="padding: 12px; border-radius: 18px; background: #31282a; display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 12px; color: #d5c2c6">Вес за неделю</span>
+        <span style="font-size: 24px; font-weight: 600; color: #ffb0c9; font-variant-numeric: tabular-nums">{{wDelta}}</span>
+        <svg width="140" height="26" viewBox="0 0 140 26" role="img" aria-label="{{wAria}}"><path d="{{wPath}}" stroke="#ffb0c9" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"></path><path d="{{wDot}}" fill="#ffb0c9"></path></svg>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 500; color: #d5c2c6">В среднем в день</span>
+      <sc-for list="{{nutr}}" as="n" hint-placeholder-count="3">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <span style="{{n.labStyle}}">{{n.label}}</span>
+          <span aria-hidden="true" style="position: relative; flex: 1; height: 8px; border-radius: 4px; background: #3c3235"><span style="{{n.fill}}"></span><span style="position: absolute; left: 75%; top: -3px; bottom: -3px; width: 2px; border-radius: 1px; background: #efdfe1; opacity: 0.6"></span></span>
+          <span style="{{n.valStyle}}">{{n.val}}</span>
+        </div>
+      </sc-for>
+      <sc-if value="{{hasLack}}" hint-placeholder-val="{{ true }}"><span style="font-size: 13px; line-height: 18px; color: #efdfe1">{{lack}}</span></sc-if>
+    </div>
+  </section>
+
+  <div style="display: flex; align-items: baseline; padding: 4px 4px 0">
+    <h2 style="margin: 0; flex: 1; font-size: 16px; font-weight: 500">По дням</h2>
+    <span style="font-size: 12px; color: #d5c2c6">листайте влево — прошлые дни</span>
+  </div>
+  <div style="display: flex; flex-direction: row-reverse; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 4px 16px 8px; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch">
+    <sc-for list="{{days}}" as="d" hint-placeholder-count="7">
+      <button onClick="{{d.open}}" aria-haspopup="dialog" aria-label="{{d.aria}}" style="{{d.card}}">
+        <span style="display: flex; align-items: center; gap: 6px; width: 100%">
+          <span style="{{d.dowStyle}}">{{d.dow}}</span>
+          <span style="flex: 1"></span>
+          <sc-for list="{{d.tags}}" as="t" hint-placeholder-count="1"><span style="{{t.dot}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{t.ink}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg></span></sc-for>
+        </span>
+        <span style="{{d.dateStyle}}">{{d.date}}</span>
+        <span style="position: relative; align-self: center; width: {{d.rs}}px; height: {{d.rs}}px; margin: 4px 0">
+          <svg width="{{d.rs}}" height="{{d.rs}}" viewBox="{{d.vb}}" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+            <path d="{{d.rTrack}}" stroke="{{d.trackC}}" stroke-width="6" fill="none" stroke-linecap="round"></path>
+            <path d="{{d.rWave}}" stroke="{{d.waveC}}" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+            <path d="{{d.rOver}}" stroke="#FF5C63" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          <span style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center">
+            <span style="{{d.kStyle}}">{{d.k}}</span>
+            <span style="{{d.kUnit}}">ккал</span>
+          </span>
+        </span>
+        <span style="font-size: 12px; color: #d5c2c6">из {{d.lim}} ккал</span>
+        <span style="{{d.deltaStyle}}">{{d.delta}}</span>
+        <span style="display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #d5c2c6; font-variant-numeric: tabular-nums">
+          <span><b style="color: #d3c4f5">Б</b> {{d.p}}</span><span><b style="color: #e6d09a">Ж</b> {{d.f}}</span><span><b style="color: #eebd9e">У</b> {{d.u}}</span>
+        </span>
+        <sc-if value="{{d.hasAdj}}" hint-placeholder-val="{{ false }}"><span style="font-size: 11px; line-height: 14px; color: #d5c2c6">−{{d.cut}} к лимиту</span></sc-if>
+      </button>
+    </sc-for>
+  </div>
+  <p style="margin: 0 4px; font-size: 12px; line-height: 17px; color: #d5c2c6">{{balance}}</p>
+
+  <sc-if value="{{sheetOpen}}" hint-placeholder-val="{{ false }}">
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 30"></div>
+    <section role="dialog" aria-modal="true" aria-labelledby="ds-title" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 10px 20px 24px; border-radius: 28px 28px 0 0; background: #22191c; z-index: 31; display: flex; flex-direction: column; gap: 14px">
+      <span aria-hidden="true" style="align-self: center; width: 32px; height: 4px; border-radius: 2px; background: #d5c2c6; opacity: 0.4"></span>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <h2 id="ds-title" style="margin: 0; flex: 1; font-size: 20px; font-weight: 500">{{sh.title}}</h2>
+        <sc-for list="{{sh.tags}}" as="t" hint-placeholder-count="1"><span style="{{t.style}}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="{{t.ink}}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg>{{t.label}}</span></sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{sh.cells}}" as="c" hint-placeholder-count="4">
+          <div style="padding: 10px; border-radius: 14px; background: #261d20; display: flex; flex-direction: column; gap: 2px">
+            <span style="{{c.labStyle}}">{{c.label}}</span>
+            <span style="{{c.valStyle}}">{{c.val}}</span>
+            <span style="font-size: 11px; color: #d5c2c6">из {{c.lim}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <sc-if value="{{sh.hasAdj}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; line-height: 18px; color: #d5c2c6">{{sh.adj}}</span></sc-if>
+      <div style="display: flex; flex-direction: column; gap: 2px; max-height: 300px; overflow: auto">
+        <sc-for list="{{sh.items}}" as="it" hint-placeholder-count="5">
+          <div style="display: flex; align-items: center; gap: 12px; min-height: 52px">
+            <span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px">{{it.name}}</span><span style="font-size: 12px; color: #d5c2c6">{{it.sub}}</span></span>
+            <span style="font-size: 15px; font-weight: 500">{{it.k}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <button onClick="{{closeSheet}}" style="height: 52px; border-radius: 26px; border: none; background: #3c3235; color: #efdfe1; font-size: 15px; font-weight: 500">Закрыть</button>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":900}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { sel: null };
+  }
+  renderVals() {
+    const st = this.state;
+    const base = { k: 2150, p: 140, f: 70, u: 240 };
+    const TAG = {
+      train: { label: 'Тренировка', ink: '#8AB4FF', bg: '#1F2A40', icon: 'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11' },
+      cycle: { label: 'Цикл', ink: '#FF8A8A', bg: '#4A2228', icon: 'M12 3.5c3 4 6 7.2 6 10.5a6 6 0 0 1-12 0c0-3.3 3-6.5 6-10.5Z' }
+    };
+    const raw = [
+      { t: 'Суббота, 31 октября', type: null, k: 2190, p: 131, f: 72, items: [['Сырники домашние', '240 г', 528], ['Плов домашний', '358 г', 601], ['Кефир 2,5%', '250 г', 133], ['Гречка с грудкой', '400 г', 550], ['Банан', '120 г', 107], ['Орео', '5 шт', 265]] },
+      { t: 'Воскресенье, 1 ноября', type: null, k: 2430, p: 120, f: 95, items: [['Омлет с сыром', '210 г', 412], ['Пицца пепперони', '300 г', 810], ['Плов домашний', '358 г', 601], ['Сникерс', '1 шт', 248], ['Творог 5%', '200 г', 242], ['Яблоко', '1 шт', 117]] },
+      { t: 'Понедельник, 2 ноября', type: 'train', k: 2330, p: 142, f: 64, items: [['Овсянка на молоке', '300 г', 306], ['Рис с курицей', '450 г', 720], ['Банан', '2 шт', 214], ['Творог 5%', '300 г', 363], ['Гречка с грудкой', '450 г', 619], ['Кефир 2,5%', '200 г', 108]] },
+      { t: 'Вторник, 3 ноября', type: null, k: 2060, p: 138, f: 66, items: [['Яйцо варёное', '2 шт', 171], ['Плов домашний', '400 г', 672], ['Творог 5%', '250 г', 303], ['Куриная грудка гриль', '250 г', 413], ['Огурец', '200 г', 30], ['Кефир 2,5%', '500 г', 265], ['Банан', '1 шт', 107], ['Сникерс', '½ шт', 99]] },
+      { t: 'Среда, 4 ноября', type: 'train', k: 2290, p: 145, f: 62, items: [['Сырники домашние', '240 г', 528], ['Гречка с грудкой', '500 г', 688], ['Рис варёный', '200 г', 260], ['Творог 5%', '250 г', 303], ['Банан', '2 шт', 214], ['Кефир 2,5%', '550 г', 297]] },
+      { t: 'Четверг, 5 ноября', type: null, k: 2380, p: 128, f: 98, items: [['Омлет с сыром', '210 г', 412], ['Плов домашний', '450 г', 756], ['Орео', '8 шт', 424], ['Куриная грудка гриль', '200 г', 330], ['Кефир 2,5%', '250 г', 133], ['Сникерс', '1 шт', 248], ['Огурец', '150 г', 23]] },
+      { t: 'Пятница, 6 ноября · сегодня', type: null, k: 1237, p: 102, f: 38, today: true, items: [['Кефир 2,5%', '250 г · 20:10', 133], ['Банан', '120 г · 16:20', 107], ['Огурец', '150 г · 13:40', 23], ['Куриная грудка гриль', '200 г · 13:40', 330], ['Гречка варёная', '200 г · 13:40', 220], ['Овсянка на молоке', '250 г · 09:15', 255], ['Яйцо варёное', '2 шт · 08:40', 171]] }
+    ];
+    // limits with weekly compensation: overage spread over remaining days, only fats and carbs cut, protein untouched, max 10% per day
+    const cap = Math.round(base.k * 0.1);
+    const cuts = new Array(7).fill(0);
+    const src = new Array(7).fill(null).map(() => []);
+    let forgiven = 0;
+    const days = raw.map((r, i) => {
+      const tb = r.type === 'train' ? { k: 240, u: 60 } : r.type === 'cycle' ? { k: 100, u: 25 } : { k: 0, u: 0 };
+      const L0 = { k: base.k + tb.k, p: base.p, f: base.f, u: base.u + tb.u };
+      const cut = Math.min(cuts[i], cap);
+      const fShare = (L0.f * 9) / (L0.f * 9 + L0.u * 4);
+      const L = { k: L0.k - cut, p: L0.p, f: Math.round(L0.f - cut * fShare / 9), u: Math.round(L0.u - cut * (1 - fShare) / 4) };
+      const u = Math.round((r.k - r.p * 4 - r.f * 9) / 4);
+      if (!r.today && r.k > L.k) {
+        const over = r.k - L.k, left = 6 - i;
+        if (left > 0) {
+          const per = over / left;
+          for (let j = i + 1; j < 7; j++) { const room = cap - cuts[j]; const add = Math.min(per, room); cuts[j] += add; forgiven += per - add; src[j].push(r.t.split(',')[0].toLowerCase()); }
+        } else forgiven += over;
+      }
+      return Object.assign({}, r, { L, u, cut: Math.round(cut), from: src[i].slice() });
+    });
+    const fmt = v => Math.round(v).toLocaleString('ru-RU');
+    const tags = r => r.type ? [{ label: TAG[r.type].label, ink: TAG[r.type].ink, icon: TAG[r.type].icon,
+      style: 'height: 24px; padding: 0 8px 0 6px; border-radius: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; color: ' + TAG[r.type].ink + '; background: ' + TAG[r.type].bg }] : [];
+    const adjText = d => d.cut ? 'Лимит снижен на ' + d.cut + ' ккал за перебор (' + d.from.join(', ') + ') — урезаны жиры и углеводы, белок прежний' : '';
+    const totalOver = days.reduce((a, d) => a + (!d.today && d.k > d.L.k ? d.k - d.L.k : 0), 0);
+    let sh = {};
+    if (st.sel !== null) {
+      const d = days[st.sel];
+      sh = {
+        title: d.t.replace(' · сегодня', ''), tags: tags(d), hasAdj: !!d.cut, adj: adjText(d),
+        cells: [['Ккал', d.k, d.L.k, '#efdfe1'], ['Белки', d.p, d.L.p, '#C4A8FF'], ['Жиры', d.f, d.L.f, '#F2C14E'], ['Углев.', d.u, d.L.u, '#FFA36C']].map(([label, v, lim, c]) => ({
+          label, val: fmt(v), lim: fmt(lim),
+          labStyle: 'font-size: 11px; color: ' + c,
+          valStyle: 'font-size: 18px; font-weight: 600; color: ' + (v > lim * 1.03 && label !== 'Белки' ? '#ffb4ab' : '#efdfe1')
+        })),
+        items: d.items.map(([name, sub, k]) => ({ name, sub, k: fmt(k) }))
+      };
+    }
+    return {
+      balance: 'Перебор за неделю ' + fmt(totalOver) + ' ккал разнесён на следующие дни — не больше 10% нормы в день, только за счёт жиров и углеводов. ' + (forgiven > 1 ? 'Остаток ' + fmt(forgiven) + ' ккал списан, чтобы не урезать себя слишком сильно.' : ''),
+      days: days.map((d, i) => {
+        const over = !d.today && d.k > d.L.k;
+        const diff = d.k - d.L.k;
+        const ratio = d.k / d.L.k;
+        const parts = d.t.replace(' · сегодня', '').split(', ');
+        const dowShort = { 'Понедельник': 'Пн', 'Вторник': 'Вт', 'Среда': 'Ср', 'Четверг': 'Чт', 'Пятница': 'Пт', 'Суббота': 'Сб', 'Воскресенье': 'Вс' }[parts[0]] || parts[0];
+        const tg = tags(d).map(t => Object.assign(t, { dot: 'width: 24px; height: 24px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: ' + (d.type ? TAG[d.type].bg : 'transparent') }));
+        return {
+          dow: d.today ? 'Сегодня' : dowShort, date: parts[1], tags: tg, k: fmt(d.k), lim: fmt(d.L.k), cut: d.cut,
+          aria: d.t + ': ' + fmt(d.k) + ' из ' + fmt(d.L.k) + ' ккал',
+          card: 'flex-shrink: 0; scroll-snap-align: end; width: ' + (d.today ? 168 : 136) + 'px; min-height: 318px; padding: 14px; box-sizing: border-box; border-radius: 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; text-align: left; color: #efdfe1; ' + (d.today ? 'border: 2px solid #ffb0c9; background: #6f3349' : 'border: none; background: #261d20'),
+          dowStyle: 'font-size: ' + (d.today ? 18 : 15) + 'px; font-weight: ' + (d.today ? 700 : 600) + '; color: ' + (d.today ? '#ffd9e3' : '#efdfe1'),
+          dateStyle: 'font-size: 12px; color: ' + (d.today ? '#ffd9e3' : '#d5c2c6') + '; margin-top: -4px',
+          ...(() => {
+            const S = d.today ? 124 : 104, c = S / 2, R = c - 10, st0 = -Math.PI / 2, frac = Math.min(ratio, 1);
+            const end = st0 + frac * Math.PI * 2, gap = 0.3;
+            const pt = (t, r) => (c + r * Math.cos(t)).toFixed(1) + ' ' + (c + r * Math.sin(t)).toFixed(1);
+            const wave = [], tr = [], ov = [];
+            for (let k = 0; k <= 120; k++) { const t = st0 + (end - st0) * k / 120; wave.push(pt(t, R + 2.2 * Math.sin((t - st0) * 10))); }
+            if (frac < 1) for (let k = 0; k <= 60; k++) { const t = end + gap + (st0 + Math.PI * 2 - gap - end - gap) * k / 60; tr.push(pt(t, R)); }
+            const of = over ? Math.min(ratio - 1, 1) : 0;
+            if (of > 0) for (let k = 0; k <= 60; k++) { const t = st0 + of * Math.PI * 2 * k / 60; ov.push(pt(t, R + 2.2 * Math.sin((t - st0) * 10))); }
+            return {
+              rs: S, vb: '0 0 ' + S + ' ' + S,
+              rWave: frac > 0 ? 'M' + wave.join(' L') : '', rTrack: tr.length ? 'M' + tr.join(' L') : '', rOver: ov.length ? 'M' + ov.join(' L') : '',
+              trackC: d.today ? 'rgba(255, 217, 227, 0.22)' : '#5a3f48', waveC: d.today ? '#ffd9e3' : '#ffb0c9',
+              kUnit: 'font-size: 11px; color: ' + (d.today ? '#ffd9e3' : '#d5c2c6')
+            };
+          })(),
+          kStyle: 'font-size: ' + (d.today ? 24 : 20) + 'px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.1; font-variant-numeric: tabular-nums; color: ' + (over ? '#ffb4ab' : d.today ? '#ffd9e3' : '#efdfe1'),
+          delta: d.today ? 'осталось ' + fmt(Math.max(0, d.L.k - d.k)) : (diff > 0 ? 'перебор +' : 'недобор −') + fmt(Math.abs(diff)),
+          deltaStyle: 'font-size: 12px; font-weight: 600; color: ' + (d.today ? '#ffd9e3' : over ? '#ffb4ab' : '#d5c2c6'),
+          p: d.p + ' / ' + d.L.p, f: d.f + ' / ' + d.L.f, u: d.u + ' / ' + d.L.u,
+          hasAdj: !!d.cut,
+          open: () => this.setState({ sel: i })
+        };
+      }).reverse(),
+      ...(() => {
+        const past = days.filter(d => !d.today);
+        const bal = past.reduce((a, d) => a + (d.k - d.L.k), 0);
+        const avg = key => past.reduce((a, d) => a + d[key], 0) / past.length;
+        const norm = { p: base.p, f: base.f, u: base.u };
+        const W = [78.8, 78.9, 78.6, 78.7, 78.5, 78.6, 78.4];
+        const lo = Math.min(...W) - 0.05, hi = Math.max(...W) + 0.05;
+        const X = k => 4 + k * 22, Y = v => 3 + (hi - v) / (hi - lo) * 20;
+        const wd = W[6] - W[0];
+        const NU = [['p', 'Белки', '#d3c4f5'], ['f', 'Жиры', '#e6d09a'], ['u', 'Углеводы', '#eebd9e']].map(([key, label, c]) => {
+          const a = avg(key), n = norm[key], d = a - n, r = a / n;
+          const lowP = key === 'p' && d < -3;
+          const high = key !== 'p' && r > 1.05;
+          return { key, label, a, n, d, lowP, high,
+            labStyle: 'width: 72px; font-size: 13px; font-weight: 600; color: ' + c,
+            fill: 'position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; width: ' + Math.min(100, r * 75).toFixed(1) + '%; background: ' + (lowP ? '#FF8A8A' : high ? '#ffb4ab' : c),
+            val: Math.round(a) + ' / ' + n + ' г',
+            valStyle: 'width: 76px; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; color: ' + (lowP || high ? '#ffb4ab' : '#efdfe1') };
+        });
+        const notes = [];
+        NU.forEach(n => { if (n.lowP) notes.push('белка не хватает ~' + Math.round(-n.d) + ' г в день'); if (n.high) notes.push((n.key === 'f' ? 'жиров' : 'углеводов') + ' больше нормы на ~' + Math.round(n.d) + ' г'); });
+        return {
+          balVal: (bal > 0 ? '+' : '−') + fmt(Math.abs(bal)) + ' ккал',
+          balSub: bal > 0 ? 'перебор · ' + fmt(bal / past.length) + ' в день' : 'недобор · ' + fmt(-bal / past.length) + ' в день',
+          balStyle: 'font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; color: ' + (bal > 0 ? '#ffb4ab' : '#efdfe1'),
+          balBox: 'padding: 12px; border-radius: 18px; display: flex; flex-direction: column; gap: 2px; background: ' + (bal > 0 ? '#3a2226' : '#31282a'),
+          wDelta: (wd < 0 ? '−' : '+') + Math.abs(wd).toFixed(1).replace('.', ',') + ' кг',
+          wAria: 'Вес за неделю: с ' + W[0].toFixed(1).replace('.', ',') + ' до ' + W[6].toFixed(1).replace('.', ',') + ' кг',
+          wPath: W.map((v, k) => (k ? 'L' : 'M') + X(k) + ' ' + Y(v).toFixed(1)).join(''),
+          wDot: 'M' + (X(6) - 3) + ' ' + Y(W[6]).toFixed(1) + 'a3 3 0 1 0 6 0a3 3 0 1 0 -6 0',
+          nutr: NU,
+          hasLack: notes.length > 0,
+          lack: notes.length ? 'Обратите внимание: ' + notes.join(', ') + '.' : ''
+        };
+      })(),
+      sheetOpen: st.sel !== null, sh,
+      closeSheet: () => this.setState({ sel: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Цель и нормы</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1600px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 100px; display: flex; flex-direction: column; gap: 20px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 56px; flex-shrink: 0">
+    <a href="Profile.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ECE0E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Цель и нормы</h1>
+  </div>
+
+  <section aria-label="Цель" style="display: flex; flex-direction: column; gap: 10px">
+    <div aria-roledescription="карусель" aria-label="Цель" style="display: flex; flex-direction: column; gap: 12px">
+        <div onPointerDown="{{cDown}}" onPointerMove="{{cMove}}" onPointerUp="{{cUp}}" onPointerCancel="{{cUp}}" style="position: relative; height: 290px; margin: 0 -16px; overflow: hidden; touch-action: pan-y; user-select: none; cursor: grab">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="4">
+            <div aria-hidden="{{c.hidden}}" style="{{c.style}}">
+              <span style="{{c.iconBox}}"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="{{c.ink}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg></span>
+              <span style="font-size: 22px; font-weight: 500; text-align: center">{{c.label}}</span>
+              <span style="font-size: 14px; line-height: 20px; color: #d5c2c6; text-align: center">{{c.sub}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div role="group" aria-label="Выбор цели" style="display: flex; justify-content: center; gap: 4px">
+          <sc-for list="{{cdots}}" as="d" hint-placeholder-count="4"><button onClick="{{d.pick}}" aria-label="{{d.label}}" aria-pressed="{{d.pressed}}" style="width: 32px; height: 32px; border: none; background: none; padding: 0; display: flex; align-items: center; justify-content: center"><span style="{{d.dot}}"></span></button></sc-for>
+        </div>
+      </div>
+    <sc-if value="{{warn}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; gap: 10px; padding: 12px 14px; border-radius: 16px; background: #93000a; color: #ffdad6"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffdad6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17ZM12 11v5M12 8h.01"></path></svg><span style="flex: 1; font-size: 13px; line-height: 18px">{{warnText}}</span></div>
+    </sc-if>
+  </section>
+
+  <sc-if value="{{hasTarget}}" hint-placeholder-val="{{ false }}">
+    <section aria-label="Целевой вес" style="padding: 16px; border-radius: 24px; background: #261d20; display: flex; flex-direction: column; gap: 12px">
+      <div style="display: flex; align-items: center; gap: 8px">
+        <div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 13px; color: #d5c2c6">Целевой вес</span>
+          <span><span style="font-size: 32px; font-weight: 600">{{target}}</span><span style="font-size: 16px; color: #d5c2c6"> кг</span></span>
+        </div>
+        <button aria-label="Уменьшить цель" onClick="{{tDec}}" style="width: 48px; height: 48px; border-radius: 16px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+        <button aria-label="Увеличить цель" onClick="{{tInc}}" style="width: 48px; height: 48px; border-radius: 16px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+      </div>
+      <div role="group" aria-label="Темп" style="display: flex; gap: 8px">
+        <sc-for list="{{paces}}" as="p" hint-placeholder-count="3"><button onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}"><span style="font-size: 14px; font-weight: 500">{{p.label}}</span><span style="font-size: 12px; opacity: 0.85">{{p.sub}}</span></button></sc-for>
+      </div>
+      <span style="font-size: 14px">{{eta}}</span>
+    </section>
+  </sc-if>
+
+  <section aria-label="Нормы по типам дня" style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0 8px 2px; font-size: 16px; font-weight: 500">Нормы по типам дня</h2>
+    <span style="padding: 0 8px; font-size: 12px; line-height: 17px; color: #d5c2c6">Нажмите на белки, жиры или углеводы, чтобы вписать свои значения.</span>
+    <sc-for list="{{norms}}" as="n" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 22px; background: #261d20">
+          <span style="display: flex; align-items: center; gap: 10px">
+            <span style="{{n.iconBox}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{n.ink}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{n.icon}}"></path></svg></span>
+            <span style="flex: 1; font-size: 15px; font-weight: 500">{{n.label}}</span>
+            <sc-if value="{{n.custom}}" hint-placeholder-val="{{ false }}"><button onClick="{{n.reset}}" style="height: 28px; padding: 0 10px; border-radius: 14px; border: none; background: #3c3235; color: #d5c2c6; font-size: 12px; font-weight: 500">Своя · сбросить</button></sc-if>
+          </span>
+          <span><span style="font-size: 32px; font-weight: 600; letter-spacing: -0.5px; font-variant-numeric: tabular-nums">{{n.k}}</span><span style="font-size: 15px; color: #d5c2c6"> ккал</span></span>
+          <span style="position: relative; z-index: 2; display: flex; gap: 6px">
+            <sc-for list="{{n.chips}}" as="c" hint-placeholder-count="3">
+              <span style="position: relative; flex: 1; min-width: 0">
+                <button onPointerDown="{{c.down}}" onPointerMove="{{c.move}}" onPointerUp="{{c.up}}" onPointerCancel="{{c.up}}" onKeyDown="{{c.key}}" aria-label="{{c.aria}}" aria-expanded="{{c.expanded}}" style="{{c.chip}}"><span style="{{c.letStyle}}">{{c.letter}}</span><span style="{{c.valStyle}}">{{c.v}}</span><span style="{{c.unitStyle}}">г</span></button>
+                <sc-if value="{{c.on}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; left: 50%; top: -94px; margin-left: -36px; z-index: 40; display: flex; flex-direction: column; align-items: center; gap: 6px">
+                    <span aria-hidden="true" onPointerDown="{{c.down}}" onPointerMove="{{c.move}}" onPointerUp="{{c.up}}" onPointerCancel="{{c.up}}" style="position: relative; width: 72px; height: 232px; border-radius: 36px; background: #31282a; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5); overflow: hidden; touch-action: none; cursor: grab; user-select: none">
+                      <span style="{{c.band}}"></span>
+                      <sc-for list="{{c.items}}" as="it" hint-placeholder-count="7"><span style="{{it.s}}">{{it.t}}</span></sc-for>
+                    </span>
+                    <span style="{{c.bubble}}">{{c.v}} г</span>
+                    <sc-if value="{{c.sticky}}" hint-placeholder-val="{{ false }}"><button onClick="{{c.close}}" aria-label="Готово" style="width: 48px; height: 48px; border-radius: 24px; border: none; background: #ffb0c9; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4); display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#541d33" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></button></sc-if>
+                  </span>
+                </sc-if>
+              </span>
+            </sc-for>
+          </span>
+        </div>
+      </sc-for>
+  </section>
+
+  <section aria-label="Белок" style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: baseline; margin: 0 8px 2px">
+      <h2 style="margin: 0; flex: 1; font-size: 16px; font-weight: 500">Белок для расчёта</h2>
+      <span style="font-size: 14px; color: #d5c2c6">{{protNote}}</span>
+    </div>
+    <div role="group" aria-label="Белок, грамм на килограмм веса" onPointerDown="{{drDown}}" onPointerMove="{{drMove}}" onPointerUp="{{drUp}}" onPointerCancel="{{drUp}}" style="position: relative; height: 64px; overflow: hidden; touch-action: pan-y; user-select: none; cursor: grab; border-radius: 20px; background: #261d20">
+      <span aria-hidden="true" style="position: absolute; left: 50%; top: 8px; width: 72px; height: 48px; margin-left: -36px; border-radius: 24px; background: #5a3f48"></span>
+      <div style="{{drumTrack}}">
+        <sc-for list="{{prot}}" as="x" hint-placeholder-count="7"><button onClick="{{x.pick}}" aria-pressed="{{x.pressed}}" aria-label="{{x.aria}}" style="{{x.style}}">{{x.label}}</button></sc-for>
+      </div>
+      <span aria-hidden="true" style="position: absolute; left: 0; top: 0; bottom: 0; width: 72px; background: linear-gradient(to right, #261d20, rgba(38, 29, 32, 0)); pointer-events: none"></span>
+      <span aria-hidden="true" style="position: absolute; right: 0; top: 0; bottom: 0; width: 72px; background: linear-gradient(to left, #261d20, rgba(38, 29, 32, 0)); pointer-events: none"></span>
+    </div>
+    <span style="padding: 0 8px; font-size: 12px; line-height: 17px; color: #d5c2c6">На килограмм веса. Белок не урезается ни в компенсации переборов, ни при смене типа дня.</span>
+  </section>
+
+  <section aria-label="Расход" style="display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 20px; background: #261d20">
+    <div style="display: flex; align-items: baseline"><span style="flex: 1; font-size: 14px; color: #d5c2c6">Реальный расход</span><span style="font-size: 18px; font-weight: 600">≈ 2 380 ккал</span></div>
+    <div style="display: flex; align-items: baseline"><span style="flex: 1; font-size: 14px; color: #d5c2c6">Стартовая оценка</span><span style="font-size: 15px">{{formula}} ккал</span></div>
+    <span style="font-size: 12px; line-height: 17px; color: #d5c2c6">Расчётные нормы пересчитываются раз в неделю по весу и дневнику. Свои значения остаются как есть, пока вы их не сбросите.</span>
+  </section>
+
+  <a href="Profile.dc.html" style="position: absolute; left: 16px; right: 16px; bottom: 24px; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none">Сохранить</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sex":{"editor":"enum","options":["m","f"],"default":"m"},"trains":{"editor":"boolean","default":true},"$preview":{"width":390,"height":1600}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { goal: 'recomp', target: 75, pace: 0.4, pk: 1.8, cdx: 0, custom: {} };
+  }
+  renderVals() {
+    const st = this.state;
+    const GOALS = [
+      { id: 'recomp', label: 'Рекомпозиция', sub: 'Меньше жира, больше мышц при почти том же весе. Небольшой дефицит и много белка — работает только вместе с силовыми.', icon: 'M12 4v16M6 20h12M4 8h16M4 8l-2.5 6a2.5 2.5 0 0 0 5 0ZM20 8l-2.5 6a2.5 2.5 0 0 0 5 0Z' },
+      { id: 'lose', label: 'Похудение', sub: 'Дефицит калорий: вес снижается плавно, 0,3–0,5 кг в неделю. С силовыми уходит в основном жир.', icon: 'M3 7l6 6 4-4 8 8M21 11v6h-6' },
+      { id: 'gain', label: 'Набор мышц', sub: 'Небольшой профицит: мышцы растут, жир прибавляется минимально. Нужны регулярные силовые.', icon: 'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11' },
+      { id: 'keep', label: 'Поддержание', sub: 'Едим по расходу и держим текущий вес и форму.', icon: 'M5 9h14M5 15h14' }
+    ];
+    const gi = Math.max(0, GOALS.findIndex(g => g.id === this.state.goal));
+    const cdx = this.state.cdx || 0;
+    const setGoal = i => this.setState({ goal: GOALS[Math.max(0, Math.min(GOALS.length - 1, i))].id, cdx: 0 });
+    const carousel = {
+      cards: GOALS.map((g, i) => {
+        const on = i === gi, off = (i - gi) * 300 + cdx;
+        return { label: g.label, sub: g.sub, icon: g.icon, hidden: on ? 'false' : 'true', ink: on ? '#ffd9e3' : '#d5c2c6',
+          iconBox: 'width: 72px; height: 72px; border-radius: 26px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; background: ' + (on ? '#6f3349' : '#3c3235'),
+          style: 'position: absolute; left: 50%; top: 0; width: 284px; height: 280px; margin-left: -142px; box-sizing: border-box; padding: 24px 22px; border-radius: 28px; background: ' + (on ? '#31282a' : '#261d20') + '; display: flex; flex-direction: column; align-items: center; gap: 10px; transform: translateX(' + off + 'px) scale(' + (on ? 1 : 0.9) + '); opacity: ' + (on ? 1 : 0.45) + '; transition: ' + (this._cdrag ? 'none' : 'transform 0.35s cubic-bezier(.2, 1.2, .4, 1), opacity 0.25s') };
+      }),
+      cdots: GOALS.map((g, i) => ({ label: g.label, pressed: i === gi ? 'true' : 'false', pick: () => setGoal(i),
+        dot: 'display: block; height: 8px; border-radius: 4px; transition: width 0.2s; width: ' + (i === gi ? 22 : 8) + 'px; background: ' + (i === gi ? '#ffb0c9' : '#514347') })),
+      cDown: e => { this._cdrag = true; this._cx = e.clientX; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (z) {} },
+      cMove: e => { if (!this._cdrag) return; let d = e.clientX - this._cx; if ((gi === 0 && d > 0) || (gi === GOALS.length - 1 && d < 0)) d *= 0.3; this.setState({ cdx: d }); },
+      cUp: () => { if (!this._cdrag) return; this._cdrag = false; const d = this.state.cdx || 0; if (d < -60) setGoal(gi + 1); else if (d > 60) setGoal(gi - 1); else this.setState({ cdx: 0 }); }
+    };
+    const mkChip = (id, key, val, setV, step, letter, ink, bg, side, label) => {
+      const pop = this.state.pop, on = !!(pop && pop.id === id && pop.key === key);
+      const ROW = 32, acc = on ? (pop.acc || 0) : 0, pk = id + ':' + key;
+      const items = [];
+      if (on) for (let k = -4; k <= 4; k++) {
+        const v = val + k * step;
+        if (v < 0) continue;
+        const y = k * ROW + acc, th = y / 92;
+        if (Math.abs(th) > 1.3) continue;
+        const c = Math.cos(th), yy = 92 * Math.sin(th), center = Math.abs(y) < ROW / 2, wv = Math.max(0, 1 - Math.abs(y) / ROW), mixC = (a, b, t) => '#' + [1, 3, 5].map(q => Math.round(parseInt(a.substr(q, 2), 16) * (1 - t) + parseInt(b.substr(q, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+        items.push({ t: String(v), s: 'position: absolute; left: 0; right: 0; top: ' + (116 + yy - 14).toFixed(1) + 'px; height: 28px; line-height: 28px; text-align: center; pointer-events: none; font-variant-numeric: tabular-nums; font-size: ' + ((15 + 4 * wv) * (0.8 + 0.2 * c)).toFixed(1) + 'px; font-weight: ' + Math.round(400 + 300 * wv) + '; color: ' + mixC('#d5c2c6', ink, wv) + '; opacity: ' + Math.max(0.15, Math.pow(c, 2.2)).toFixed(2) + '; transform: scaleY(' + (0.6 + 0.4 * c).toFixed(2) + ')' });
+      }
+      const push = dy => {
+        const p = this.state.pop; if (!p) return;
+        let a = (p.acc || 0) + dy, cur = this._cv, ch = false;
+        while (a <= -ROW / 2) { cur += step; a += ROW; ch = true; }
+        while (a >= ROW / 2) { if (cur - step < 0) { a = 0; break; } cur -= step; a -= ROW; ch = true; }
+        if (ch) { this._cv = cur; setV(cur); (() => { try { if (!this._ac) { const AC = window.AudioContext || window.webkitAudioContext; this._ac = new AC(); } if (this._ac.state === 'suspended') this._ac.resume(); const ac = this._ac, t = ac.currentTime, o = ac.createOscillator(), gn = ac.createGain(); o.type = 'sine'; o.frequency.value = 2400; gn.gain.setValueAtTime(0.035, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.025); o.connect(gn); gn.connect(ac.destination); o.start(t); o.stop(t + 0.05); } catch (z) {} try { if (navigator.vibrate) navigator.vibrate(6); } catch (z) {} })(); }
+        this.setState({ pop: Object.assign({}, this.state.pop, { acc: a }) });
+      };
+      return {
+        letter, v: val, on, items, sticky: on && !!pop.sticky, expanded: on ? 'true' : 'false',
+        aria: label + ': ' + val + ' грамм. Нажмите, чтобы изменить',
+        chip: 'width: 100%; height: 44px; padding: 0 10px; box-sizing: border-box; border-radius: 12px; border: ' + (on ? '2px solid ' + ink : 'none') + '; background: ' + bg + '; display: flex; align-items: center; gap: 4px; touch-action: none; cursor: ns-resize',
+        letStyle: 'font-size: 13px; font-weight: 700; color: ' + ink,
+        valStyle: 'flex: 1; text-align: right; font-size: 17px; font-weight: 600; color: ' + ink + '; font-variant-numeric: tabular-nums',
+        unitStyle: 'font-size: 12px; color: ' + ink + '; opacity: 0.75',
+        band: 'position: absolute; left: 6px; right: 6px; top: 94px; height: 44px; border-radius: 22px; background: ' + bg,
+        bubble: 'position: absolute; ' + (side === 'right' ? 'left: calc(100% + 10px)' : 'right: calc(100% + 10px)') + '; top: 94px; min-width: 64px; height: 44px; padding: 0 14px; box-sizing: border-box; border-radius: 22px; background: #efdfe1; color: #372e30; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; white-space: nowrap; font-variant-numeric: tabular-nums; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35)',
+        down: e => {
+          try { e.currentTarget.setPointerCapture(e.pointerId); } catch (z) {}
+          this._dy = e.clientY; this._moved = false; this._drag = true; this._cv = val;
+          if (on && pop.sticky) return;
+          clearTimeout(this._lp);
+          this._lp = setTimeout(() => { this._lpOn = true; if (navigator.vibrate) navigator.vibrate(8); this.setState({ pop: { id, key, acc: 0, sticky: false } }); }, 300);
+        },
+        move: e => {
+          if (!this._drag) return;
+          const dy = e.clientY - this._dy;
+          if (Math.abs(dy) > 4) this._moved = true;
+          const p = this.state.pop;
+          if (!p || p.id !== id || p.key !== key) return;
+          e.preventDefault();
+          this._dy = e.clientY;
+          push(dy);
+        },
+        up: () => {
+          clearTimeout(this._lp);
+          const wasLp = this._lpOn; this._lpOn = false; this._drag = false;
+          const p = this.state.pop;
+          if (p && p.id === id && p.key === key && p.sticky) { this.setState({ pop: Object.assign({}, p, { acc: 0 }) }); return; }
+          if (wasLp && this._moved) { this.setState({ pop: null }); return; }
+          this.setState({ pop: { id, key, acc: 0, sticky: true } });
+        },
+        close: () => this.setState({ pop: null }),
+        key: e => {
+          if (e.key === 'ArrowUp') { e.preventDefault(); setV(val + step); }
+          if (e.key === 'ArrowDown') { e.preventDefault(); setV(Math.max(0, val - step)); }
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.setState({ pop: on ? null : { id, key, acc: 0, sticky: true } }); }
+        }
+      };
+    };
+    const editNorm = (id, base) => {
+      const cu = (this.state.custom || {})[id];
+      const v = cu || base;
+      const setKey = (key, x) => { const cur = Object.assign({}, (this.state.custom || {})[id] || base); cur[key] = Math.max(0, Math.round(x)); this.setState({ custom: Object.assign({}, this.state.custom || {}, { [id]: cur }) }); };
+      const set = key => e => { const n = parseFloat(e.target.value); const cur = Object.assign({}, v); cur[key] = isNaN(n) ? 0 : Math.round(n); this.setState({ custom: Object.assign({}, this.state.custom || {}, { [id]: cur }) }); };
+      return {
+        chips: [
+          mkChip(id, 'p', v.p, x => setKey('p', x), 1, 'Б', '#d3c4f5', '#332b45', 'right', 'Белки'),
+          mkChip(id, 'f', v.f, x => setKey('f', x), 1, 'Ж', '#e6d09a', '#3a3122', 'left', 'Жиры'),
+          mkChip(id, 'u', v.u, x => setKey('u', x), 1, 'У', '#eebd9e', '#3d2a21', 'left', 'Углеводы')
+        ],
+        p: v.p, f: v.f, u: v.u, k: Math.round(cu ? v.p * 4 + v.f * 9 + v.u * 4 : base.k).toLocaleString('ru-RU'), custom: !!cu,
+        setP: set('p'), setF: set('f'), setU: set('u'),
+        reset: () => { const c = Object.assign({}, this.state.custom || {}); delete c[id]; this.setState({ custom: c }); } };
+    };
+    const female = this.props.sex === 'f';
+    const trains = this.props.trains !== false;
+    const w = 78.4, trend = 78.7, tdee = 2380, lean = 64.3, act = 1.375;
+    const sign = st.goal === 'lose' ? -1 : st.goal === 'gain' ? 1 : 0;
+    const delta = st.goal === 'recomp' ? -230 : st.goal === 'keep' ? 0 : sign * st.pace * 7700 / 7;
+    const kcal = Math.round((tdee + delta) / 50) * 50;
+    const p = Math.round(w * st.pk), f = Math.round(w * 0.9), u = Math.max(0, Math.round((kcal - p * 4 - f * 9) / 4));
+    const fmt = v => v.toFixed(1).replace('.', ',');
+    const warnText = st.goal === 'lose' && !trains ? 'Похудение без тренировок: вместе с жиром уходят и мышцы — после этого можно чувствовать себя хуже, чем до. Добавьте хотя бы 2 силовые в неделю.'
+      : (st.goal === 'recomp' || st.goal === 'gain') && !trains ? 'Без силовых тренировок мышцы не растут — изменения пойдут в основном в жир.' : '';
+    const remain = Math.abs(trend - st.target);
+    const weeks = st.pace ? remain / st.pace : 0;
+    const eta = new Date(2026, 10, 6 + Math.round(weeks * 7));
+    const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+    const N = [{ id: 'n', label: 'Обычный день', base: { k: kcal, p, f, u }, ink: '#d5c2c6', bg: '#3c3235', icon: 'M4 6h16M4 12h16M4 18h10' }];
+    if (trains) N.push({ id: 't', label: 'День тренировки', base: { k: kcal + 240, p, f, u: u + 60 }, ink: '#8AB4FF', bg: '#1F2A40', icon: 'M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11' });
+    if (female) N.push({ id: 'c', label: 'Дни цикла', base: { k: kcal + 100, p, f, u: u + 25 }, ink: '#FF8A8A', bg: '#4A2228', icon: 'M12 3.5c3 4 6 7.2 6 10.5a6 6 0 0 1-12 0c0-3.3 3-6.5 6-10.5Z' });
+    return Object.assign({
+      warn: !!warnText, warnText,
+      hasTarget: st.goal === 'lose' || st.goal === 'gain',
+      target: fmt(st.target),
+      tDec: () => this.setState({ target: Math.round((st.target - 0.5) * 10) / 10 }),
+      tInc: () => this.setState({ target: Math.round((st.target + 0.5) * 10) / 10 }),
+      paces: [[0.25, 'Мягко', '0,25'], [0.4, 'Умеренно', '0,4'], [0.6, 'Быстро', '0,6']].map(([v, label, t]) => {
+        const sel = v === st.pace;
+        return { label, sub: t + ' кг/нед', pressed: sel ? 'true' : 'false', pick: () => this.setState({ pace: v }),
+          style: 'flex: 1; height: 56px; border-radius: ' + (sel ? '20px' : '14px') + '; border: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: ' + (sel ? '#5a3f48' : '#31282a') + '; color: ' + (sel ? '#ffd9e3' : '#efdfe1') };
+      }),
+      eta: 'Цель ≈ ' + eta.getDate() + ' ' + months[eta.getMonth()] + ' ' + eta.getFullYear() + ' · ' + Math.round(weeks) + ' нед. · ' + (delta > 0 ? '+' : '−') + Math.abs(Math.round(delta)) + ' ккал в день',
+      norms: N.map(n => Object.assign({ label: n.label, ink: n.ink, icon: n.icon,
+        iconBox: 'width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: ' + n.bg }, editNorm(n.id, n.base))),
+      ...(() => {
+        const W = 72, vals = [1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2];
+        const idx = Math.max(0, vals.findIndex(v => Math.abs(v - st.pk) < 0.01));
+        const dx = st.drDx || 0;
+        const pos = idx * W - dx;
+        const dragging = !!this._dr;
+        return {
+          protNote: Math.round(st.pk * w) + ' г в день',
+          drumTrack: 'position: absolute; top: 0; left: calc(50% - 36px); height: 64px; display: flex; transform: translateX(' + (-pos) + 'px); transition: ' + (dragging ? 'none' : 'transform 0.35s cubic-bezier(.2,1.25,.4,1)'),
+          drDown: e => { this._dr = { x0: e.clientX, moved: false }; },
+          drMove: e => { if (!this._dr) return; const d = e.clientX - this._dr.x0; if (Math.abs(d) > 6) this._dr.moved = true; if (this._dr.moved) this.setState({ drDx: Math.max(-(vals.length - 1 - idx) * W - 30, Math.min(idx * W + 30, d)) }); },
+          drUp: () => {
+            if (!this._dr) return;
+            const moved = this._dr.moved; this._dr = null; this._drMoved = moved;
+            const ni = Math.max(0, Math.min(vals.length - 1, Math.round(idx - (st.drDx || 0) / W)));
+            this.setState({ pk: vals[ni], drDx: 0 });
+          },
+          prot: vals.map((v, i) => {
+            const dist = Math.min(Math.abs(i * W - pos) / W, 3);
+            const sel = i === idx && !dx;
+            return {
+              label: fmt(v), aria: fmt(v) + ' грамма белка на килограмм', pressed: i === idx ? 'true' : 'false',
+              pick: () => { if (this._drMoved) { this._drMoved = false; return; } this.setState({ pk: v, drDx: 0 }); },
+              style: 'width: 72px; height: 64px; flex-shrink: 0; border: none; background: none; padding: 0; font-variant-numeric: tabular-nums; font-size: ' + (dist < 0.5 ? 22 : 17) + 'px; font-weight: ' + (dist < 0.5 ? 700 : 500) + '; color: ' + (dist < 0.5 ? '#ffd9e3' : '#efdfe1') + '; opacity: ' + (1 - dist * 0.22).toFixed(2) + '; transform: scale(' + (1 - dist * 0.08).toFixed(3) + '); transition: ' + (dragging ? 'none' : 'all 0.3s')
+            };
+          })
+        };
+      })(),
+      formula: Math.round((370 + 21.6 * lean) * act / 10) * 10
+    }, carousel);
+  }
+}
+</script>
+</body>
+</html>

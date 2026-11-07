@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Тренировки</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 1260px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 24px; display: flex; flex-direction: column; gap: 18px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 56px; flex-shrink: 0">
+    <a href="Profile.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ECE0E2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Тренировки</h1>
+  </div>
+  <section aria-label="Типы" style="display: flex; flex-direction: column; gap: 10px">
+    <h2 style="margin: 0 8px; font-size: 16px; font-weight: 500">Чем занимаетесь</h2>
+    <div role="group" aria-label="Тип тренировок" style="display: flex; flex-wrap: wrap; gap: 8px">
+      <sc-for list="{{types}}" as="t" hint-placeholder-count="6">
+        <button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="{{t.style}}"><sc-if value="{{t.sel}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg></sc-if>{{t.label}}</button>
+      </sc-for>
+    </div>
+  </section>
+  <section aria-label="Расписание" style="display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 20px; background: #261d20">
+    <div style="display: flex; align-items: baseline">
+      <h2 style="margin: 0; flex: 1; font-size: 16px; font-weight: 500">Расписание</h2>
+      <span style="font-size: 13px; color: #d5c2c6">{{perMonth}}</span>
+    </div>
+    <div role="group" aria-label="Как повторяются тренировки" style="display: flex; gap: 2px">
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="3"><button onClick="{{m.pick}}" aria-pressed="{{m.pressed}}" style="{{m.style}}">{{m.label}}</button></sc-for>
+    </div>
+
+    <sc-if value="{{isWeek}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <span style="font-size: 13px; color: #d5c2c6">Дни недели</span>
+        <div role="group" aria-label="Дни" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+          <sc-for list="{{days}}" as="d" hint-placeholder-count="7"><button onClick="{{d.pick}}" aria-pressed="{{d.pressed}}" aria-label="{{d.aria}}" style="{{d.style}}">{{d.label}}</button></sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isInterval}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px">Дней тренировок подряд</span></span>
+          <button aria-label="Меньше дней тренировок" onClick="{{trDec}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+          <span style="min-width: 36px; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">{{tr}}</span>
+          <button aria-label="Больше дней тренировок" onClick="{{trInc}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="flex: 1; font-size: 15px">Затем дней отдыха</span>
+          <button aria-label="Меньше дней отдыха" onClick="{{rsDec}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+          <span style="min-width: 36px; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">{{rs}}</span>
+          <button aria-label="Больше дней отдыха" onClick="{{rsInc}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+        </div>
+        <span style="font-size: 13px; color: #d5c2c6">{{intervalText}}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{isShift}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px">Активный период</span><span style="font-size: 12px; color: #d5c2c6">дней, когда тренируетесь</span></span>
+          <button aria-label="Короче активный период" onClick="{{onDec}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+          <span style="min-width: 36px; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">{{on}}</span>
+          <button aria-label="Длиннее активный период" onClick="{{onInc}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px">
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 2px"><span style="font-size: 15px">Без тренировок</span><span style="font-size: 12px; color: #d5c2c6">вахта, отпуск, перерыв</span></span>
+          <button aria-label="Короче перерыв" onClick="{{offDec}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+          <span style="min-width: 36px; text-align: center; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums">{{off}}</span>
+          <button aria-label="Длиннее перерыв" onClick="{{offInc}}" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14M12 5v14"></path></svg></button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 13px; color: #d5c2c6">В активный период тренируюсь</span>
+          <div role="group" aria-label="Частота в активный период" style="display: flex; gap: 8px">
+            <sc-for list="{{inner}}" as="x" hint-placeholder-count="3"><button onClick="{{x.pick}}" aria-pressed="{{x.pressed}}" style="{{x.style}}">{{x.label}}</button></sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{needsStart}}" hint-placeholder-val="{{ false }}">
+      <label style="display: flex; align-items: center; gap: 12px">
+        <span style="flex: 1; font-size: 15px">{{startLabel}}</span>
+        <input type="date" value="{{start}}" onChange="{{setStart}}" style="height: 44px; padding: 0 12px; border-radius: 4px; border: 1px solid #9e8c90; background: #22191c; color: #efdfe1; font-size: 15px">
+      </label>
+    </sc-if>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span style="font-size: 13px; color: #d5c2c6">Ближайшие 4 недели</span>
+      <div role="img" aria-label="{{previewAria}}" style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+        <sc-for list="{{preview}}" as="c" hint-placeholder-count="28"><span style="{{c.style}}">{{c.num}}</span></sc-for>
+      </div>
+      <div style="display: flex; gap: 14px; font-size: 12px; color: #d5c2c6">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #1F2A40; border: 1px solid #8AB4FF; box-sizing: border-box"></span>тренировка</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #31282a"></span>отдых</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; border: 1px dashed #9e8c90; box-sizing: border-box"></span>перерыв</span>
+      </div>
+    </div>
+    <span style="font-size: 12px; line-height: 17px; color: #d5c2c6">В дни тренировок главный экран сам предложит тип дня «Тренировка» с повышенной нормой углеводов.</span>
+  </section>
+  <section aria-label="История" style="display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0 8px; font-size: 16px; font-weight: 500">История</h2>
+    <div style="border-radius: 20px; background: #22191c; overflow: hidden">
+      <sc-for list="{{log}}" as="l" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; height: 60px; padding: 0 16px">
+          <span style="width: 36px; height: 36px; border-radius: 12px; background: #1F2A40; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8AB4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"></path></svg></span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 500">{{l.type}}</span><span style="font-size: 12px; color: #d5c2c6">{{l.date}}</span></span>
+          <span style="font-size: 14px; color: #d5c2c6">{{l.min}} мин</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+  <button style="margin-top: auto; height: 56px; border-radius: 28px; border: none; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#541d33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Записать тренировку</button>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1260}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { types: ['strength', 'cardio'], days: [0, 2, 4], mode: 'week', tr: 1, rs: 2, on: 14, off: 14, inner: 'week', start: '2026-11-06' };
+  }
+  renderVals() {
+    const st = this.state;
+    const T = [['strength', 'Силовые'], ['cardio', 'Кардио'], ['run', 'Бег'], ['swim', 'Плавание'], ['yoga', 'Йога'], ['team', 'Командные']];
+    const dn = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const dfull = ['понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота', 'воскресенье'];
+    return {
+      types: T.map(([id, label]) => {
+        const sel = st.types.indexOf(id) >= 0;
+        return { label, sel, pressed: sel ? 'true' : 'false',
+          pick: () => this.setState({ types: sel ? st.types.filter(x => x !== id) : st.types.concat([id]) }),
+          style: 'height: 32px; padding: 0 16px 0 ' + (sel ? '8px' : '16px') + '; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; border: 1px solid ' + (sel ? '#5a3f48' : '#514347') + '; background: ' + (sel ? '#5a3f48' : 'transparent') + '; color: ' + (sel ? '#ffd9e3' : '#efdfe1') };
+      }),
+      ...(() => {
+        const seg = (list, cur, set) => list.map(([id, label], k) => {
+          const sel = id === cur;
+          return { label, pressed: sel ? 'true' : 'false', pick: () => set(id),
+            style: 'flex: 1; height: 40px; border: none; font-size: 13px; font-weight: 500; border-radius: ' + (sel ? '20px' : k === 0 ? '20px 8px 8px 20px' : k === list.length - 1 ? '8px 20px 20px 8px' : '8px') + '; background: ' + (sel ? '#e2bdc7' : '#3c3235') + '; color: ' + (sel ? '#422931' : '#efdfe1') };
+        });
+        const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+        const T0 = new Date(2026, 10, 2);
+        const S = new Date(st.start + 'T00:00:00');
+        const isTrain = d => {
+          const dow = (d.getDay() + 6) % 7;
+          const n = Math.round((d - S) / 864e5);
+          if (st.mode === 'week') return { t: st.days.indexOf(dow) >= 0, off: false };
+          if (n < 0) return { t: false, off: false, before: true };
+          if (st.mode === 'interval') return { t: n % (st.tr + st.rs) < st.tr, off: false };
+          const cyc = n % (st.on + st.off);
+          if (cyc >= st.on) return { t: false, off: true };
+          if (st.inner === 'daily') return { t: true, off: false };
+          if (st.inner === 'alt') return { t: cyc % 2 === 0, off: false };
+          return { t: st.days.indexOf(dow) >= 0, off: false };
+        };
+        const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'нояб', 'дек'];
+        let cnt = 0;
+        const preview = [];
+        for (let k = 0; k < 28; k++) {
+          const d = new Date(T0.getFullYear(), T0.getMonth(), T0.getDate() + k);
+          const r = isTrain(d);
+          if (r.t) cnt++;
+          const today = d.getTime() === new Date(2026, 10, 6).getTime();
+          preview.push({ num: d.getDate() === 1 ? '1 ' + months[d.getMonth()] : String(d.getDate()),
+            style: 'height: 34px; border-radius: 10px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: ' + (today ? 700 : 500) + '; ' +
+              (r.t ? 'background: #1F2A40; color: #8AB4FF; border: 1px solid #8AB4FF' : r.off ? 'background: transparent; color: #9e8c90; border: 1px dashed #9e8c90' : 'background: #31282a; color: #d5c2c6; border: 1px solid ' + (today ? '#ffb0c9' : 'transparent')) });
+        }
+        const word = (n, a, b, c) => { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14) ? b : c; };
+        return {
+          modes: seg([['week', 'Дни недели'], ['interval', 'Через N дней'], ['shift', 'Вахта']], st.mode, id => this.setState({ mode: id })),
+          isWeek: st.mode === 'week' || (st.mode === 'shift' && st.inner === 'week'),
+          isInterval: st.mode === 'interval', isShift: st.mode === 'shift', needsStart: st.mode !== 'week',
+          startLabel: st.mode === 'shift' ? 'Активный период начинается' : 'Первая тренировка',
+          start: st.start, setStart: e => this.setState({ start: e.target.value || st.start }),
+          tr: st.tr, rs: st.rs, on: st.on, off: st.off,
+          trDec: () => this.setState({ tr: clamp(st.tr - 1, 1, 6) }), trInc: () => this.setState({ tr: clamp(st.tr + 1, 1, 6) }),
+          rsDec: () => this.setState({ rs: clamp(st.rs - 1, 1, 7) }), rsInc: () => this.setState({ rs: clamp(st.rs + 1, 1, 7) }),
+          onDec: () => this.setState({ on: clamp(st.on - 1, 1, 60) }), onInc: () => this.setState({ on: clamp(st.on + 1, 1, 60) }),
+          offDec: () => this.setState({ off: clamp(st.off - 1, 1, 60) }), offInc: () => this.setState({ off: clamp(st.off + 1, 1, 60) }),
+          intervalText: st.tr + ' ' + word(st.tr, 'день', 'дня', 'дней') + ' тренировок, ' + st.rs + ' ' + word(st.rs, 'день', 'дня', 'дней') + ' отдыха — и по кругу',
+          inner: seg([['daily', 'Каждый день'], ['alt', 'Через день'], ['week', 'По дням недели']], st.inner, id => this.setState({ inner: id })).map(x => Object.assign(x, { style: x.style.replace('flex: 1; height: 40px', 'flex: 1; height: 36px; padding: 0 6px') })),
+          perMonth: '≈ ' + Math.round(cnt / 28 * 30) + ' ' + word(Math.round(cnt / 28 * 30), 'тренировка', 'тренировки', 'тренировок') + ' в месяц',
+          preview, previewAria: 'Тренировок в ближайшие 4 недели: ' + cnt
+        };
+      })(),
+      days: dn.map((label, i) => {
+        const sel = st.days.indexOf(i) >= 0;
+        return { label, aria: dfull[i], pressed: sel ? 'true' : 'false',
+          pick: () => this.setState({ days: sel ? st.days.filter(x => x !== i) : st.days.concat([i]) }),
+          style: 'height: 40px; border-radius: 20px; font-size: 13px; font-weight: 500; border: ' + (sel ? 'none' : 'none') + '; background: ' + (sel ? '#1F2A40' : '#31282a') + '; color: ' + (sel ? '#8AB4FF' : '#d5c2c6') };
+      }),
+      log: [['Силовая', 'среда, 5 ноября', 65], ['Кардио', 'понедельник, 3 ноября', 40], ['Силовая', 'пятница, 31 октября', 70], ['Силовая', 'среда, 29 октября', 60], ['Кардио', 'понедельник, 27 октября', 35]].map(x => ({ type: x[0], date: x[1], min: x[2] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

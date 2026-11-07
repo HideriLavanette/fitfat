@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Ассистент</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 128px; display: flex; flex-direction: column; gap: 12px">
+  <div style="display: flex; align-items: center; gap: 12px; height: 56px; flex-shrink: 0; padding-left: 4px">
+    <span style="width: 40px; height: 40px; border-radius: 20px; background: #5a3f48; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2Z"></path></svg></span>
+    <div style="flex: 1; display: flex; flex-direction: column">
+      <h1 style="margin: 0; font-size: 20px; font-weight: 650; line-height: 24px">Ассистент</h1>
+      <span style="font-size: 12px; color: #d5c2c6">видит ваш дневник, вес и цели</span>
+    </div>
+    <a href="Report.dc.html" style="height: 36px; padding: 0 14px; border-radius: 18px; background: #3c3235; color: #efdfe1; font-size: 13px; font-weight: 600; display: flex; align-items: center; text-decoration: none">Отчёт</a>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 12px">
+    <div style="align-self: flex-end; max-width: 280px; padding: 12px 16px; border-radius: 22px 22px 6px 22px; background: #6f3349; color: #ffd9e3; font-size: 15px; line-height: 21px">Чем добрать 40 г белка вечером без готовки?</div>
+    <div style="align-self: flex-start; max-width: 320px; display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 22px 22px 22px 6px; background: #261d20; font-size: 15px; line-height: 21px">
+      <span>Из того, что вы обычно едите, проще всего так:</span>
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 16px; background: #22191c">
+          <span style="width: 36px; height: 36px; border-radius: 12px; background: #263449; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10l-1.3 17.1a1 1 0 0 1-1 .9H9.3a1 1 0 0 1-1-.9Z M7.5 9h9"></path></svg></span>
+          <span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Творог 5%, 240 г</span><span style="font-size: 12px; color: #d5c2c6">41 г белка · 290 ккал</span></span>
+          <button aria-label="Добавить творог в дневник" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 16px; background: #22191c">
+          <span style="width: 36px; height: 36px; border-radius: 12px; background: #263449; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 3h10l-1.3 17.1a1 1 0 0 1-1 .9H9.3a1 1 0 0 1-1-.9Z M7.5 9h9"></path></svg></span>
+          <span style="flex: 1; display: flex; flex-direction: column"><span style="font-weight: 600">Творог 150 г + кефир 500 мл</span><span style="font-size: 12px; color: #d5c2c6">40 г белка · 447 ккал</span></span>
+          <button aria-label="Добавить творог и кефир в дневник" style="width: 40px; height: 40px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+        </div>
+      </div>
+      <span style="color: #d5c2c6; font-size: 14px">Первый вариант легче: после него на день останется ещё около 620 ккал.</span>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 8px; overflow: hidden; flex-shrink: 0">
+    <button style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 8px; border: none; background: #31282a; color: #efdfe1; font-size: 13px; font-weight: 600">Что на ужин?</button>
+    <button style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 8px; border: none; background: #31282a; color: #efdfe1; font-size: 13px; font-weight: 600">Почему вес стоит?</button>
+    <button style="flex-shrink: 0; height: 32px; padding: 0 16px; border-radius: 8px; border: none; background: #31282a; color: #efdfe1; font-size: 13px; font-weight: 600">Разбери вчера</button>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 6px 0 20px; border-radius: 28px; background: #3c3235; flex-shrink: 0">
+    <label for="as-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Сообщение ассистенту</label>
+    <input id="as-q" type="text" placeholder="Спросите что-нибудь" style="flex: 1; min-width: 0; height: 44px; border: none; background: transparent; font-size: 16px; color: #efdfe1; outline: none">
+    <button aria-label="Отправить" style="width: 44px; height: 44px; border-radius: 22px; border: none; background: #ffb0c9; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#541d33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg></button>
+  </div>
+
+  <div aria-hidden="true" style="position: absolute; left: 0; right: 0; bottom: 0; height: 120px; z-index: 9; background: linear-gradient(to bottom, rgba(25, 17, 19, 0) 0%, rgba(25, 17, 19, 0.55) 45%, rgba(25, 17, 19, 0.85) 100%); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); mask-image: linear-gradient(to bottom, transparent 0%, #000 45%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 45%); pointer-events: auto"></div>
+  <nav aria-label="Разделы" style="position: absolute; left: 16px; right: 16px; bottom: 16px; height: 72px; box-sizing: border-box; padding: 8px 6px; display: flex; border-radius: 36px; background: rgba(49, 40, 42, 0.72); backdrop-filter: blur(24px) saturate(1.4); -webkit-backdrop-filter: blur(24px) saturate(1.4); border: 1px solid rgba(239, 223, 225, 0.08); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35); z-index: 10">
+    <a href="Today.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none">
+      <span style="width: 56px; height: 32px; border-radius: 16px;  display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"></path></svg></span>
+      <span style="font-size: 12px; line-height: 16px; letter-spacing: 0.5px; font-weight: 500; color: #d5c2c6">Сегодня</span>
+    </a>
+    <a href="Weight-history.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none">
+      <span style="width: 56px; height: 32px; border-radius: 16px;  display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"></path></svg></span>
+      <span style="font-size: 12px; line-height: 16px; letter-spacing: 0.5px; font-weight: 500; color: #d5c2c6">Вес</span>
+    </a>
+    <a href="Assistant.dc.html" aria-current="page" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none">
+      <span style="width: 56px; height: 32px; border-radius: 16px; background: #5a3f48; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2Z"></path></svg></span>
+      <span style="font-size: 12px; line-height: 16px; letter-spacing: 0.5px; font-weight: 700; color: #e2bdc7">Ассистент</span>
+    </a>
+    <a href="Profile.dc.html" style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none">
+      <span style="width: 56px; height: 32px; border-radius: 16px;  display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM4 21a8 8 0 0 1 16 0"></path></svg></span>
+      <span style="font-size: 12px; line-height: 16px; letter-spacing: 0.5px; font-weight: 500; color: #d5c2c6">Профиль</span>
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

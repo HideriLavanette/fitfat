@@ -10,17 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Remove
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -33,14 +29,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import app.fitfat.data.FoodEntry
 import app.fitfat.ui.common.CategoryIcon
+import app.fitfat.ui.common.Drum
+import app.fitfat.ui.common.GRAM_MAX
+import app.fitfat.ui.common.GRAM_STEP
+import app.fitfat.ui.common.PIECE_MAX_STEPS
+import app.fitfat.ui.common.gramIndex
+import app.fitfat.ui.common.pieceIndex
+import app.fitfat.ui.common.pieceOf
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
-import kotlin.math.roundToInt
 
-/** Шторка записи: правка порции либо повтор. Для штучных — шаг 1 шт, иначе граммы. */
+/** Шторка записи: правка порции либо повтор. Порция — барабан: штуки шагом 0,5 или граммы шагом 5. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EntrySheet(
@@ -67,15 +68,20 @@ fun EntrySheet(
                 }
             }
             if (piece) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    FilledTonalIconButton(onClick = { pieces = (pieces - 1).coerceAtLeast(1.0) }) { Icon(Icons.Outlined.Remove, "Меньше") }
-                    Text("${fmt1(pieces)} шт", fontSize = 32.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("≈ ${fmt0(perPieceGrams * pieces)} г", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    FilledTonalIconButton(onClick = { pieces += 1 }) { Icon(Icons.Outlined.Add, "Больше") }
-                }
+                Drum(
+                    count = PIECE_MAX_STEPS, index = pieceIndex(pieces),
+                    onIndexChange = { pieces = pieceOf(it) },
+                    label = { "${fmt1(pieceOf(it))} шт" },
+                    description = "Порция",
+                )
+                Text("≈ ${fmt0(perPieceGrams * pieces)} г", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
             } else {
-                Text("${fmt0(grams)} г", fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                Slider(value = grams.toFloat(), onValueChange = { grams = ((it / 5f).roundToInt() * 5).toDouble() }, valueRange = 0f..maxOf(600f, (entry.grams * 2).toFloat()))
+                Drum(
+                    count = GRAM_MAX / GRAM_STEP + 1, index = gramIndex(grams),
+                    onIndexChange = { grams = (it * GRAM_STEP).toDouble() },
+                    label = { "${it * GRAM_STEP} г" },
+                    description = "Порция",
+                )
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${fmt0(entry.kcal * k)} ккал", fontWeight = FontWeight.SemiBold)

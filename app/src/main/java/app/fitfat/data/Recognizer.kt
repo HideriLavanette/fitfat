@@ -4,7 +4,13 @@ package app.fitfat.data
  * Разбор свободного текста «гречка 200, грудка гриль 150г, 2 яйца» на фрагменты
  * и поиск продуктов по названиям и синонимам. Всё локально, без сети.
  */
-data class Fragment(val raw: String, val query: String, val grams: Double?, val pieces: Double?)
+data class Fragment(
+    val raw: String, val query: String, val grams: Double?, val pieces: Double?,
+    /** Позиция [raw] в исходном тексте — чтобы показать подсказку над словом. */
+    val start: Int = 0,
+) {
+    val end: Int get() = start + raw.length
+}
 
 data class Candidate(val product: Product, val score: Int)
 
@@ -12,7 +18,17 @@ object Recognizer {
     private val SPLIT = Regex("""\s*(?:[,;\n]|\s+и\s+)\s*""")
     private val QTY = Regex("""(\d+(?:[.,]\d+)?)\s*(кг|килограмм\w*|г|гр|грамм\w*|мл|л|шт\w*|штук\w*)?\.?""", RegexOption.IGNORE_CASE)
 
-    fun split(text: String): List<Fragment> = text.split(SPLIT).map { it.trim() }.filter { it.isNotEmpty() }.map(::parse)
+    fun split(text: String): List<Fragment> {
+        val parts = mutableListOf<IntRange>()
+        var from = 0
+        for (m in SPLIT.findAll(text)) { parts += from until m.range.first; from = m.range.last + 1 }
+        parts += from until text.length
+        return parts.mapNotNull { r ->
+            val s = text.substring(r.first, r.last + 1)
+            val t = s.trim()
+            if (t.isEmpty()) null else parse(t).copy(start = r.first + (s.length - s.trimStart().length))
+        }
+    }
 
     private fun parse(raw: String): Fragment {
         val m = QTY.find(raw)

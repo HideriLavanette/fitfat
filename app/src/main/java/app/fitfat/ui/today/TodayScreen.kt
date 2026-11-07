@@ -1,8 +1,6 @@
 package app.fitfat.ui.today
 
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +13,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
@@ -56,18 +55,17 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -84,8 +82,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
 import java.util.Locale
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 private val longDate = DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru"))
 
@@ -110,7 +109,7 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 200.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            item { DateCapsule(ui.date, onShift = vm::shiftDay, onPick = { picking = true }) }
+            item { DateCapsule(ui.date, onSelect = vm::setDate, onPick = { picking = true }) }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     DayType.entries.forEach { t ->
@@ -120,7 +119,7 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
                             label = { Text(t.label) },
                             leadingIcon = { Icon(if (t == DayType.Training) Icons.Outlined.FitnessCenter else Icons.Outlined.WbSunny, null, Modifier.size(18.dp)) },
                             colors = if (t == DayType.Training) FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = Color(0xFF1F2A40), selectedLabelColor = MacroColors.training, selectedLeadingIconColor = MacroColors.training,
+                                selectedContainerColor = MacroColors.trainingContainer, selectedLabelColor = MacroColors.training, selectedLeadingIconColor = MacroColors.training,
                             ) else FilterChipDefaults.filterChipColors(),
                         )
                     }
@@ -225,38 +224,61 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
     }
 }
 
-/** Капсула даты: свайп вправо — вчера, влево — вперёд (не дальше сегодня), тап — календарь. */
+/** Капсула даты: свайп вправо — вчера, влево — вперёд (не дальше сегодня), тап — календарь.
+ *  Дни перелистываются как страницы. */
 @Composable
-private fun DateCapsule(date: LocalDate, onShift: (Long) -> Unit, onPick: () -> Unit) {
-    var drag by remember { mutableFloatStateOf(0f) }
-    val shown by animateFloatAsState(drag, label = "drag")
-    val today = LocalDate.now()
-    val title = when (date) { today -> "Сегодня"; today.minusDays(1) -> "Вчера"; today.minusDays(2) -> "Позавчера"; else -> date.format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru"))) }
+private fun DateCapsule(date: LocalDate, onSelect: (LocalDate) -> Unit, onPick: () -> Unit) {
+    // Дни — страницы пейджера: последняя страница — сегодня, левее — прошлое.
+    // Соседний день въезжает из-за края капсулы, капсула обрезает содержимое по форме.
+    val today = remember { LocalDate.now() }
+    fun pageOf(d: LocalDate) = (DAY_PAGES - 1 - ChronoUnit.DAYS.between(d, today)).toInt().coerceIn(0, DAY_PAGES - 1)
+    fun dateOf(page: Int) = today.minusDays((DAY_PAGES - 1 - page).toLong())
+    val pager = rememberPagerState(initialPage = pageOf(date)) { DAY_PAGES }
+
+    // Свайп закончился на другом дне — сообщаем экрану
+    val currentDate by rememberUpdatedState(date)
+    val select by rememberUpdatedState(onSelect)
+    LaunchedEffect(pager) {
+        snapshotFlow { pager.settledPage }.collect { p -> if (dateOf(p) != currentDate) select(dateOf(p)) }
+    }
+    // Дату сменили снаружи (календарь) — доезжаем до неё
+    LaunchedEffect(date) {
+        val target = pageOf(date)
+        if (pager.currentPage != target) {
+            if (abs(pager.currentPage - target) <= 7) pager.animateScrollToPage(target) else pager.scrollToPage(target)
+        }
+    }
+
     Surface(
         onClick = onPick,
         shape = RoundedCornerShape(28.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().height(60.dp).pointerInput(date) {
-            detectHorizontalDragGestures(
-                onDragEnd = {
-                    // Как листание страниц: прошлое слева, тянем вправо — уходим назад
-                    if (drag > 120f) onShift(-1) else if (drag < -120f && date.isBefore(today)) onShift(1)
-                    drag = 0f
-                },
-                onDragCancel = { drag = 0f },
-            ) { change, d -> change.consume(); drag = (drag + d).coerceIn(-300f, 300f) }
-        },
+        modifier = Modifier.fillMaxWidth().height(60.dp),
     ) {
-        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, null, tint = MaterialTheme.colorScheme.outline)
-            Column(Modifier.weight(1f).offset { IntOffset(shown.roundToInt() / 2, 0) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(date.format(longDate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(contentAlignment = Alignment.Center) {
+            HorizontalPager(pager, Modifier.fillMaxSize(), beyondViewportPageCount = 1) { page ->
+                val d = dateOf(page)
+                val title = when (d) {
+                    today -> "Сегодня"; today.minusDays(1) -> "Вчера"; today.minusDays(2) -> "Позавчера"
+                    else -> d.format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru")))
+                }
+                Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text(title, style = MaterialTheme.typography.titleMedium)
+                    Text(d.format(longDate), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = if (date.isBefore(today)) MaterialTheme.colorScheme.outline else Color.Transparent)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, null, tint = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.weight(1f))
+                val hasNext = pager.currentPage < DAY_PAGES - 1
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = if (hasNext) MaterialTheme.colorScheme.outline else Color.Transparent)
+            }
         }
     }
 }
+
+/** Сколько дней назад можно пролистать капсулой (~10 лет); дальше — через календарь не нужно. */
+private const val DAY_PAGES = 3653
 
 @Composable
 private fun ProgressCard(ui: TodayUi) {

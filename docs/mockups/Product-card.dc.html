@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Карточка продукта</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 16px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 64px; flex-shrink: 0">
+    <a href="Products.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Продукт</h1>
+    <a href="Product-edit.dc.html" aria-label="Изменить" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"></path></svg></a>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 16px; padding: 0 4px">
+    <span style="width: 76px; height: 76px; border-radius: 26px; background: #4C2E26; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 3.5a5.5 5.5 0 0 1 3 9.5l-3.5 3.5-6-6 3.5-3.5a5.5 5.5 0 0 1 3-3.5Z M8 11l-3.5 3.5 M5.5 13.5a2 2 0 1 0 2.5 2.5"></path></svg></span>
+    <div style="display: flex; flex-direction: column; gap: 4px">
+      <h2 style="margin: 0; font-size: 24px; font-weight: 700; line-height: 28px">Куриная грудка гриль</h2>
+      <span style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #d5c2c6"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>Ваш продукт · проверен</span>
+    </div>
+  </div>
+
+  <section aria-label="Пищевая ценность" style="padding: 16px; border-radius: 24px; background: #261d20; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between">
+      <span style="font-size: 13px; color: #d5c2c6">на 100 г</span>
+      <span><span style="font-size: 34px; font-weight: 750">165</span><span style="font-size: 15px; color: #d5c2c6"> ккал</span></span>
+    </div>
+    <div aria-hidden="true" style="display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px">
+      <span style="width: 79%; background: #C4A8FF"></span><span style="width: 21%; background: #F2C14E"></span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #C4A8FF">Белки</span><span style="font-size: 20px; font-weight: 700">31 г</span><span style="font-size: 12px; color: #d5c2c6">79% энергии</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #F2C14E">Жиры</span><span style="font-size: 20px; font-weight: 700">3,6 г</span><span style="font-size: 12px; color: #d5c2c6">21% энергии</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #FFA36C">Углеводы</span><span style="font-size: 20px; font-weight: 700">0 г</span><span style="font-size: 12px; color: #d5c2c6">0%</span></div>
+    </div>
+  </section>
+
+  <section aria-label="Порции" style="display: flex; flex-direction: column; gap: 8px">
+    <h3 style="margin: 0 8px; font-size: 15px; font-weight: 650; color: #d5c2c6">Порции</h3>
+    <div style="border-radius: 20px; background: #22191c; overflow: hidden">
+      <div style="display: flex; align-items: center; height: 52px; padding: 0 16px"><span style="flex: 1; font-size: 15px">Обычная порция</span><span style="font-size: 15px; font-weight: 600">200 г · 330 ккал</span></div>
+      <div style="display: flex; align-items: center; height: 52px; padding: 0 16px"><span style="flex: 1; font-size: 15px">1 кусок</span><span style="font-size: 15px; font-weight: 600">120 г · 198 ккал</span></div>
+    </div>
+  </section>
+
+  <section aria-label="Другие названия" style="display: flex; flex-direction: column; gap: 8px">
+    <h3 style="margin: 0 8px; font-size: 15px; font-weight: 650; color: #d5c2c6">Распознаётся по словам</h3>
+    <div style="display: flex; flex-wrap: wrap; gap: 8px">
+      <span style="height: 32px; padding: 0 16px; border-radius: 8px; background: #3c3235; font-size: 14px; display: flex; align-items: center">грудка гриль</span>
+      <span style="height: 32px; padding: 0 16px; border-radius: 8px; background: #3c3235; font-size: 14px; display: flex; align-items: center">курица гриль</span>
+      <span style="height: 32px; padding: 0 16px; border-radius: 8px; background: #3c3235; font-size: 14px; display: flex; align-items: center">филе на гриле</span>
+      <button style="height: 32px; padding: 0 12px 0 8px; border-radius: 10px; border: none; background: #31282a; color: #efdfe1; font-size: 14px; display: flex; align-items: center; gap: 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Добавить</button>
+    </div>
+  </section>
+
+  <span style="font-size: 13px; color: #d5c2c6; padding: 0 8px">Записывали 12 раз · последний раз сегодня в 13:40</span>
+
+  <a href="Add-food.dc.html" style="margin-top: auto; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; letter-spacing: 0.15px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#541d33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Добавить в дневник</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

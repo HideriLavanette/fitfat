@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Рецепт</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 980px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 14px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 64px; flex-shrink: 0">
+    <a href="Products.dc.html" aria-label="Закрыть" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+    <label for="re-name" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Название блюда</label>
+    <div style="flex: 1; min-width: 0; height: 48px; padding: 0 10px 0 14px; border-radius: 16px; background: #261d20; display: flex; align-items: center; gap: 8px">
+      <input id="re-name" type="text" value="{{name}}" onChange="{{setName}}" style="flex: 1; min-width: 0; border: none; background: transparent; color: #efdfe1; font-size: 20px; font-weight: 650; outline: none; padding: 0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"></path></svg>
+    </div>
+    <button onClick="{{askDel}}" aria-label="Удалить" style="width: 48px; height: 48px; border-radius: 24px; border: none; background: none; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffb4ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"></path></svg></button>
+  </div>
+
+  <div style="display: flex; gap: 12px; align-items: center">
+    <button onClick="{{togglePhoto}}" aria-label="{{photoAria}}" style="{{photoStyle}}">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{photoInk}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{photoIcon}}"></path></svg>
+      <span style="font-size: 11px; font-weight: 500; color: {{photoInk}}">{{photoLabel}}</span>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px">
+      <label for="re-barcode" style="font-size: 12px; font-weight: 600; color: #d5c2c6">Штрихкод · если блюдо покупное</label>
+      <div style="display: flex; gap: 8px">
+        <input id="re-barcode" type="text" inputmode="numeric" placeholder="не указан" value="{{barcode}}" onChange="{{setBarcode}}" style="flex: 1; min-width: 0; height: 48px; padding: 0 12px; border-radius: 12px; border: none; background: #31282a; color: #efdfe1; font-size: 15px; outline: none">
+        <button onClick="{{scan}}" aria-label="Сканировать штрихкод" style="width: 48px; height: 48px; border-radius: 14px; border: none; background: #5a3f48; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8 8.5v7M11 8.5v7M13.5 8.5v7M16 8.5v7M3 12h18"></path></svg></button>
+      </div>
+    </div>
+  </div>
+
+  <section aria-label="Ингредиенты" style="display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: baseline; padding: 0 8px">
+      <h2 style="margin: 0; flex: 1; font-size: 15px; font-weight: 650; color: #d5c2c6">Ингредиенты · сырой вес</h2>
+      <span style="font-size: 13px; color: #d5c2c6">{{rawW}} г</span>
+    </div>
+    <div style="border-radius: 20px; background: #22191c; overflow: hidden">
+      <sc-for list="{{ing}}" as="i" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 8px 0 14px">
+          <span style="{{i.box}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{i.icon}}"></path></svg></span>
+          <span style="flex: 1; display: flex; flex-direction: column; gap: 1px"><span style="font-size: 15px; font-weight: 600">{{i.name}}</span><span style="font-size: 12px; color: #d5c2c6">{{i.kcal}} ккал</span></span>
+          <span style="height: 36px; min-width: 72px; padding: 0 12px; border-radius: 12px; background: #3c3235; font-size: 15px; font-weight: 600; display: flex; align-items: center; justify-content: center; box-sizing: border-box">{{i.g}} г</span>
+        </div>
+      </sc-for>
+      <button style="width: 100%; height: 52px; border: none; background: none; color: #efdfe1; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 10px; padding: 0 16px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Ингредиент</button>
+    </div>
+  </section>
+
+  <section aria-label="Готовое блюдо" style="padding: 16px; border-radius: 24px; background: #261d20; display: flex; flex-direction: column; gap: 12px">
+    <span style="font-size: 13px; font-weight: 600; color: #d5c2c6">Вес готового блюда</span>
+    <div style="text-align: center"><span style="font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums">{{cooked}}</span><span style="font-size: 15px; color: #d5c2c6"> г</span></div>
+    <div role="slider" tabindex="0" aria-label="Вес готового блюда, граммы" aria-valuenow="{{cpot.now}}" onKeyDown="{{cpot.key}}" onPointerDown="{{cpot.down}}" onPointerMove="{{cpot.mv}}" onPointerUp="{{cpot.up}}" onPointerCancel="{{cpot.up}}" style="position: relative; height: 64px; border-radius: 20px; background: #31282a; overflow: hidden; touch-action: none; cursor: grab; user-select: none; outline: none">
+      <sc-for list="{{cpot.ticks}}" as="tk" hint-placeholder-count="21"><span style="{{tk.s}}"></span></sc-for>
+      <span aria-hidden="true" style="position: absolute; left: calc(50% - 1.5px); top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: #ffb0c9; pointer-events: none"></span>
+    </div>
+    <span style="font-size: 12px; line-height: 17px; color: #d5c2c6">Взвесьте казан без крышки и вычтите его вес — так КБЖУ на 100 г будут точными, даже если часть воды выкипела.</span>
+    <div style="height: 1px; background: #514347"></div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #d5c2c6">ккал/100 г</span><span style="font-size: 20px; font-weight: 700">{{k}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #C4A8FF">Белки</span><span style="font-size: 20px; font-weight: 700">{{p}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #F2C14E">Жиры</span><span style="font-size: 20px; font-weight: 700">{{f}}</span></div>
+      <div style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; color: #FFA36C">Углев.</span><span style="font-size: 20px; font-weight: 700">{{u}}</span></div>
+    </div>
+  </section>
+
+  <a href="Product-card.dc.html" style="margin-top: auto; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; letter-spacing: 0.15px; display: flex; align-items: center; justify-content: center; text-decoration: none">Сохранить блюдо</a>
+  <sc-if value="{{delOpen}}" hint-placeholder-val="{{ false }}">
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 60"></div>
+    <section role="alertdialog" aria-modal="true" aria-labelledby="del-title" aria-describedby="del-text" style="position: absolute; left: 32px; right: 32px; top: 260px; z-index: 61; box-sizing: border-box; padding: 24px; border-radius: 28px; background: #31282a; display: flex; flex-direction: column; align-items: center; gap: 16px; text-align: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffb4ab" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"></path></svg>
+      <h2 id="del-title" style="margin: 0; font-size: 24px; font-weight: 400; line-height: 32px">Удалить «{{name}}»?</h2>
+      <p id="del-text" style="margin: 0; font-size: 14px; line-height: 20px; color: #d5c2c6; text-align: left">Блюдо и его рецепт исчезнут из базы. Записи в дневнике останутся — их КБЖУ сохранены.</p>
+      <div style="align-self: stretch; display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px">
+        <button onClick="{{closeDel}}" style="height: 40px; padding: 0 12px; border-radius: 20px; border: none; background: none; color: #ffb0c9; font-size: 14px; font-weight: 500">Отмена</button>
+        <a href="Products.dc.html" style="height: 40px; padding: 0 12px; border-radius: 20px; color: #ffb4ab; font-size: 14px; font-weight: 500; display: flex; align-items: center; text-decoration: none">Удалить</a>
+      </div>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":980}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { cooked: 1430, name: 'Плов домашний', photo: false, barcode: '' };
+  }
+  renderVals() {
+    const mkPot = (key, getV, setV, min, max) => {
+      this._pot = this._pot || {};
+      const P = this._pot[key] || (this._pot[key] = { acc: 0, v: 0, raf: 0, drag: false, bump: 0, x: 0, t: 0, h: [], cum: 0 });
+      const SP = 22, R = 120;
+      const stepFor = (v, dir) => { const x = dir > 0 ? v : v - 1; return x >= 1000 ? 50 : x >= 100 ? 10 : 5; };
+      const sound = strong => {
+        try {
+          if (!this._ac) { const AC = window.AudioContext || window.webkitAudioContext; this._ac = new AC(); }
+          const ac = this._ac, t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.value = strong ? 520 : 2600;
+          g.gain.setValueAtTime(strong ? 0.08 : 0.035, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + (strong ? 0.08 : 0.025));
+          o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1);
+        } catch (e) {}
+        try { if (navigator.vibrate) navigator.vibrate(strong ? [22, 35, 22, 35, 22] : 6); } catch (e) {}
+      };
+      const hitLimit = () => { const now = performance.now(); P.v = 0; if (now - P.bump > 300) { P.bump = now; sound(true); } };
+      const stepOnce = dir => {
+        const v = getV(), s = stepFor(v, dir);
+        const nv = dir > 0 ? Math.floor(v / s) * s + s : Math.ceil(v / s) * s - s;
+        if (nv > max || nv < min) { hitLimit(); return false; }
+        setV(nv); sound(false); return true;
+      };
+      const push = dx => {
+        const v = getV();
+        if ((dx < 0 && v >= max) || (dx > 0 && v <= min)) { P.acc = 0; hitLimit(); this.setState({ ['__pot_' + key]: 0 }); return; }
+        P.acc += dx;
+        while (P.acc <= -SP) { if (!stepOnce(1)) { P.acc = 0; break; } P.acc += SP; }
+        while (P.acc >= SP) { if (!stepOnce(-1)) { P.acc = 0; break; } P.acc -= SP; }
+        this.setState({ ['__pot_' + key]: P.acc });
+      };
+      const settle = () => {
+        const from = P.acc, t0 = performance.now();
+        const go = now => { const k = Math.min(1, (now - t0) / 160); P.acc = from * Math.pow(1 - k, 3); this.setState({ ['__pot_' + key]: P.acc }); if (k < 1) P.raf = requestAnimationFrame(go); else P.raf = 0; };
+        P.raf = requestAnimationFrame(go);
+      };
+      const spin = () => {
+        let last = performance.now();
+        const go = now => {
+          const dt = Math.min(now - last, 40); last = now;
+          push(P.v * dt);
+          P.v *= Math.exp(-dt / 380);
+          if (Math.abs(P.v) < 0.05) { P.raf = 0; settle(); return; }
+          P.raf = requestAnimationFrame(go);
+        };
+        P.raf = requestAnimationFrame(go);
+      };
+      const v = getV(), s = stepFor(v, 1), idx = Math.round(v / s);
+      const ticks = [];
+      for (let k = -14; k <= 14; k++) {
+        const th = (k * SP + P.acc) / R;
+        if (Math.abs(th) > 1.45) continue;
+        const c = Math.cos(th), x = R * Math.sin(th);
+        const major = ((idx + k) % 5 + 5) % 5 === 0;
+        const h = (major ? 30 : 18) * (0.45 + 0.55 * c);
+        ticks.push({ s: 'position: absolute; top: calc(50% - ' + (h / 2).toFixed(1) + 'px); left: calc(50% + ' + (x - 1).toFixed(1) + 'px); width: ' + (major ? 2.5 : 2) + 'px; height: ' + h.toFixed(1) + 'px; border-radius: 2px; pointer-events: none; background: rgba(239, 223, 225, ' + (Math.pow(c, 2.2) * (major ? 0.95 : 0.6)).toFixed(2) + ')' });
+      }
+      return {
+        ticks, now: v,
+        down: e => { if (P.raf) cancelAnimationFrame(P.raf); P.raf = 0; P.drag = true; P.x = e.clientX; P.t = performance.now(); P.v = 0; P.cum = 0; P.h = [{ t: P.t, x: 0 }]; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (z) {} if (this._ac && this._ac.state === 'suspended') this._ac.resume(); },
+        mv: e => { if (!P.drag) return; const now = performance.now(), dx = e.clientX - P.x; P.x = e.clientX; P.t = now; P.cum += dx; P.h.push({ t: now, x: P.cum }); while (P.h.length > 2 && now - P.h[0].t > 100) P.h.shift(); push(dx); },
+        up: () => {
+          if (!P.drag) return; P.drag = false;
+          const now = performance.now(), r = P.h.filter(p => now - p.t <= 90);
+          P.v = r.length >= 2 && r[r.length - 1].t - r[0].t >= 16 ? (r[r.length - 1].x - r[0].x) / (r[r.length - 1].t - r[0].t) : 0;
+          if (Math.abs(P.v) < 0.35) P.v = 0;
+          P.v = Math.max(-3, Math.min(3, P.v));
+          if (P.v) spin(); else settle();
+        },
+        key: e => { if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); stepOnce(1); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); stepOnce(-1); } }
+      };
+    };
+    const ic = {
+      grain: 'M3 11h18a9 9 0 0 1-18 0Z M8 7c0-1.5 1.5-1.5 1.5-3 M13 7c0-1.5 1.5-1.5 1.5-3',
+      meat: 'M14.5 3.5a5.5 5.5 0 0 1 3 9.5l-3.5 3.5-6-6 3.5-3.5a5.5 5.5 0 0 1 3-3.5Z M8 11l-3.5 3.5 M5.5 13.5a2 2 0 1 0 2.5 2.5',
+      veg: 'M5 19C5 10 10 5 19 5c0 9-5 14-14 14Z M5 19l8-8',
+      sauce: 'M5 9h14v3a7 7 0 0 1-14 0ZM9 5h6'
+    };
+    const bg = { grain: '#4A3D22', meat: '#4C2E26', veg: '#24402F', sauce: '#3B2A33' };
+    const list = [
+      ['Рис сухой', 'grain', 300, 344, 6.7, 0.7, 78.9], ['Говядина', 'meat', 400, 187, 18.9, 12.4, 0],
+      ['Морковь', 'veg', 300, 35, 1.3, 0.1, 6.9], ['Лук репчатый', 'veg', 150, 41, 1.4, 0, 8.2],
+      ['Масло подсолнечное', 'sauce', 50, 899, 0, 99.9, 0]
+    ];
+    const t = { k: 0, p: 0, f: 0, u: 0, w: 0 };
+    list.forEach(x => { const s = x[2] / 100; t.k += x[3] * s; t.p += x[4] * s; t.f += x[5] * s; t.u += x[6] * s; t.w += x[2]; });
+    const c = this.state.cooked, per = 100 / c;
+    const f1 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+    return {
+      delOpen: !!this.state.delOpen, askDel: () => this.setState({ delOpen: true }), closeDel: () => this.setState({ delOpen: false }),
+      name: this.state.name,
+      togglePhoto: () => this.setState({ photo: !this.state.photo }),
+      photoAria: this.state.photo ? 'Сменить фото блюда' : 'Добавить фото блюда',
+      photoLabel: this.state.photo ? 'Сменить' : 'Фото',
+      photoInk: this.state.photo ? '#ffd9e3' : '#d5c2c6',
+      photoIcon: this.state.photo ? 'M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2' : 'M4 8h3l2-3h6l2 3h3v11H4ZM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z',
+      photoStyle: 'width: 76px; height: 76px; flex-shrink: 0; border-radius: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ' + (this.state.photo ? 'border: none; background: #6f3349' : 'border: none; background: #31282a'),
+      barcode: this.state.barcode,
+      setBarcode: e => this.setState({ barcode: e.target.value }),
+      scan: () => this.setState({ barcode: '4607001234567' }),
+      setName: e => this.setState({ name: e.target.value }),
+      cpot: mkPot('cook', () => this.state.cooked, nv => this.setState({ cooked: nv }), 100, 6000),
+      rawW: t.w,
+      ing: list.map(x => ({
+        name: x[0], icon: ic[x[1]], g: x[2], kcal: Math.round(x[3] * x[2] / 100),
+        box: 'width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: ' + bg[x[1]]
+      })),
+      cooked: c.toLocaleString('ru-RU'),
+      dec: () => this.setState({ cooked: Math.max(100, c - 50) }),
+      inc: () => this.setState({ cooked: c + 50 }),
+      k: Math.round(t.k * per), p: f1(t.p * per), f: f1(t.f * per), u: f1(t.u * per)
+    };
+  }
+}
+</script>
+</body>
+</html>

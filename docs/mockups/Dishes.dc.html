@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Мои блюда</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 20px; display: flex; flex-direction: column; gap: 12px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 64px; flex-shrink: 0">
+    <a href="Add-empty.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Мои блюда</h1>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 16px; border-radius: 26px; background: #261d20; flex-shrink: 0">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4"></path></svg>
+    <label for="di-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Поиск блюда</label>
+    <input id="di-q" type="search" placeholder="Поиск блюда" style="flex: 1; min-width: 0; height: 44px; border: none; background: transparent; color: #efdfe1; font-size: 16px; outline: none">
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 10px">
+    <sc-for list="{{dishes}}" as="d" hint-placeholder-count="3">
+      <button onClick="{{d.open}}" aria-haspopup="dialog" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 22px; border: none; background: #22191c; color: #efdfe1; text-align: left">
+        <span style="width: 52px; height: 52px; border-radius: 18px; background: #5a3f48; display: flex; align-items: center; justify-content: center; flex-shrink: 0"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2"></path></svg></span>
+        <span style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+          <span style="font-size: 16px; font-weight: 650">{{d.name}}</span>
+          <span style="font-size: 12px; color: #d5c2c6">{{d.sub}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end"><span style="font-size: 16px; font-weight: 650">{{d.k}}</span><span style="font-size: 11px; color: #d5c2c6">ккал/100 г</span></span>
+      </button>
+    </sc-for>
+  </div>
+
+  <a href="Dish-card.dc.html" style="margin-top: auto; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; letter-spacing: 0.15px; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#541d33" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Создать блюдо</a>
+
+  <sc-if value="{{open}}" hint-placeholder-val="{{ false }}">
+    <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(0, 0, 0, 0.5)"></div>
+    <section role="dialog" aria-modal="true" aria-labelledby="dm-title" style="position: absolute; left: 0; bottom: 0; width: 390px; max-height: 790px; box-sizing: border-box; padding: 10px 20px 20px; border-radius: 28px 28px 0 0; background: #22191c; display: flex; flex-direction: column; gap: 12px; overflow: hidden">
+      <span aria-hidden="true" style="align-self: center; width: 32px; height: 4px; border-radius: 2px; background: #d5c2c6; opacity: 0.4"></span>
+      <div style="display: flex; align-items: center; gap: 8px">
+        <h2 id="dm-title" style="margin: 0; flex: 1; font-size: 20px; font-weight: 650">{{m.name}}</h2>
+        <sc-if value="{{m.changed}}" hint-placeholder-val="{{ false }}">
+          <span style="height: 26px; padding: 0 10px; border-radius: 13px; background: #5a3f48; color: #ffd9e3; font-size: 12px; font-weight: 700; display: flex; align-items: center">состав изменён</span>
+        </sc-if>
+      </div>
+
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <span><span style="font-size: 36px; font-weight: 750">{{m.g}}</span><span style="font-size: 16px; color: #d5c2c6"> г</span></span>
+        <span><span style="font-size: 22px; font-weight: 700">{{m.kcal}}</span><span style="font-size: 14px; color: #d5c2c6"> ккал</span></span>
+      </div>
+      <div role="slider" tabindex="0" aria-label="Вес порции, граммы" aria-valuenow="{{m.pot.now}}" onKeyDown="{{m.pot.key}}" onPointerDown="{{m.pot.down}}" onPointerMove="{{m.pot.mv}}" onPointerUp="{{m.pot.up}}" onPointerCancel="{{m.pot.up}}" style="position: relative; height: 64px; border-radius: 20px; background: #261d20; overflow: hidden; touch-action: none; cursor: grab; user-select: none; outline: none">
+        <sc-for list="{{m.pot.ticks}}" as="tk" hint-placeholder-count="21"><span style="{{tk.s}}"></span></sc-for>
+        <span aria-hidden="true" style="position: absolute; left: calc(50% - 1.5px); top: 10px; bottom: 10px; width: 3px; border-radius: 2px; background: #ffb0c9; pointer-events: none"></span>
+      </div>
+      <div style="display: flex; gap: 6px"><span style="position: relative; flex: 1; min-width: 0; height: 36px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: #332b45; color: #d3c4f5; display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Белки</span>{{m.p}}<span style="font-size: 11px; font-weight: 500; opacity: 0.75">г</span></span><span style="position: relative; flex: 1; min-width: 0; height: 36px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: #3a3122; color: #e6d09a; display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Жиры</span>{{m.f}}<span style="font-size: 11px; font-weight: 500; opacity: 0.75">г</span></span><span style="position: relative; flex: 1; min-width: 0; height: 36px; padding: 0 6px; box-sizing: border-box; border-radius: 12px; background: #3d2a21; color: #eebd9e; display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Углеводы</span>{{m.u}}<span style="font-size: 11px; font-weight: 500; opacity: 0.75">г</span></span></div>
+      <span style="font-size: 12px; color: #d5c2c6; white-space: nowrap">на 100 г: {{m.k100}} ккал</span>
+
+      <button onClick="{{toggleIng}}" aria-expanded="{{m.expanded}}" style="height: 48px; padding: 0 14px; border-radius: 16px; border: none; background: #31282a; color: #efdfe1; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 10px; text-align: left">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"></path></svg><span style="flex: 1">Состав в этот раз</span><span style="font-size: 13px; font-weight: 400; color: #d5c2c6">{{m.ingHint}}</span>
+      </button>
+
+      <sc-if value="{{m.showIng}}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; flex-direction: column; border-radius: 18px; background: #22191c; overflow: hidden">
+          <sc-for list="{{m.ing}}" as="i" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 6px 0 14px">
+              <span style="{{i.dot}}"></span>
+              <span style="flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0">
+                <span style="font-size: 14px; font-weight: 600">{{i.name}}</span>
+                <span style="font-size: 11px; color: #d5c2c6">{{i.def}}</span>
+              </span>
+              <button aria-label="{{i.decLabel}}" onClick="{{i.dec}}" style="width: 36px; height: 36px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"></path></svg></button>
+              <span style="{{i.valStyle}}">{{i.g}} г</span>
+              <button aria-label="{{i.incLabel}}" onClick="{{i.inc}}" style="width: 36px; height: 36px; border-radius: 12px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>
+            </div>
+          </sc-for>
+          <div style="display: flex; align-items: center; gap: 8px; padding: 10px 14px">
+            <span style="flex: 1; font-size: 12px; line-height: 16px; color: #d5c2c6">Меняется только эта запись. Рецепт блюда остаётся прежним.</span>
+            <sc-if value="{{m.changed}}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{reset}}" style="height: 32px; padding: 0 10px; border-radius: 16px; border: none; background: none; color: #ffb0c9; font-size: 13px; font-weight: 600">Сбросить</button>
+            </sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="display: flex; gap: 8px; margin-top: 2px">
+        <button onClick="{{close}}" style="flex: 1; height: 52px; border-radius: 26px; border: none; background: none; color: #ffb0c9; font-size: 16px; font-weight: 600">Отмена</button>
+        <a href="Add-food.dc.html" style="flex: 1.4; height: 52px; border-radius: 26px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none">Добавить</a>
+      </div>
+      <a href="Dish-card.dc.html" style="align-self: center; color: #d5c2c6; font-size: 13px; text-decoration: underline">Открыть карточку блюда</a>
+    </section>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { sel: null, g: 300, ing: null, expanded: false };
+  }
+  renderVals() {
+    const mkPot = (key, getV, setV, min, max) => {
+      this._pot = this._pot || {};
+      const P = this._pot[key] || (this._pot[key] = { acc: 0, v: 0, raf: 0, drag: false, bump: 0, x: 0, t: 0, h: [], cum: 0 });
+      const SP = 22, R = 120;
+      const stepFor = (v, dir) => { const x = dir > 0 ? v : v - 1; return x >= 1000 ? 50 : x >= 100 ? 10 : 5; };
+      const sound = strong => {
+        try {
+          if (!this._ac) { const AC = window.AudioContext || window.webkitAudioContext; this._ac = new AC(); }
+          const ac = this._ac, t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+          o.type = 'sine'; o.frequency.value = strong ? 520 : 2600;
+          g.gain.setValueAtTime(strong ? 0.08 : 0.035, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + (strong ? 0.08 : 0.025));
+          o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1);
+        } catch (e) {}
+        try { if (navigator.vibrate) navigator.vibrate(strong ? [22, 35, 22, 35, 22] : 6); } catch (e) {}
+      };
+      const hitLimit = () => { const now = performance.now(); P.v = 0; if (now - P.bump > 300) { P.bump = now; sound(true); } };
+      const stepOnce = dir => {
+        const v = getV(), s = stepFor(v, dir);
+        const nv = dir > 0 ? Math.floor(v / s) * s + s : Math.ceil(v / s) * s - s;
+        if (nv > max || nv < min) { hitLimit(); return false; }
+        setV(nv); sound(false); return true;
+      };
+      const push = dx => {
+        const v = getV();
+        if ((dx < 0 && v >= max) || (dx > 0 && v <= min)) { P.acc = 0; hitLimit(); this.setState({ ['__pot_' + key]: 0 }); return; }
+        P.acc += dx;
+        while (P.acc <= -SP) { if (!stepOnce(1)) { P.acc = 0; break; } P.acc += SP; }
+        while (P.acc >= SP) { if (!stepOnce(-1)) { P.acc = 0; break; } P.acc -= SP; }
+        this.setState({ ['__pot_' + key]: P.acc });
+      };
+      const settle = () => {
+        const from = P.acc, t0 = performance.now();
+        const go = now => { const k = Math.min(1, (now - t0) / 160); P.acc = from * Math.pow(1 - k, 3); this.setState({ ['__pot_' + key]: P.acc }); if (k < 1) P.raf = requestAnimationFrame(go); else P.raf = 0; };
+        P.raf = requestAnimationFrame(go);
+      };
+      const spin = () => {
+        let last = performance.now();
+        const go = now => {
+          const dt = Math.min(now - last, 40); last = now;
+          push(P.v * dt);
+          P.v *= Math.exp(-dt / 380);
+          if (Math.abs(P.v) < 0.05) { P.raf = 0; settle(); return; }
+          P.raf = requestAnimationFrame(go);
+        };
+        P.raf = requestAnimationFrame(go);
+      };
+      const v = getV(), s = stepFor(v, 1), idx = Math.round(v / s);
+      const ticks = [];
+      for (let k = -14; k <= 14; k++) {
+        const th = (k * SP + P.acc) / R;
+        if (Math.abs(th) > 1.45) continue;
+        const c = Math.cos(th), x = R * Math.sin(th);
+        const major = ((idx + k) % 5 + 5) % 5 === 0;
+        const h = (major ? 30 : 18) * (0.45 + 0.55 * c);
+        ticks.push({ s: 'position: absolute; top: calc(50% - ' + (h / 2).toFixed(1) + 'px); left: calc(50% + ' + (x - 1).toFixed(1) + 'px); width: ' + (major ? 2.5 : 2) + 'px; height: ' + h.toFixed(1) + 'px; border-radius: 2px; pointer-events: none; background: rgba(239, 223, 225, ' + (Math.pow(c, 2.2) * (major ? 0.95 : 0.6)).toFixed(2) + ')' });
+      }
+      return {
+        ticks, now: v,
+        down: e => { if (P.raf) cancelAnimationFrame(P.raf); P.raf = 0; P.drag = true; P.x = e.clientX; P.t = performance.now(); P.v = 0; P.cum = 0; P.h = [{ t: P.t, x: 0 }]; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (z) {} if (this._ac && this._ac.state === 'suspended') this._ac.resume(); },
+        mv: e => { if (!P.drag) return; const now = performance.now(), dx = e.clientX - P.x; P.x = e.clientX; P.t = now; P.cum += dx; P.h.push({ t: now, x: P.cum }); while (P.h.length > 2 && now - P.h[0].t > 100) P.h.shift(); push(dx); },
+        up: () => {
+          if (!P.drag) return; P.drag = false;
+          const now = performance.now(), r = P.h.filter(p => now - p.t <= 90);
+          P.v = r.length >= 2 && r[r.length - 1].t - r[0].t >= 16 ? (r[r.length - 1].x - r[0].x) / (r[r.length - 1].t - r[0].t) : 0;
+          if (Math.abs(P.v) < 0.35) P.v = 0;
+          P.v = Math.max(-3, Math.min(3, P.v));
+          if (P.v) spin(); else settle();
+        },
+        key: e => { if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { e.preventDefault(); stepOnce(1); } if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { e.preventDefault(); stepOnce(-1); } }
+      };
+    };
+    const mkSlider = (key, val, min, max, size, label) => {
+      const p = Math.max(0, Math.min(100, (val - min) / ((max - min) || 1) * 100));
+      const spec = { S: [24, 44, 8], M: [40, 52, 12] }[size];
+      const th = spec[0], hh = spec[1], r = spec[2], tp = (hh - th) / 2;
+      const pressed = !!(this.state.__press && this.state.__press[key]);
+      const setP = v => this.setState({ __press: Object.assign({}, this.state.__press || {}, { [key]: v }) });
+      return {
+        h: hh, label, pressed,
+        act: 'position: absolute; left: 0; top: ' + tp + 'px; height: ' + th + 'px; width: max(0px, calc(' + p + '% - 8px)); background: #ffb0c9; border-radius: ' + r + 'px 2px 2px ' + r + 'px; pointer-events: none',
+        inact: 'position: absolute; right: 0; top: ' + tp + 'px; height: ' + th + 'px; width: max(0px, calc(' + (100 - p) + '% - 8px)); background: #5a3f48; border-radius: 2px ' + r + 'px ' + r + 'px 2px; pointer-events: none',
+        dot: 'position: absolute; right: ' + (th / 2 - 2) + 'px; top: ' + (hh / 2 - 2) + 'px; width: 4px; height: 4px; border-radius: 2px; background: #ffb0c9; pointer-events: none; opacity: ' + (p > 94 ? 0 : 1),
+        handle: 'position: absolute; left: calc(' + p + '% - 2px); top: 0; height: ' + hh + 'px; width: ' + (pressed ? 2 : 4) + 'px; margin-left: ' + (pressed ? 1 : 0) + 'px; border-radius: 2px; background: #ffb0c9; pointer-events: none; transition: width 0.15s, margin 0.15s',
+        bubble: 'position: absolute; left: ' + p + '%; top: -52px; transform: translateX(-50%); min-width: 48px; height: 44px; padding: 0 12px; box-sizing: border-box; border-radius: 22px; background: #efdfe1; color: #372e30; font-size: 14px; font-weight: 500; letter-spacing: 0.1px; display: flex; align-items: center; justify-content: center; white-space: nowrap; pointer-events: none',
+        down: () => setP(true), up: () => setP(false)
+      };
+    };
+    const st = this.state;
+    // ingredient: [name, grams, kcal, p, f, u, step]
+    const D = [
+      { name: 'Плов домашний', cooked: 1430, portion: 300, ing: [
+        ['Рис сухой', 300, 344, 6.7, 0.7, 78.9, 10], ['Говядина', 400, 187, 18.9, 12.4, 0, 10], ['Морковь', 300, 35, 1.3, 0.1, 6.9, 10],
+        ['Лук репчатый', 150, 41, 1.4, 0, 8.2, 10], ['Масло подсолнечное', 50, 899, 0, 99.9, 0, 5]] },
+      { name: 'Сырники домашние', cooked: 540, portion: 180, ing: [
+        ['Творог 5%', 400, 121, 17, 5, 1.8, 10], ['Яйцо', 55, 157, 12.7, 10.9, 0.7, 55], ['Мука пшеничная', 60, 334, 10.3, 1.1, 70, 10],
+        ['Сахар', 30, 399, 0, 0, 99.8, 5], ['Масло для жарки', 20, 899, 0, 99.9, 0, 5]] },
+      { name: 'Омлет с сыром', cooked: 210, portion: 210, ing: [
+        ['Яйца', 165, 157, 12.7, 10.9, 0.7, 55], ['Молоко 2,5%', 50, 52, 2.8, 2.5, 4.7, 10], ['Сыр', 30, 356, 24, 29.5, 0, 5]] }
+    ];
+    const f1 = v => (Math.round(v * 10) / 10).toString().replace('.', ',');
+    const sum = (ing, grams) => {
+      const t = { k: 0, p: 0, f: 0, u: 0, w: 0 };
+      ing.forEach((x, i) => { const g = grams ? grams[i] : x[1], s = g / 100; t.k += x[2] * s; t.p += x[3] * s; t.f += x[4] * s; t.u += x[5] * s; t.w += g; });
+      return t;
+    };
+    let m = {};
+    if (st.sel !== null) {
+      const d = D[st.sel];
+      const grams = st.ing || d.ing.map(x => x[1]);
+      const base = sum(d.ing), cur = sum(d.ing, grams);
+      const cooked = d.cooked * cur.w / base.w;
+      const s = st.g / cooked;
+      const changed = grams.some((g, i) => g !== d.ing[i][1]);
+      const nChanged = grams.filter((g, i) => g !== d.ing[i][1]).length;
+      const setIng = (i, v) => { const a = grams.slice(); a[i] = Math.max(0, v); this.setState({ ing: a }); };
+      m = {
+        name: d.name, g: st.g, pot: mkPot('dm', () => this.state.g, nv => this.setState({ g: nv }), 0, 3000), kcal: Math.round(cur.k * s), p: f1(cur.p * s), f: f1(cur.f * s), u: f1(cur.u * s),
+        k100: Math.round(cur.k / cooked * 100),
+        changed, expanded: st.expanded ? 'true' : 'false', showIng: st.expanded,
+        ingHint: changed ? 'изменено: ' + nChanged : d.ing.length + ' ингредиентов',
+        ing: d.ing.map((x, i) => {
+          const diff = grams[i] !== x[1];
+          return {
+            name: x[0], g: grams[i],
+            def: diff ? 'в рецепте ' + x[1] + ' г' : 'как в рецепте',
+            dot: 'width: 8px; height: 8px; border-radius: 4px; flex-shrink: 0; background: ' + (diff ? '#ffb0c9' : 'transparent'),
+            valStyle: 'min-width: 64px; text-align: center; font-size: 15px; font-weight: 650; color: ' + (diff ? '#ffb0c9' : '#efdfe1'),
+            dec: () => setIng(i, grams[i] - x[6]), inc: () => setIng(i, grams[i] + x[6]),
+            decLabel: x[0] + ': меньше', incLabel: x[0] + ': больше'
+          };
+        })
+      };
+    }
+    return {
+      dishes: D.map((d, i) => {
+        const t = sum(d.ing);
+        return { name: d.name, k: Math.round(t.k / d.cooked * 100),
+          sub: d.ing.length + ' ингредиентов · Б ' + f1(t.p / d.cooked * 100) + ' · Ж ' + f1(t.f / d.cooked * 100) + ' · У ' + f1(t.u / d.cooked * 100),
+          open: () => this.setState({ sel: i, g: d.portion, ing: null, expanded: false }) };
+      }),
+      open: st.sel !== null, m,
+      setG: e => this.setState({ g: parseInt(e.target.value, 10) || 0 }),
+      toggleIng: () => this.setState({ expanded: !st.expanded }),
+      reset: () => this.setState({ ing: null }),
+      close: () => this.setState({ sel: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

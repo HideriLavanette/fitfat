@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Новый продукт — шторка</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif">
+  <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; overflow: hidden; pointer-events: none">
+    <dc-import name="Add-food" hint-size="390px,844px"></dc-import>
+  </div>
+  <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(0, 0, 0, 0.5)"></div>
+  <section role="dialog" aria-modal="true" aria-labelledby="np-title" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 10px 20px 20px; border-radius: 28px 28px 0 0; background: #22191c; display: flex; flex-direction: column; gap: 14px">
+    <span aria-hidden="true" style="align-self: center; width: 32px; height: 4px; border-radius: 2px; background: #d5c2c6; opacity: 0.4"></span>
+    <div style="display: flex; align-items: baseline; gap: 8px">
+      <h2 id="np-title" style="margin: 0; flex: 1; font-size: 22px; font-weight: 500">Новый продукт</h2>
+      <span style="font-size: 13px; color: #d5c2c6">из «соус терияки 30»</span>
+    </div>
+
+    <div style="display: flex; gap: 10px; align-items: center">
+      <button onClick="{{togglePhoto}}" aria-label="{{photoAria}}" style="{{photoStyle}}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="{{photoInk}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{photoIcon}}"></path></svg></button>
+      <label for="np-name" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Название</label>
+      <input id="np-name" type="text" value="{{name}}" onChange="{{setName}}" style="flex: 1; min-width: 0; height: 56px; padding: 0 14px; border-radius: 4px; border: 2px solid #ffb0c9; background: #191113; color: #efdfe1; font-size: 16px; outline: none">
+      <button onClick="{{scan}}" aria-label="{{scanAria}}" style="{{scanStyle}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V5.5A1.5 1.5 0 0 1 5.5 4H8M16 4h2.5A1.5 1.5 0 0 1 20 5.5V8M20 16v2.5a1.5 1.5 0 0 1-1.5 1.5H16M8 20H5.5A1.5 1.5 0 0 1 4 18.5V16M8 8.5v7M11 8.5v7M13.5 8.5v7M16 8.5v7M3 12h18"></path></svg></button>
+    </div>
+
+    <div role="group" aria-label="Категория" style="display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px; scrollbar-width: none">
+      <sc-for list="{{cats}}" as="c" hint-placeholder-count="6"><button onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" style="{{c.style}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}</button></sc-for>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span style="flex: 1; display: flex; align-items: baseline; gap: 6px"><span style="font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums">{{kcal}}</span><span style="font-size: 13px; color: #d5c2c6">ккал {{unitWord}}</span></span>
+      <div role="group" aria-label="Как считать" style="display: flex; gap: 2px">
+        <sc-for list="{{units}}" as="un" hint-placeholder-count="2"><button onClick="{{un.pick}}" aria-pressed="{{un.pressed}}" style="{{un.style}}">{{un.label}}</button></sc-for>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{drums}}" as="dr" hint-placeholder-count="3">
+        <div style="display: flex; flex-direction: column; gap: 6px; align-items: stretch">
+          <span style="{{dr.labStyle}}">{{dr.label}}</span>
+          <div role="slider" tabindex="0" aria-label="{{dr.label}}" aria-valuenow="{{dr.now}}" onKeyDown="{{dr.key}}" onPointerDown="{{dr.down}}" onPointerMove="{{dr.mv}}" onPointerUp="{{dr.up}}" onPointerCancel="{{dr.up}}" style="position: relative; height: 180px; border-radius: 22px; background: #261d20; overflow: hidden; touch-action: none; cursor: grab; user-select: none; outline: none">
+            <span aria-hidden="true" style="{{dr.band}}"></span>
+            <sc-for list="{{dr.items}}" as="it" hint-placeholder-count="5"><span style="{{it.s}}">{{it.t}}</span></sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isPiece}}" hint-placeholder-val="{{ false }}">
+      <label style="display: flex; align-items: center; gap: 10px; padding: 0 4px">
+        <span style="flex: 1; font-size: 14px">Вес одной штуки</span>
+        <input type="number" value="{{pieceG}}" onChange="{{setPieceG}}" style="width: 64px; height: 40px; padding: 0 8px; border-radius: 4px; border: 1px solid #9e8c90; background: #191113; color: #efdfe1; font-size: 16px; text-align: right">
+        <span style="font-size: 14px; color: #d5c2c6">г</span>
+      </label>
+    </sc-if>
+
+    <div style="display: flex; justify-content: space-between; padding: 0 4px; font-size: 14px; color: #d5c2c6"><span>В эту запись: {{entry}}</span><span style="color: #efdfe1; font-weight: 600">{{entryK}} ккал</span></div>
+
+    <div style="display: flex; gap: 8px">
+      <a href="Add-food.dc.html" style="flex: 1; height: 56px; border-radius: 28px; color: #ffb0c9; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none">Отмена</a>
+      <a href="Add-food.dc.html" style="flex: 1.5; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none">Сохранить и добавить</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { name: 'Соус терияки', cat: 'sauce', unit: 'g', p: 6, f: 0, u: 16, pieceG: 15, photo: false, barcode: '' };
+  }
+  click(strong) {
+    try {
+      if (!this._ac) { const AC = window.AudioContext || window.webkitAudioContext; this._ac = new AC(); }
+      const ac = this._ac, t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = strong ? 520 : 2400;
+      g.gain.setValueAtTime(strong ? 0.08 : 0.035, t); g.gain.exponentialRampToValueAtTime(0.0001, t + (strong ? 0.08 : 0.025));
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.1);
+    } catch (e) {}
+    try { if (navigator.vibrate) navigator.vibrate(strong ? [22, 35, 22, 35, 22] : 6); } catch (e) {}
+  }
+  renderVals() {
+    const st = this.state;
+    const mkDrum = (key, label, getV, setV, min, max, step, dec) => {
+      this._dr = this._dr || {};
+      const P = this._dr[key] || (this._dr[key] = { acc: 0, v: 0, raf: 0, drag: false, y: 0, h: [], cum: 0, bump: 0 });
+      const ROW = 40, R = 92;
+      const fmtV = x => dec ? x.toFixed(dec).replace('.', ',') : String(Math.round(x));
+      const limit = () => { P.v = 0; const now = performance.now(); if (now - P.bump > 300) { P.bump = now; this.click(true); } };
+      const stepOnce = dir => {
+        const v = getV(), nv = Math.round((v + dir * step) / step) * step;
+        if (nv > max + 1e-9 || nv < min - 1e-9) { limit(); return false; }
+        setV(Math.round(nv * 10) / 10); this.click(false); return true;
+      };
+      const push = dy => {
+        const v = getV();
+        if ((dy < 0 && v >= max) || (dy > 0 && v <= min)) { P.acc = 0; limit(); this.setState({ ['__dr_' + key]: 0 }); return; }
+        P.acc += dy;
+        while (P.acc <= -ROW) { if (!stepOnce(1)) { P.acc = 0; break; } P.acc += ROW; }
+        while (P.acc >= ROW) { if (!stepOnce(-1)) { P.acc = 0; break; } P.acc -= ROW; }
+        this.setState({ ['__dr_' + key]: P.acc });
+      };
+      const settle = () => { const from = P.acc, t0 = performance.now(); const go = now => { const k = Math.min(1, (now - t0) / 160); P.acc = from * Math.pow(1 - k, 3); this.setState({ ['__dr_' + key]: P.acc }); if (k < 1) P.raf = requestAnimationFrame(go); else P.raf = 0; }; P.raf = requestAnimationFrame(go); };
+      const spin = () => { let last = performance.now(); const go = now => { const dt = Math.min(now - last, 40); last = now; push(P.v * dt); P.v *= Math.exp(-dt / 380); if (Math.abs(P.v) < 0.05) { P.raf = 0; settle(); return; } P.raf = requestAnimationFrame(go); }; P.raf = requestAnimationFrame(go); };
+      const v = getV(), items = [];
+      for (let k = -4; k <= 4; k++) {
+        const val = Math.round((v + k * step) * 10) / 10;
+        if (val < min - 1e-9 || val > max + 1e-9) continue;
+        const y = k * ROW + P.acc, th = y / R;
+        if (Math.abs(th) > 1.35) continue;
+        const c = Math.cos(th), yy = R * Math.sin(th), center = Math.abs(y) < ROW / 2, wv = Math.max(0, 1 - Math.abs(y) / ROW), mixC = (a, b, t) => '#' + [1, 3, 5].map(q => Math.round(parseInt(a.substr(q, 2), 16) * (1 - t) + parseInt(b.substr(q, 2), 16) * t).toString(16).padStart(2, '0')).join('');
+        const fs = (20 + 6 * wv) * (0.75 + 0.25 * c);
+        items.push({ t: fmtV(val), s: 'position: absolute; left: 0; right: 0; top: calc(50% + ' + (yy - 16).toFixed(1) + 'px); height: 32px; line-height: 32px; text-align: center; white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; font-size: ' + fs.toFixed(1) + 'px; font-weight: ' + Math.round(400 + 200 * wv) + '; color: ' + mixC('#d5c2c6', '#ffd9e3', wv) + '; opacity: ' + Math.max(0.15, Math.pow(c, 2.4)).toFixed(2) + '; transform: scaleY(' + (0.6 + 0.4 * c).toFixed(2) + ')' });
+      }
+      return { label, now: fmtV(v), items,
+        down: e => { if (P.raf) cancelAnimationFrame(P.raf); P.raf = 0; P.drag = true; P.y = e.clientY; P.v = 0; P.cum = 0; P.h = [{ t: performance.now(), y: 0 }]; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (z) {} if (this._ac && this._ac.state === 'suspended') this._ac.resume(); },
+        mv: e => { if (!P.drag) return; const now = performance.now(), dy = e.clientY - P.y; P.y = e.clientY; P.cum += dy; P.h.push({ t: now, y: P.cum }); while (P.h.length > 2 && now - P.h[0].t > 100) P.h.shift(); push(dy); },
+        up: () => { if (!P.drag) return; P.drag = false; const now = performance.now(), r = P.h.filter(p => now - p.t <= 90);
+          P.v = r.length >= 2 && r[r.length - 1].t - r[0].t >= 16 ? (r[r.length - 1].y - r[0].y) / (r[r.length - 1].t - r[0].t) : 0;
+          if (Math.abs(P.v) < 0.35) P.v = 0; P.v = Math.max(-3, Math.min(3, P.v)); if (P.v) spin(); else settle(); },
+        key: e => { if (e.key === 'ArrowUp') { e.preventDefault(); stepOnce(1); } if (e.key === 'ArrowDown') { e.preventDefault(); stepOnce(-1); } }
+      };
+    };
+    const ic = {
+      grain: 'M3 11h18a9 9 0 0 1-18 0Z M8 7c0-1.5 1.5-1.5 1.5-3 M13 7c0-1.5 1.5-1.5 1.5-3',
+      meat: 'M14.5 3.5a5.5 5.5 0 0 1 3 9.5l-3.5 3.5-6-6 3.5-3.5a5.5 5.5 0 0 1 3-3.5Z M8 11l-3.5 3.5 M5.5 13.5a2 2 0 1 0 2.5 2.5',
+      dairy: 'M7 3h10l-1.3 17.1a1 1 0 0 1-1 .9H9.3a1 1 0 0 1-1-.9Z M7.5 9h9',
+      fruit: 'M12 7.5c-3.5-2.5-8-.5-8 4.5 0 4.5 3 9 6 9 1 0 1.5-.5 2-.5s1 .5 2 .5c3 0 6-4.5 6-9 0-5-4.5-7-8-4.5Z M12 7.5c0-2 1-4 3-4.5',
+      veg: 'M5 19C5 10 10 5 19 5c0 9-5 14-14 14Z M5 19l8-8',
+      sauce: 'M5 9h14v3a7 7 0 0 1-14 0ZM9 5h6'
+    };
+    const bg = { grain: '#4A3D22', meat: '#4C2E26', dairy: '#263449', fruit: '#3A4224', veg: '#24402F', sauce: '#3B2A33' };
+    const names = { sauce: 'Соусы и сладкое', grain: 'Крупы', meat: 'Мясо, рыба', dairy: 'Молочное', fruit: 'Фрукты', veg: 'Овощи' };
+    const CAM = 'M4 8h3l2-3h6l2 3h3v11H4ZM12 10a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z';
+    const piece = st.unit === 'pc';
+    const kcal = Math.round(st.p * 4 + st.f * 9 + st.u * 4);
+    const set = key => x => this.setState({ [key]: x });
+    const cols = { p: ['#d3c4f5', '#332b45'], f: ['#e6d09a', '#3a3122'], u: ['#eebd9e', '#3d2a21'] };
+    const deco = (d, key) => Object.assign(d, {
+      labStyle: 'text-align: center; font-size: 13px; font-weight: 600; color: ' + cols[key][0],
+      band: 'position: absolute; left: 6px; right: 6px; top: calc(50% - 22px); height: 44px; border-radius: 14px; background: ' + cols[key][1]
+    });
+    const entryG = 30;
+    const entryK = piece ? kcal : Math.round(kcal * entryG / 100);
+    return {
+      name: st.name, setName: e => this.setState({ name: e.target.value }),
+      togglePhoto: () => this.setState({ photo: !st.photo }),
+      photoAria: st.photo ? 'Сменить фото' : 'Добавить фото',
+      photoInk: st.photo ? '#efdfe1' : '#ffb0c9',
+      photoIcon: st.photo ? ic[st.cat] : CAM,
+      photoStyle: 'width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; display: flex; align-items: center; justify-content: center; ' + (st.photo ? 'border: none; background: ' + bg[st.cat] : 'border: 1.5px dashed #9e8c90; background: transparent'),
+      scan: () => this.setState({ barcode: st.barcode ? '' : '4607001234567' }),
+      scanAria: st.barcode ? 'Штрихкод ' + st.barcode + ', нажмите, чтобы убрать' : 'Сканировать штрихкод',
+      scanStyle: 'width: 56px; height: 56px; flex-shrink: 0; border-radius: 16px; border: ' + (st.barcode ? '2px solid #ffb0c9' : 'none') + '; background: #5a3f48; display: flex; align-items: center; justify-content: center',
+      cats: Object.keys(ic).sort((a, b) => (a === 'sauce' ? -1 : b === 'sauce' ? 1 : 0)).map(id => {
+        const sel = id === st.cat;
+        return { label: names[id], icon: ic[id], pressed: sel ? 'true' : 'false', pick: () => this.setState({ cat: id }),
+          style: 'flex-shrink: 0; white-space: nowrap; height: 32px; padding: 0 14px 0 8px; border-radius: 8px; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: #efdfe1; border: 1px solid ' + (sel ? '#ffb0c9' : '#514347') + '; background: ' + (sel ? bg[id] : 'transparent') };
+      }),
+      kcal, unitWord: piece ? 'на 1 шт' : 'на 100 г',
+      units: [['g', '100 г'], ['pc', '1 шт']].map(([id, label], i) => {
+        const sel = id === st.unit;
+        return { label, pressed: sel ? 'true' : 'false', pick: () => this.setState({ unit: id }),
+          style: 'height: 36px; padding: 0 14px; border: none; font-size: 13px; font-weight: 500; border-radius: ' + (sel ? '18px' : i === 0 ? '18px 8px 8px 18px' : '8px 18px 18px 8px') + '; background: ' + (sel ? '#e2bdc7' : '#3c3235') + '; color: ' + (sel ? '#422931' : '#efdfe1') };
+      }),
+      drums: [
+        deco(mkDrum('p', 'Белки, г', () => this.state.p, set('p'), 0, 100, 1, 0), 'p'),
+        deco(mkDrum('f', 'Жиры, г', () => this.state.f, set('f'), 0, 100, 1, 0), 'f'),
+        deco(mkDrum('u', 'Углеводы, г', () => this.state.u, set('u'), 0, 100, 1, 0), 'u')
+      ],
+      isPiece: piece, pieceG: st.pieceG, setPieceG: e => this.setState({ pieceG: parseFloat(e.target.value) || 0 }),
+      entry: piece ? '1 шт' : entryG + ' г', entryK
+    };
+  }
+}
+</script>
+</body>
+</html>

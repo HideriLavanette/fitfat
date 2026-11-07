@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Все продукты</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button,input,select,textarea{font-family:inherit}
+button{cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px">
+  <div style="display: flex; align-items: center; gap: 4px; height: 64px; flex-shrink: 0">
+    <a href="Add-empty.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <h1 style="margin: 0; flex: 1; font-size: 22px; font-weight: 600">Все продукты</h1>
+    <span style="font-size: 13px; color: #d5c2c6; padding-right: 8px">{{count}}</span>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 6px 0 16px; border-radius: 26px; background: #261d20; flex-shrink: 0">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20 20l-4-4"></path></svg>
+    <label for="pr-q" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Поиск</label>
+    <input id="pr-q" type="search" placeholder="Название или другое имя" value="{{q}}" onChange="{{setQ}}" style="flex: 1; min-width: 0; height: 44px; border: none; background: transparent; color: #efdfe1; font-size: 16px; outline: none">
+    <button aria-label="Сканировать штрихкод" style="width: 40px; height: 40px; border-radius: 20px; border: none; background: #3c3235; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5v14M7 5v14M10 5v14M14 5v14M16 5v14M20 5v14"></path></svg></button>
+  </div>
+
+  <div style="display: flex; gap: 8px; flex-shrink: 0">
+    <div role="group" aria-label="Тип" style="display: flex; gap: 2px; flex: 1">
+      <sc-for list="{{types}}" as="t" hint-placeholder-count="3"><button onClick="{{t.pick}}" aria-pressed="{{t.pressed}}" style="{{t.style}}">{{t.label}}</button></sc-for>
+    </div>
+    <button onClick="{{cycleDate}}" aria-label="{{dateAria}}" style="height: 40px; padding: 0 10px 0 12px; border-radius: 12px; border: 1px solid {{dateBorder}}; background: {{dateBg}}; color: #efdfe1; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d5c2c6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16v14H4ZM4 10h16M8 3v4M16 3v4"></path></svg>{{dateLabel}}</button>
+  </div>
+
+  <div role="group" aria-label="Теги" style="display: flex; flex-wrap: nowrap; gap: 8px; flex-shrink: 0; overflow-x: auto; margin: 0 -16px; padding: 0 16px 2px; scrollbar-width: none; -webkit-overflow-scrolling: touch">
+    <sc-for list="{{tags}}" as="c" hint-placeholder-count="6">
+      <button onClick="{{c.pick}}" aria-pressed="{{c.pressed}}" style="{{c.style}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="{{c.ink}}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{c.icon}}"></path></svg>{{c.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 24px 24px 0 0; background: #22191c">
+    <sc-for list="{{items}}" as="it" hint-placeholder-count="8">
+      <a href="{{it.href}}" style="display: flex; align-items: center; gap: 12px; min-height: 62px; padding: 8px 16px; color: #efdfe1; text-decoration: none">
+        <span style="{{it.box}}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg></span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600">{{it.name}}
+            <sc-if value="{{it.est}}" hint-placeholder-val="{{ false }}"><span style="height: 20px; padding: 0 7px; border-radius: 10px; background: #5a3f48; color: #ffd9e3; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center">оценка</span></sc-if>
+          </span>
+          <span style="font-size: 12px; color: #d5c2c6">{{it.macro}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; align-items: flex-end">
+          <span style="font-size: 15px; font-weight: 650">{{it.kcal}}</span>
+          <span style="font-size: 11px; color: #d5c2c6">{{it.unit}}</span>
+        </span>
+      </a>
+    </sc-for>
+    <sc-if value="{{none}}" hint-placeholder-val="{{ false }}">
+      <span style="padding: 32px 16px; text-align: center; font-size: 14px; color: #d5c2c6">Ничего не нашлось — попробуйте убрать фильтры</span>
+    </sc-if>
+  </div>
+  <a href="Product-edit.dc.html" style="position: absolute; right: 20px; bottom: 24px; height: 56px; padding: 0 20px 0 16px; border-radius: 16px; background: #6f3349; color: #ffd9e3; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; text-decoration: none; box-shadow: 0 6px 16px rgba(0,0,0,0.45)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffd9e3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Продукт</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+
+  constructor(props) {
+    super(props);
+    this.state = { q: '', type: 'all', tags: [], date: 0 };
+  }
+  renderVals() {
+    const st = this.state;
+    const ic = {
+      grain: 'M3 11h18a9 9 0 0 1-18 0Z M8 7c0-1.5 1.5-1.5 1.5-3 M13 7c0-1.5 1.5-1.5 1.5-3',
+      meat: 'M14.5 3.5a5.5 5.5 0 0 1 3 9.5l-3.5 3.5-6-6 3.5-3.5a5.5 5.5 0 0 1 3-3.5Z M8 11l-3.5 3.5 M5.5 13.5a2 2 0 1 0 2.5 2.5',
+      dairy: 'M7 3h10l-1.3 17.1a1 1 0 0 1-1 .9H9.3a1 1 0 0 1-1-.9Z M7.5 9h9',
+      fruit: 'M12 7.5c-3.5-2.5-8-.5-8 4.5 0 4.5 3 9 6 9 1 0 1.5-.5 2-.5s1 .5 2 .5c3 0 6-4.5 6-9 0-5-4.5-7-8-4.5Z M12 7.5c0-2 1-4 3-4.5',
+      egg: 'M12 3c-4 0-7 6.5-7 11a7 7 0 0 0 14 0c0-4.5-3-11-7-11Z',
+      veg: 'M5 19C5 10 10 5 19 5c0 9-5 14-14 14Z M5 19l8-8',
+      sauce: 'M5 9h14v3a7 7 0 0 1-14 0ZM9 5h6',
+      sweet: 'M4 8h16v8H4ZM4 12h16M8 8V5M16 19v-3',
+      dish: 'M4 10h16v6a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4ZM2 10h20M9 6c0-1 1-1 1-2M14 6c0-1 1-1 1-2'
+    };
+    const bg = { grain: '#4A3D22', meat: '#4C2E26', dairy: '#263449', fruit: '#3A4224', egg: '#423A2C', veg: '#24402F', sauce: '#3B2A33', sweet: '#3B2A33', dish: '#5a3f48' };
+    // name, icon, kcal, p, f, u, tag, daysAgo, opts
+    const all = [
+      ['Куриная грудка гриль', 'meat', 165, 31, 3.6, 0, 'meat', 0],
+      ['Гречка варёная', 'grain', 110, 4.2, 1.1, 21.3, 'grain', 0],
+      ['Сникерс', 'sweet', 248, 4.3, 12, 30.5, 'sweet', 1, { piece: '1 шт ≈ 50 г' }],
+      ['Кефир 2,5%', 'dairy', 53, 2.9, 2.5, 4, 'dairy', 1],
+      ['Плов домашний', 'dish', 168, 7.1, 7.1, 18.9, 'dish', 2, { dish: true }],
+      ['Орео', 'sweet', 53, 0.5, 2.3, 7.6, 'sweet', 4, { piece: '1 шт ≈ 11 г' }],
+      ['Творог 5%', 'dairy', 121, 17, 5, 1.8, 'dairy', 5],
+      ['Сырники домашние', 'dish', 220, 15, 9, 20, 'dish', 9, { dish: true }],
+      ['Соус терияки', 'sauce', 89, 5.9, 0, 15.6, 'sweet', 12, { est: true }],
+      ['Банан', 'fruit', 89, 1.1, 0.3, 22.8, 'plant', 3],
+      ['Яйцо варёное', 'egg', 155, 12.6, 10.6, 1.1, 'meat', 6],
+      ['Овсянка на молоке', 'grain', 102, 3.2, 4.1, 14.2, 'grain', 2],
+      ['Огурец', 'veg', 15, 0.8, 0.1, 2.8, 'plant', 0]
+    ];
+    const tags = [['meat', 'Мясо и яйца'], ['dairy', 'Молочное'], ['grain', 'Крупы'], ['plant', 'Овощи и фрукты'], ['sweet', 'Сладкое и соусы'], ['piece', 'Штучные']];
+    const tagIcon = { meat: ic.meat, dairy: ic.dairy, grain: ic.grain, plant: ic.veg, sweet: ic.sweet, piece: 'M4 7.5 12 3.5l8 4v9l-8 4-8-4ZM4 7.5l8 4 8-4M12 11.5v9' };
+    const dates = [['Любое время', 9999], ['Сегодня', 0], ['За неделю', 7], ['За месяц', 30]];
+    const q = st.q.trim().toLowerCase();
+    const f1 = v => String(v).replace('.', ',');
+    const days = d => d === 0 ? 'сегодня' : d === 1 ? 'вчера' : d < 7 ? d + ' дн. назад' : d < 14 ? 'неделю назад' : 'давно';
+    const items = all.filter(x => {
+      const o = x[8] || {};
+      if (st.type === 'dish' && !o.dish) return false;
+      if (st.type === 'prod' && o.dish) return false;
+      if (q && x[0].toLowerCase().indexOf(q) < 0) return false;
+      if (x[7] > dates[st.date][1]) return false;
+      if (st.tags.length) {
+        const ok = st.tags.some(t => t === 'piece' ? !!o.piece : t === x[6]);
+        if (!ok) return false;
+      }
+      return true;
+    });
+    const seg = (sel, i, n) => sel ? '20px' : (i === 0 ? '20px 8px 8px 20px' : i === n - 1 ? '8px 20px 20px 8px' : '8px');
+    return {
+      q: st.q, setQ: e => this.setState({ q: e.target.value }),
+      count: items.length + ' из ' + all.length,
+      none: items.length === 0,
+      types: [['all', 'Все'], ['prod', 'Продукты'], ['dish', 'Блюда']].map(([id, label], i) => {
+        const sel = id === st.type;
+        return { label, pressed: sel ? 'true' : 'false', pick: () => this.setState({ type: id }),
+          style: 'flex: 1; height: 40px; border: none; font-size: 13px; font-weight: 600; border-radius: ' + seg(sel, i, 3) + '; background: ' + (sel ? '#e2bdc7' : '#3c3235') + '; color: ' + (sel ? '#422931' : '#efdfe1') };
+      }),
+      dateLabel: dates[st.date][0],
+      dateAria: 'Период: ' + dates[st.date][0],
+      dateBorder: st.date ? '#ffb0c9' : '#514347',
+      dateBg: st.date ? '#5a3f48' : 'transparent',
+      cycleDate: () => this.setState({ date: (st.date + 1) % dates.length }),
+      tags: tags.map(([id, label]) => {
+        const sel = st.tags.indexOf(id) >= 0;
+        return { label, icon: tagIcon[id], ink: sel ? '#ffd9e3' : '#d5c2c6', pressed: sel ? 'true' : 'false',
+          pick: () => this.setState({ tags: sel ? st.tags.filter(t => t !== id) : st.tags.concat([id]) }),
+          style: 'flex-shrink: 0; white-space: nowrap; height: 32px; padding: 0 16px 0 8px; display: flex; align-items: center; gap: 8px; border-radius: 8px; font-size: 14px; font-weight: 500; letter-spacing: 0.1px; border: ' + (sel ? '1px solid #5a3f48' : 'none') + '; background: ' + (sel ? '#5a3f48' : '#31282a') + '; color: ' + (sel ? '#ffd9e3' : '#efdfe1') };
+      }),
+      items: items.map(x => {
+        const o = x[8] || {};
+        return {
+          name: x[0], icon: ic[x[1]], est: !!o.est, kcal: x[2], href: o.dish ? 'Dish-card.dc.html' : 'Product-card.dc.html',
+          unit: o.piece ? 'ккал/шт' : 'ккал/100 г',
+          box: 'width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background: ' + bg[x[1]],
+          macro: 'Б ' + f1(x[3]) + ' · Ж ' + f1(x[4]) + ' · У ' + f1(x[5]) + (o.piece ? ' · ' + o.piece : '') + ' · ' + days(x[7])
+        };
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

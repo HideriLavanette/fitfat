@@ -8,6 +8,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
@@ -90,17 +94,55 @@ private val DarkScheme = darkColorScheme(
     surfaceContainerLowest = Color(0xFF140C0E)
 )
 
-/** Цвета макросов — свои семантические цвета, не системные роли. */
+/** Палитра макросов и типов дня — свои семантические цвета, не системные роли. */
+@Immutable
+data class MacroPalette(
+    val protein: Color,
+    val proteinContainer: Color,
+    val fat: Color,
+    val fatContainer: Color,
+    val carbs: Color,
+    val carbsContainer: Color,
+    val over: Color,
+    val training: Color,
+    val trainingContainer: Color,
+    val cycle: Color,
+)
+
+// Значения из DESIGN.md (тёмная тема)
+private val DarkMacros = MacroPalette(
+    protein = Color(0xFFD3C4F5), proteinContainer = Color(0xFF332B45),
+    fat = Color(0xFFE6D09A), fatContainer = Color(0xFF3A3122),
+    carbs = Color(0xFFEEBD9E), carbsContainer = Color(0xFF3D2A21),
+    over = Color(0xFFFF5C63),
+    training = Color(0xFF8AB4FF), trainingContainer = Color(0xFF1F2A40),
+    cycle = Color(0xFFFF8A8A),
+)
+
+// Светлая тема: те же оттенки, тон 40 для линии и тон 90 для дорожки
+private val LightMacros = MacroPalette(
+    protein = Color(0xFF6B5A9C), proteinContainer = Color(0xFFEBE0FF),
+    fat = Color(0xFF7A6421), fatContainer = Color(0xFFF7E8BF),
+    carbs = Color(0xFF8E5333), carbsContainer = Color(0xFFFFDECB),
+    over = Color(0xFFD93A42),
+    training = Color(0xFF2F5EA8), trainingContainer = Color(0xFFD9E3FF),
+    cycle = Color(0xFFC23B3B),
+)
+
+private val LocalMacroPalette = staticCompositionLocalOf { DarkMacros }
+
+/** Доступ к палитре макросов текущей темы: `MacroColors.protein` и т. п. */
 object MacroColors {
-    val protein = Color(0xFFD3C4F5)
-    val proteinContainer = Color(0xFF332B45)
-    val fat = Color(0xFFE6D09A)
-    val fatContainer = Color(0xFF3A3122)
-    val carbs = Color(0xFFEEBD9E)
-    val carbsContainer = Color(0xFF3D2A21)
-    val over = Color(0xFFFF5C63)
-    val training = Color(0xFF8AB4FF)
-    val cycle = Color(0xFFFF8A8A)
+    val protein: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.protein
+    val proteinContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.proteinContainer
+    val fat: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.fat
+    val fatContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.fatContainer
+    val carbs: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.carbs
+    val carbsContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.carbsContainer
+    val over: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.over
+    val training: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.training
+    val trainingContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.trainingContainer
+    val cycle: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycle
 }
 
 @Composable
@@ -116,5 +158,7 @@ fun FitfatTheme(
         darkTheme -> DarkScheme
         else -> LightScheme
     }
-    MaterialTheme(colorScheme = scheme, content = content)
+    CompositionLocalProvider(LocalMacroPalette provides if (darkTheme) DarkMacros else LightMacros) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }

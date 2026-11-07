@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>Правка записи веса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif">
+  <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; overflow: hidden; pointer-events: none">
+    <dc-import name="Weight-history" hint-size="390px,960px"></dc-import>
+  </div>
+  <div aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 390px; height: 844px; background: rgba(0, 0, 0, 0.5)"></div>
+
+  <section role="dialog" aria-modal="true" aria-labelledby="w-title" style="position: absolute; left: 0; bottom: 0; width: 390px; box-sizing: border-box; padding: 10px 24px 24px; border-radius: 28px 28px 0 0; background: #22191c; display: flex; flex-direction: column; align-items: center; gap: 14px">
+    <span aria-hidden="true" style="width: 32px; height: 4px; border-radius: 2px; background: #d5c2c6; opacity: 0.4"></span>
+    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 2px">
+      <span style="font-size: 13px; color: #d5c2c6">Среда</span>
+      <h1 id="w-title" style="margin: 0; font-size: 24px; font-weight: 500; line-height: 32px">4 ноября</h1>
+    </div>
+
+    <div role="slider" tabindex="0" aria-label="Вес, кг" aria-valuemin="0" aria-valuemax="200" aria-valuenow="{{w}}" aria-valuetext="{{weightText}}" onKeyDown="{{key}}" onPointerDown="{{down}}" onPointerMove="{{move}}" onPointerUp="{{up}}" onPointerCancel="{{up}}" style="position: relative; width: 280px; height: 280px; touch-action: none; cursor: grab; user-select: none; outline: none; border-radius: 140px">
+      <svg width="280" height="280" viewBox="0 0 280 280" aria-hidden="true" style="position: absolute; left: 0; top: 0">
+        <circle cx="140" cy="140" r="124" fill="none" stroke="#3c3235" stroke-width="18"></circle>
+        <g transform="{{rot}}">
+          <path d="{{ticks}}" fill="#9e8c90"></path>
+          <path d="{{majors}}" stroke="#efdfe1" stroke-width="3" stroke-linecap="round"></path>
+        </g>
+        <path d="M140 104 L134 94 L146 94 Z" fill="#ffb0c9"></path>
+        <path d="{{cookie}}" fill="#6f3349"></path>
+      </svg>
+      <div style="position: absolute; left: 0; top: 0; width: 280px; height: 280px; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none">
+        <div style="display: flex; align-items: baseline; gap: 4px">
+          <span style="font-size: 64px; font-weight: 750; line-height: 1; letter-spacing: -2px; color: #ffd9e3">{{weight}}</span>
+          <span style="font-size: 20px; font-weight: 500; color: #ffd9e3">кг</span>
+        </div>
+        <span style="margin-top: 8px; font-size: 14px; color: #ffd9e3">{{diff}}</span>
+      </div>
+      <sc-if value="{{demo}}" hint-placeholder-val="{{ false }}">
+        <svg width="280" height="280" viewBox="0 0 280 280" aria-hidden="true" style="position: absolute; left: 0; top: 0; pointer-events: none">
+          <path d="{{trail}}" stroke="#ffb0c9" stroke-opacity="{{trailOpacity}}" stroke-width="18" fill="none" stroke-linecap="round"></path>
+        </svg>
+        <div aria-hidden="true" style="{{fingerStyle}}">
+          <span style="position: absolute; left: 0; top: 0; width: 44px; height: 44px; border-radius: 22px; background: rgba(255, 176, 204, 0.3); border: 2px solid #541d33; box-sizing: border-box"></span>
+          <svg width="40" height="40" viewBox="0 0 24 24" style="position: absolute; left: 14px; top: 12px" fill="#541d33" stroke="#efdfe1" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 13V4.8a1.6 1.6 0 0 1 3.2 0V11l.1-1.2a1.6 1.6 0 0 1 3.2.2v1l.1-.4a1.6 1.6 0 0 1 3.1.5v.6a1.6 1.6 0 0 1 3.1.5V16a6 6 0 0 1-6 6h-1.4a6 6 0 0 1-4.7-2.3l-3.3-4.2a1.6 1.6 0 0 1 2.4-2.1Z"></path></svg>
+        </div>
+      </sc-if>
+    </div>
+    <div style="align-self: stretch; display: flex; gap: 8px">
+      <button onClick="{{toggleTrain}}" aria-pressed="{{trainPressed}}" style="{{trainStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8AB4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"></path></svg>Тренировка</button>
+      <sc-if value="{{isF}}" hint-placeholder-val="{{ false }}"><button onClick="{{toggleCycle}}" aria-pressed="{{cyclePressed}}" style="{{cycleStyle}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FF8A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c3 4 6 7.2 6 10.5a6 6 0 0 1-12 0c0-3.3 3-6.5 6-10.5Z"></path></svg>Цикл</button></sc-if>
+    </div>
+    <div style="align-self: stretch; display: flex; flex-direction: column; gap: 6px">
+      <label for="we-note" style="font-size: 13px; font-weight: 500; color: #d5c2c6">Заметка</label>
+      <input id="we-note" type="text" placeholder="Например: после бани, мало спал" style="height: 52px; padding: 0 14px; border-radius: 12px; border: none; background: #31282a; color: #efdfe1; font-size: 15px; outline: none">
+    </div>
+
+    <div style="align-self: stretch; display: flex; gap: 8px; margin-top: 4px">
+      <a href="Weight-history.dc.html" style="flex: 1; height: 56px; border-radius: 28px; color: #ffb0c9; font-size: 16px; font-weight: 500; display: flex; align-items: center; justify-content: center; text-decoration: none">Отмена</a>
+      <a href="Weight-history.dc.html" style="flex: 1.4; height: 56px; border-radius: 28px; background: #ffb0c9; color: #541d33; font-size: 16px; font-weight: 500; letter-spacing: 0.15px; display: flex; align-items: center; justify-content: center; text-decoration: none">Сохранить</a>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sex":{"editor":"enum","options":["m","f"],"default":"m"},"sound":{"editor":"boolean","default":true},"friction":{"editor":"range","default":420,"min":150,"max":1200,"step":10,"unit":"ms"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { w: 78.5, learned: true, demoT: 0, acc: 0, sw: 78.5, train: true, cycle: false };
+    this._acc = 0;
+    this._v = 0;
+  }
+  componentDidMount() {
+    const t0 = performance.now();
+    const loop = now => {
+      if (this.state.learned) { this._demoRaf = null; return; }
+      this.setState({ demoT: ((now - t0) % 2600) / 2600 });
+      this._demoRaf = requestAnimationFrame(loop);
+    };
+    this._demoRaf = requestAnimationFrame(loop);
+  }
+  componentDidUpdate(prevProps, prevState) {
+    if (prevState.w !== this.state.w) this.tweenSpark();
+  }
+  tweenSpark() {
+    if (this._sraf) return;
+    const step = () => {
+      const target = this.state.w, cur = this.state.sw;
+      const next = cur + (target - cur) * 0.2;
+      if (Math.abs(target - next) < 0.003) { this._sraf = null; this.setState({ sw: target }); return; }
+      this.setState({ sw: next });
+      this._sraf = requestAnimationFrame(step);
+    };
+    this._sraf = requestAnimationFrame(step);
+  }
+  componentWillUnmount() {
+    if (this._sraf) cancelAnimationFrame(this._sraf);
+    if (this._raf) cancelAnimationFrame(this._raf);
+    if (this._demoRaf) cancelAnimationFrame(this._demoRaf);
+  }
+  learn() {
+    if (!this.state.learned) this.setState({ learned: true });
+  }
+  tick(up) {
+    if (this.props.sound === false) return;
+    try {
+      if (!this._ac) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        this._ac = new AC();
+        const len = Math.floor(this._ac.sampleRate * 0.02);
+        const buf = this._ac.createBuffer(1, len, this._ac.sampleRate);
+        const ch = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+        this._noise = buf;
+      }
+      const ac = this._ac, t = ac.currentTime;
+      const src = ac.createBufferSource();
+      src.buffer = this._noise;
+      src.playbackRate.value = 0.9 + Math.random() * 0.25;
+      const bp = ac.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = up ? 3200 : 2600;
+      bp.Q.value = 4;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0.45, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      src.connect(bp); bp.connect(g); g.connect(ac.destination);
+      src.start(t);
+      if (navigator.vibrate) navigator.vibrate(4);
+    } catch (e) {}
+  }
+  setW(v) {
+    const w = Math.min(200, Math.max(0, Math.round(v * 10) / 10));
+    if (w !== this.state.w) this.setState({ w });
+    return w;
+  }
+  turn(da) {
+    if ((this.state.w <= 0 && da < 0) || (this.state.w >= 200 && da > 0)) {
+      this._acc = 0; this._v = 0;
+      const now = performance.now();
+      if (!this._bump || now - this._bump > 300) { this._bump = now; try { if (navigator.vibrate) navigator.vibrate([22, 35, 22]); } catch (x) {} }
+      if (this.state.acc !== 0) this.setState({ acc: 0 });
+      return false;
+    }
+    this._acc += da;
+    let steps = 0;
+    while (this._acc >= 12) { this._acc -= 12; steps++; }
+    while (this._acc <= -12) { this._acc += 12; steps--; }
+    if (!steps) { this.setState({ acc: this._acc }); return true; }
+    const before = this.state.w;
+    const after = this.setW(before + steps * 0.1);
+    if (after === before) { this._acc = 0; this.setState({ acc: 0 }); return false; }
+    this.setState({ acc: this._acc });
+    const n = Math.min(Math.abs(steps), 3);
+    for (let i = 0; i < n; i++) setTimeout(() => this.tick(steps > 0), i * 10);
+    return after > 0 && after < 200;
+  }
+  stopSpin() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = null;
+  }
+  spin() {
+    const tau = this.props.friction ?? 420;
+    let last = performance.now();
+    const step = now => {
+      const dt = Math.min(now - last, 40);
+      last = now;
+      const alive = this.turn(this._v * dt);
+      this._v *= Math.exp(-dt / tau);
+      if (!alive || Math.abs(this._v) < 0.04) { this._raf = null; this.snap(); return; }
+      this._raf = requestAnimationFrame(step);
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  snap() {
+    this.stopSpin();
+    const from = this._acc;
+    const to = from >= 6 ? 12 : from <= -6 ? -12 : 0;
+    if (Math.abs(to - from) < 0.01) { this._acc = 0; this.setState({ acc: 0 }); return; }
+    const t0 = performance.now(), dur = 240;
+    const back = x => { const c1 = 1.6, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+    let prev = 0;
+    const step = now => {
+      const x = Math.min((now - t0) / dur, 1);
+      const p = x === 1 ? 1 : back(x);
+      const pos = (to - from) * p;
+      this.turn(pos - prev);
+      prev = pos;
+      if (x < 1) this._raf = requestAnimationFrame(step);
+      else { this._raf = null; this._acc = 0; this.setState({ acc: 0 }); }
+    };
+    this._raf = requestAnimationFrame(step);
+  }
+  renderVals() {
+    const demo = !this.state.learned;
+    const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    const T = this.state.demoT;
+    const A0 = -40, A1 = 50;
+    let demoAng = A0, fade = 0;
+    if (demo) {
+      if (T < 0.12) { fade = T / 0.12; demoAng = A0; }
+      else if (T < 0.62) { fade = 1; demoAng = A0 + (A1 - A0) * ease((T - 0.12) / 0.5); }
+      else if (T < 0.78) { fade = 1 - (T - 0.62) / 0.16; demoAng = A1; }
+      else { fade = 0; demoAng = A0; }
+    }
+    const demoSteps = demo && T >= 0.12 && T < 0.78 ? Math.round((demoAng - A0) / 12) : 0;
+    const w = Math.round((this.state.w + demoSteps * 0.1) * 10) / 10;
+    const C = 140;
+    const ang = deg => (deg - 90) * Math.PI / 180;
+    const pts = [];
+    for (let i = 0; i <= 240; i++) {
+      const t = i / 240 * Math.PI * 2;
+      const r = 92 + 6 * Math.cos(9 * t);
+      pts.push((C + r * Math.cos(t)).toFixed(1) + ' ' + (C + r * Math.sin(t)).toFixed(1));
+    }
+    let ticks = '', majors = '';
+    for (let i = 0; i < 30; i++) {
+      const a = ang(i * 12);
+      if (i % 5 === 0) {
+        majors += 'M' + (C + 118 * Math.cos(a)).toFixed(1) + ' ' + (C + 118 * Math.sin(a)).toFixed(1) + 'L' + (C + 130 * Math.cos(a)).toFixed(1) + ' ' + (C + 130 * Math.sin(a)).toFixed(1);
+      } else {
+        const x = C + 124 * Math.cos(a), y = C + 124 * Math.sin(a), q = 1.9;
+        ticks += 'M' + (x - q).toFixed(1) + ' ' + y.toFixed(1) + 'a' + q + ' ' + q + ' 0 1 0 ' + (2 * q) + ' 0a' + q + ' ' + q + ' 0 1 0 ' + (-2 * q) + ' 0';
+      }
+    }
+    const deg = this.state.w * 120 + (demo ? (demoAng - A0) : this.state.acc);
+    const d = w - 78.5;
+    const ds = (d > 0 ? '+' : d < 0 ? '−' : '±') + Math.abs(d).toFixed(1).replace('.', ',');
+    const angleAt = (e, el) => {
+      const b = el.getBoundingClientRect();
+      return Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) * 180 / Math.PI;
+    };
+    const arcPt = a => { const r = ang(a); return (C + 124 * Math.cos(r)).toFixed(1) + ' ' + (C + 124 * Math.sin(r)).toFixed(1); };
+    const trailPts = [];
+    for (let i = 0; i <= 30; i++) trailPts.push(arcPt(A0 + (demoAng - A0) * i / 30));
+    const fr = ang(demoAng);
+    const fx = C + 124 * Math.cos(fr) - 22, fy = C + 124 * Math.sin(fr) - 22;
+    const sv = demo ? this.state.w + (demoAng - A0) / 120 * fade : this.state.sw;
+    const week = [78.8, 78.9, 78.6, 78.7, 78.5, 78.6, sv];
+    const lo = Math.min.apply(null, week) - 0.1, hi = Math.max.apply(null, week) + 0.1;
+    const SX = i => 6 + i * 29, SY = v => 6 + (hi - v) / (hi - lo || 1) * 32;
+    const dot = (x, y, q) => 'M' + (x - q).toFixed(1) + ' ' + y.toFixed(1) + 'a' + q + ' ' + q + ' 0 1 0 ' + (2 * q) + ' 0a' + q + ' ' + q + ' 0 1 0 ' + (-2 * q) + ' 0';
+    const wc = w - week[0];
+    const fmt1 = v => Math.abs(v).toFixed(1).replace('.', ',');
+    return {
+      demo,
+      trail: trailPts.length ? 'M' + trailPts.join(' L') : '',
+      trailOpacity: (0.35 * fade).toFixed(2),
+      fingerStyle: 'position: absolute; width: 44px; height: 44px; pointer-events: none; left: ' + fx.toFixed(1) + 'px; top: ' + fy.toFixed(1) + 'px; opacity: ' + fade.toFixed(2) + '; transform: scale(' + (0.9 + 0.1 * fade).toFixed(2) + ')',
+      spark: week.map((v, i) => (i ? 'L' : 'M') + SX(i) + ' ' + SY(v).toFixed(1)).join(''),
+      sparkDots: week.slice(0, 6).map((v, i) => dot(SX(i), SY(v), 2.5)).join(''),
+      sparkLast: dot(SX(6), SY(sv), 4.5),
+      weekChange: (wc < 0 ? '−' : wc > 0 ? '+' : '±') + fmt1(wc) + ' кг',
+      weekStyle: 'font-size: 20px; font-weight: 700; color: ' + (wc <= 0 ? '#ffb0c9' : '#FFB86B'),
+      weekLabel: 'Вес за неделю: с ' + fmt1(week[0]) + ' до ' + fmt1(w) + ' кг',
+      w,
+      cookie: 'M' + pts.join(' L') + 'Z',
+      ticks, majors,
+      rot: 'rotate(' + deg.toFixed(2) + ' 140 140)',
+      weight: w.toFixed(1).replace('.', ','),
+      weightText: w.toFixed(1).replace('.', ',') + ' кг',
+      diff: 'было 78,5 · ' + ds + ' кг',
+      isF: this.props.sex === 'f',
+      trainPressed: this.state.train ? 'true' : 'false',
+      cyclePressed: this.state.cycle ? 'true' : 'false',
+      toggleTrain: () => this.setState({ train: !this.state.train }),
+      toggleCycle: () => this.setState({ cycle: !this.state.cycle }),
+      trainStyle: 'flex: 1; height: 44px; padding: 0 14px; border-radius: ' + (this.state.train ? '22px' : '12px') + '; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; color: #efdfe1; border: ' + (this.state.train ? '2px solid #8AB4FF' : 'none') + '; background: ' + (this.state.train ? '#1F2A40' : '#31282a'),
+      cycleStyle: 'flex: 1; height: 44px; padding: 0 14px; border-radius: ' + (this.state.cycle ? '22px' : '12px') + '; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 500; color: #efdfe1; border: ' + (this.state.cycle ? '2px solid #FF8A8A' : 'none') + '; background: ' + (this.state.cycle ? '#4A2228' : '#31282a'),
+      key: e => {
+        const k = e.key;
+        if (k.indexOf('Arrow') === 0) this.learn();
+        if (k === 'ArrowUp' || k === 'ArrowRight') { e.preventDefault(); this.setW(this.state.w + (e.shiftKey ? 1 : 0.1)); this.tick(true); }
+        if (k === 'ArrowDown' || k === 'ArrowLeft') { e.preventDefault(); this.setW(this.state.w - (e.shiftKey ? 1 : 0.1)); this.tick(false); }
+      },
+      down: e => {
+        this.learn();
+        this.stopSpin();
+        this._acc = this.state.acc;
+        const el = e.currentTarget;
+        this._el = el;
+        this._last = angleAt(e, el);
+        this._t = performance.now();
+        this._v = 0;
+        this._cum = 0;
+        this._hist = [{ t: this._t, a: 0 }];
+        this._drag = true;
+        try { el.setPointerCapture(e.pointerId); } catch (x) {}
+        if (this._ac && this._ac.state === 'suspended') this._ac.resume();
+      },
+      move: e => {
+        if (!this._drag) return;
+        const now = performance.now();
+        const a = angleAt(e, this._el);
+        let da = a - this._last;
+        if (da > 180) da -= 360;
+        if (da < -180) da += 360;
+        const dt = Math.max(now - this._t, 1);
+        this._last = a;
+        this._t = now;
+        this._v = 0.6 * (da / dt) + 0.4 * this._v;
+        this._cum += da;
+        this._hist.push({ t: now, a: this._cum });
+        while (this._hist.length > 2 && now - this._hist[0].t > 100) this._hist.shift();
+        this.turn(da);
+      },
+      up: () => {
+        if (!this._drag) return;
+        this._drag = false;
+        const now = performance.now(), h = this._hist || [];
+        const recent = h.filter(p => now - p.t <= 90);
+        this._v = recent.length >= 2 && recent[recent.length - 1].t - recent[0].t >= 16 ? (recent[recent.length - 1].a - recent[0].a) / (recent[recent.length - 1].t - recent[0].t) : 0;
+        if (Math.abs(this._v) < 0.3) this._v = 0;
+        this._v = Math.max(-2.5, Math.min(2.5, this._v));
+        if (Math.abs(this._v) > 0.05) this.spin(); else this.snap();
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>

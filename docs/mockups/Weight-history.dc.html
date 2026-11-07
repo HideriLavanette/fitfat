@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ru" style="color-scheme: dark">
+<head>
+<meta charset="utf-8">
+<title>История веса</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,300..900&amp;display=swap">
+<style>
+body{margin:0}
+button{font-family:inherit;cursor:pointer}
+a{color:#ffb0c9}a:hover{color:#ffd9e3}
+</style>
+</helmet>
+<div style="width: 390px; height: 960px; box-sizing: border-box; padding: 12px 16px 16px; display: flex; flex-direction: column; gap: 16px; background: #191113; color: #efdfe1; font-family: 'Roboto Flex', system-ui, sans-serif; overflow: hidden">
+  <div style="display: flex; align-items: center; gap: 4px; height: 56px">
+    <a href="Today.dc.html" aria-label="Назад" style="width: 48px; height: 48px; border-radius: 24px; display: flex; align-items: center; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 22px; font-weight: 600">Вес</h1>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px">
+    <div style="display: flex; align-items: baseline; gap: 6px">
+      <span style="font-size: 48px; font-weight: 750; letter-spacing: -1.5px; line-height: 1">{{current}}</span>
+      <span style="font-size: 18px; font-weight: 500">кг</span>
+    </div>
+    <span style="font-size: 14px; color: #d5c2c6">{{summary}}</span>
+  </div>
+
+  <div style="display: flex; gap: 3px" aria-label="Период">
+    <sc-for list="{{periods}}" as="p" hint-placeholder-count="5">
+      <button onClick="{{p.pick}}" aria-pressed="{{p.pressed}}" style="{{p.style}}">{{p.label}}</button>
+    </sc-for>
+  </div>
+
+  <div style="border-radius: 24px; background: #261d20; padding: 16px 12px 12px; display: flex; flex-direction: column; gap: 8px">
+    <div style="position: relative; width: 334px; height: 190px">
+      <svg width="334" height="190" viewBox="0 0 334 190" role="img" aria-label="График веса за выбранный период" style="position: absolute; left: 0; top: 0">
+        <path d="{{grid}}" stroke="#3c3235" stroke-width="1" fill="none"></path>
+        <path d="{{forecast}}" stroke="#ffb0c9" stroke-width="2" stroke-dasharray="4 5" fill="none" stroke-linecap="round"></path>
+        <path d="{{dots}}" fill="#9e8c90"></path>
+        <path d="{{trend}}" stroke="#ffb0c9" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="{{lastDot}}" fill="#ffb0c9" stroke="#261d20" stroke-width="3"></path>
+      </svg>
+      <sc-for list="{{ticks}}" as="t" hint-placeholder-count="3">
+        <span style="{{t.style}}">{{t.label}}</span>
+      </sc-for>
+      <span style="position: absolute; left: 36px; top: 174px; font-size: 11px; color: #d5c2c6">{{startLabel}}</span>
+      <span style="{{endStyle}}">сегодня</span>
+    </div>
+    <div style="display: flex; gap: 16px; font-size: 12px; color: #d5c2c6; padding-left: 4px">
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 3px; border-radius: 2px; background: #ffb0c9"></span>тренд</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 6px; height: 6px; border-radius: 3px; background: #9e8c90"></span>взвешивания</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 0; border-top: 2px dashed #ffb0c9"></span>прогноз</span>
+    </div>
+  </div>
+
+  <p style="margin: -6px 0 0; font-size: 12px; color: #d5c2c6; text-align: center">Удерживайте график и ведите пальцем, чтобы сменить период</p>
+
+  <section aria-label="Календарь веса" style="display: flex; flex-direction: column; gap: 8px; padding: 14px 12px 12px; border-radius: 24px; background: #22191c">
+    <div style="display: flex; align-items: center; gap: 4px; padding-left: 6px">
+      <h2 style="margin: 0; flex: 1; font-size: 16px; font-weight: 650">5 октября — 8 ноября</h2>
+      <button aria-label="Раньше" style="width: 40px; height: 40px; border: none; border-radius: 20px; background: none; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </button>
+      <button aria-label="Позже" style="width: 40px; height: 40px; border: none; border-radius: 20px; background: none; display: flex; align-items: center; justify-content: center">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#efdfe1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>
+      </button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px">
+      <span style="text-align: center; font-size: 11px; color: #d5c2c6">Пн</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Вт</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Ср</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Чт</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Пт</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Сб</span><span style="text-align: center; font-size: 11px; color: #d5c2c6">Вс</span>
+      <sc-for list="{{cal}}" as="c" hint-placeholder-count="35">
+        <a href="Weight-edit.dc.html" aria-label="{{c.aria}}" style="{{c.style}}">
+          <span style="{{c.numStyle}}">{{c.num}}</span>
+          <span style="{{c.wStyle}}">{{c.w}}</span>
+          <span style="{{c.bar}}"></span>
+        </a>
+      </sc-for>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 14px; padding: 4px 6px 0; font-size: 12px; color: #d5c2c6">
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 4px; border-radius: 2px; background: #8AB4FF"></span>тренировка</span>
+      <sc-if value="{{isF}}" hint-placeholder-val="{{ false }}"><span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: #4A2228; border: 1px solid #FF8A8A; box-sizing: border-box"></span>цикл</span></sc-if>
+      <span style="display: flex; align-items: center; gap: 6px"><b style="color: #efdfe1">—</b>пропуск</span>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"sex":{"editor":"enum","options":["m","f"],"default":"m"},"$preview":{"width":390,"height":960}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { p: '1m' };
+  }
+  data() {
+    if (this._d) return this._d;
+    const raw = [];
+    for (let i = 0; i < 365; i++) {
+      raw.push(86.2 - 7.4 * (i / 364) + 0.45 * Math.sin(i * 1.3) + 0.28 * Math.sin(i * 0.37 + 1) + 0.12 * Math.sin(i * 0.05));
+    }
+    const off = 78.4 - raw[364];
+    for (let i = 0; i < 365; i++) raw[i] = raw[i] + off;
+    const ema = [raw[0]];
+    for (let i = 1; i < 365; i++) ema.push(ema[i - 1] + 0.1 * (raw[i] - ema[i - 1]));
+    this._d = { raw, ema };
+    return this._d;
+  }
+  renderVals() {
+    const fmt = v => v.toFixed(1).replace('.', ',');
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'нояб', 'дек'];
+    const dateOf = back => { const d = new Date(2026, 10, 6 - back); return d.getDate() + ' ' + months[d.getMonth()]; };
+    const periods = [
+      { id: '1w', label: '1 нед', days: 7 },
+      { id: '1m', label: '1 мес', days: 30 },
+      { id: '3m', label: '3 мес', days: 90 },
+      { id: '6m', label: '6 мес', days: 180 },
+      { id: '1y', label: '1 год', days: 365 }
+    ];
+    const cur = periods.find(p => p.id === this.state.p);
+    const { raw, ema } = this.data();
+    const n = cur.days;
+    const r = raw.slice(365 - n);
+    const e = ema.slice(365 - n);
+    const slope = (ema[364] - ema[357]) / 7;
+    const fDays = Math.max(2, Math.round(n * 0.2));
+    const fEnd = ema[364] + slope * fDays;
+    const all = r.concat(e, [fEnd]);
+    const lo = Math.min.apply(null, all) - 0.2, hi = Math.max.apply(null, all) + 0.2;
+    const L = 36, R = 8, T = 8, B = 26, W = 334, H = 190;
+    const X = j => L + j / (n - 1 + fDays) * (W - L - R);
+    const Y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+    const rad = n > 100 ? 1.3 : n > 40 ? 2 : 3.2;
+    const dot = (x, y, q) => 'M' + (x - q).toFixed(1) + ' ' + y.toFixed(1) + 'a' + q + ' ' + q + ' 0 1 0 ' + (2 * q) + ' 0a' + q + ' ' + q + ' 0 1 0 ' + (-2 * q) + ' 0';
+    const tickVals = [hi - 0.2, (hi + lo) / 2, lo + 0.2];
+    const grid = tickVals.map(v => 'M' + L + ' ' + Y(v).toFixed(1) + 'H' + (W - R)).join('');
+    const change = e[n - 1] - e[0];
+    const skipped = [26, 19, 13, 5];
+    const cycle = this.props.sex === 'f' ? [24, 23, 22, 21, 20] : [];
+    const cal = [];
+    for (let i = 0; i < 35; i++) {
+      const d = new Date(2026, 9, 5 + i);
+      const back = Math.round((new Date(2026, 10, 6) - d) / 864e5);
+      const future = back < 0, today = back === 0;
+      const dow = (d.getDay() + 6) % 7;
+      const miss = skipped.indexOf(back) >= 0;
+      const train = !future && !today && (dow === 0 || dow === 2 || dow === 4);
+      const cyc = cycle.indexOf(back) >= 0;
+      const first = d.getDate() === 1;
+      const wv = future ? '' : miss ? '—' : fmt(raw[364 - back]);
+      cal.push({
+        num: first ? '1 ' + months[d.getMonth()] : String(d.getDate()),
+        w: wv,
+        aria: d.getDate() + ' ' + months[d.getMonth()] + ': ' + (future ? 'нет данных' : miss ? 'пропуск' : wv + ' кг') + (train ? ', тренировка' : '') + (cyc ? ', цикл' : ''),
+        style: 'text-decoration: none; box-sizing: border-box; height: 54px; padding: 4px 0 0; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 1px; font-family: inherit; color: #efdfe1; background: ' + (cyc ? '#4A2228' : future ? 'transparent' : '#261d20') + '; border: ' + (today ? '2px solid #ffb0c9' : cyc ? '1px solid #8C3B45' : '1px solid transparent'),
+        numStyle: 'font-size: 11px; line-height: 14px; font-weight: ' + (first || today ? 700 : 500) + '; color: ' + (cyc ? '#FFB3B3' : future ? '#9e8c90' : '#d5c2c6'),
+        wStyle: 'font-size: 13px; line-height: 18px; font-weight: 650; color: ' + (miss ? '#9e8c90' : '#efdfe1'),
+        bar: 'width: 18px; height: 4px; border-radius: 2px; margin-top: 2px; background: ' + (train ? '#8AB4FF' : 'transparent')
+      });
+    }
+    return {
+      current: fmt(raw[364]),
+      summary: 'тренд ' + fmt(ema[364]) + ' кг · ' + (change < 0 ? '−' : '+') + fmt(Math.abs(change)) + ' кг за период',
+      periods: periods.map((p, idx) => {
+        const sel = p.id === cur.id;
+        const rl = idx === 0 ? '20px' : '8px', rr = idx === periods.length - 1 ? '20px' : '8px';
+        const radius = sel ? '20px' : rl + ' ' + rr + ' ' + rr + ' ' + rl;
+        return {
+          label: p.label,
+          pressed: sel ? 'true' : 'false',
+          pick: () => this.setState({ p: p.id }),
+          style: 'flex: 1; height: 44px; border: none; font-size: 14px; font-weight: 600; border-radius: ' + radius + '; background: ' + (sel ? '#e2bdc7' : '#3c3235') + '; color: ' + (sel ? '#422931' : '#efdfe1')
+        };
+      }),
+      grid,
+      dots: r.map((v, j) => dot(X(j), Y(v), rad)).join(''),
+      trend: e.map((v, j) => (j ? 'L' : 'M') + X(j).toFixed(1) + ' ' + Y(v).toFixed(1)).join(''),
+      forecast: 'M' + X(n - 1).toFixed(1) + ' ' + Y(e[n - 1]).toFixed(1) + 'L' + X(n - 1 + fDays).toFixed(1) + ' ' + Y(fEnd).toFixed(1),
+      lastDot: dot(X(n - 1), Y(e[n - 1]), 5),
+      ticks: tickVals.map(v => ({ label: fmt(v), style: 'position: absolute; left: 0; width: 30px; text-align: right; font-size: 11px; color: #d5c2c6; top: ' + (Y(v) - 7).toFixed(0) + 'px' })),
+      startLabel: dateOf(n - 1),
+      endStyle: 'position: absolute; top: 174px; font-size: 11px; color: #d5c2c6; left: ' + (X(n - 1) - 44).toFixed(0) + 'px',
+      cal,
+      isF: this.props.sex === 'f'
+    };
+  }
+}
+</script>
+</body>
+</html>

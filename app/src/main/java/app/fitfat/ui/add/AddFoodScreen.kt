@@ -1,7 +1,6 @@
 package app.fitfat.ui.add
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -20,21 +19,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -59,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.fitfat.data.Meal
 import app.fitfat.data.Product
-import app.fitfat.data.portion
+import app.fitfat.data.gramsFor
 import app.fitfat.ui.common.CategoryIcon
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
@@ -77,6 +70,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
     val recognized = remember(vm.text, products) { vm.recognized() }
     var editing by remember { mutableStateOf<Picked?>(null) }
     var creating by remember { mutableStateOf<Recognized?>(null) }
+    var asking by remember { mutableStateOf<Pair<Recognized, Product>?>(null) }
     var creatingBlank by remember { mutableStateOf(false) }
     var timePicking by remember { mutableStateOf(false) }
 
@@ -98,20 +92,18 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
         ) {
             items(vm.picked, key = { it.key }) { item -> PickedRow(item, onTap = { editing = item }, onRemove = { vm.remove(item) }) }
             item {
-                OutlinedTextField(
-                    value = vm.text,
-                    onValueChange = vm::onText,
+                RecognizeField(
+                    text = vm.text,
+                    onText = vm::onText,
+                    recognized = recognized,
+                    onConfirm = { r, p ->
+                        // Вес не написан — сначала спросим граммы или штуки
+                        if (r.fragment.grams == null && r.fragment.pieces == null) asking = r to p
+                        else vm.confirm(r, p, r.fragment.grams, r.fragment.pieces)
+                    },
+                    onCreate = { creating = it },
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    label = { Text("Что съели") },
-                    placeholder = { Text("гречка 200, грудка 150, 2 яйца") },
-                    minLines = 2,
-                    shape = RoundedCornerShape(16.dp),
                 )
-            }
-            items(recognized, key = { "r_" + it.fragment.raw }) { r ->
-                RecognizedCard(r,
-                    onConfirm = { p -> vm.confirm(r, p, r.fragment.grams, r.fragment.pieces) },
-                    onCreate = { creating = r })
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -153,6 +145,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
 
     editing?.let { item ->
         PortionDialog(item, onDismiss = { editing = null }, onSave = { g, pcs -> vm.update(item, g, pcs); editing = null })
+    }
+    asking?.let { (r, p) ->
+        // Порция по умолчанию у продукта: штуки для штучных, граммы для остальных
+        val pcs = if (p.perPiece) p.defaultGrams.coerceAtLeast(0.5) else null
+        val draft = Picked(0, p, if (p.perPiece) p.gramsFor(pcs!!) else p.defaultGrams, pcs)
+        PortionDialog(draft, onDismiss = { asking = null }, onSave = { g, pc -> vm.confirm(r, p, g, pc); asking = null })
     }
     creating?.let { r ->
         CreateProductDialog(initialName = r.fragment.query.replaceFirstChar { it.uppercase() }, onDismiss = { creating = null }) { p -> vm.createProduct(p, r) { creating = null } }
@@ -202,54 +200,6 @@ private fun PickedRow(item: Picked, onTap: () -> Unit, onRemove: () -> Unit) {
                 Text("Б ${fmt1(m.protein)} · Ж ${fmt1(m.fat)} · У ${fmt1(m.carbs)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = onRemove) { Icon(Icons.Outlined.Close, "Убрать") }
-        }
-    }
-}
-
-/** Карточка распознанного фрагмента: лучший кандидат, тап — подтвердить, стрелка — другие варианты. */
-@Composable
-private fun RecognizedCard(r: Recognized, onConfirm: (Product) -> Unit, onCreate: () -> Unit) {
-    val best = r.candidates.firstOrNull()
-    var menu by remember { mutableStateOf(false) }
-    Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest) {
-        if (best == null) {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("«${r.fragment.raw}»", fontWeight = FontWeight.SemiBold)
-                    Text("нет в базе", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                OutlinedButton(onClick = onCreate) { Icon(Icons.Outlined.Add, null); Text(" Создать") }
-            }
-            return@Surface
-        }
-        val p = best.product
-        Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Surface(onClick = { onConfirm(p) }, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.weight(1f)) {
-                Row(Modifier.padding(4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    CategoryIcon(p.category, 36.dp)
-                    Column(Modifier.weight(1f)) {
-                        Text(p.name, fontWeight = FontWeight.SemiBold)
-                        val unit = if (p.perPiece) "на 1 шт" else "на 100 г"
-                        Text("${fmt0(p.kcal)} ккал · Б ${fmt1(p.protein)} · Ж ${fmt1(p.fat)} · У ${fmt1(p.carbs)} $unit", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    FilledTonalIconButton(onClick = { onConfirm(p) }) { Icon(Icons.Outlined.Check, "Подтвердить") }
-                }
-            }
-            if (r.candidates.size > 1) {
-                Box {
-                    IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.ExpandMore, "Другие варианты") }
-                    DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                        r.candidates.forEach { c ->
-                            DropdownMenuItem(
-                                text = { Text(c.product.name) },
-                                leadingIcon = { CategoryIcon(c.product.category, 28.dp) },
-                                onClick = { menu = false; onConfirm(c.product) },
-                            )
-                        }
-                        DropdownMenuItem(text = { Text("Создать новый продукт") }, leadingIcon = { Icon(Icons.Outlined.Add, null) }, onClick = { menu = false; onCreate() })
-                    }
-                }
-            }
         }
     }
 }
