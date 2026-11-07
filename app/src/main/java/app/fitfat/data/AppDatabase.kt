@@ -113,6 +113,10 @@ interface FoodDao {
     @Update
     suspend fun update(e: FoodEntry)
 
+    /** Дни с записями в диапазоне — для точек в календаре. */
+    @Query("SELECT DISTINCT epochDay FROM food_entry WHERE epochDay BETWEEN :from AND :to")
+    fun observeDaysWithEntries(from: Long, to: Long): Flow<List<Long>>
+
     @Query("DELETE FROM food_entry WHERE id = :id")
     suspend fun delete(id: Long)
 }

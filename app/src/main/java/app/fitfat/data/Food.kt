@@ -16,7 +16,8 @@ enum class Meal(val label: String) { Breakfast("Завтрак"), Lunch("Обе�
     }
 }
 
-enum class DayType(val label: String) { Normal("Обычный"), Training("Тренировка") }
+/** Порядок важен: тип дня хранится по ordinal. «Цикл» — только при женском поле в профиле. */
+enum class DayType(val label: String) { Normal("Обычный"), Training("Тренировка"), Cycle("Цикл") }
 
 data class Macros(val kcal: Double = 0.0, val protein: Double = 0.0, val fat: Double = 0.0, val carbs: Double = 0.0) {
     operator fun plus(o: Macros) = Macros(kcal + o.kcal, protein + o.protein, fat + o.fat, carbs + o.carbs)
@@ -39,9 +40,17 @@ class NormsStore(context: Context) {
     fun norms(type: DayType): Macros {
         val p = prefs.getFloat("p", 180f).toDouble()
         val f = prefs.getFloat("f", 60f).toDouble()
-        val u = if (type == DayType.Training) prefs.getFloat("u_train", 240f).toDouble() else prefs.getFloat("u", 140f).toDouble()
+        val base = prefs.getFloat("u", 140f).toDouble()
+        val u = when (type) {
+            DayType.Training -> prefs.getFloat("u_train", 240f).toDouble()
+            DayType.Cycle -> base + CYCLE_EXTRA_CARBS // +25 г углеводов = +100 ккал
+            DayType.Normal -> base
+        }
         return Macros(p * 4 + f * 9 + u * 4, p, f, u)
     }
+
+    /** Женский пол в профиле. Профиля пока нет — «Цикл» не показывается. */
+    val isFemale: Boolean get() = prefs.getString("sex", null) == "f"
 
     fun dayType(date: LocalDate): DayType =
         DayType.entries.getOrNull(prefs.getInt("day_${date.toEpochDay()}", 0)) ?: DayType.Normal
@@ -57,6 +66,7 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     val allProducts = products.observeAll()
     val recent = products.observeRecent(8)
     fun day(date: LocalDate) = food.observeDay(date.toEpochDay())
+    fun daysWithEntries(from: LocalDate, to: LocalDate) = food.observeDaysWithEntries(from.toEpochDay(), to.toEpochDay())
 
     suspend fun createProduct(p: Product): Product = p.copy(id = products.insert(p))
 
@@ -91,3 +101,4 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
 }
 
 data class Portion(val grams: Double, val pieces: Double?)
+const val CYCLE_EXTRA_CARBS = 25.0

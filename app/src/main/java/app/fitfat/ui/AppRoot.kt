@@ -77,11 +77,23 @@ fun AppRoot(
     LaunchedEffect(Unit) { updates.autoCheck() }
 
     val haze = remember { HazeState() }
+    val wuiTop by weight.ui.collectAsStateWithLifecycle()
+    fun goTab(tab: Tab) = nav.navigate(tab.route) {
+        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize()) {
         // Всё содержимое — источник для блюра навбара и зоны под ним
         NavHost(navController = nav, startDestination = Tab.Today.route, modifier = Modifier.fillMaxSize().haze(haze)) {
-            composable(Tab.Today.route) { TodayScreen(today, onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") }) }
+            composable(Tab.Today.route) {
+                TodayScreen(
+                    today, weightKg = wuiTop.last?.kg,
+                    onWeight = { goTab(Tab.Weight) }, // чип веса переключает на вкладку «Вес»
+                    onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") },
+                )
+            }
             composable("add/{day}") { entry ->
                 val day = entry.arguments?.getString("day")?.toLongOrNull() ?: LocalDate.now().toEpochDay()
                 AddFoodScreen(add, LocalDate.ofEpochDay(day), onClose = { nav.popBackStack() })
@@ -95,13 +107,7 @@ fun AppRoot(
             FloatingNavBar(
                 items = Tab.entries.map { NavItem(it.label, it.icon) },
                 selected = Tab.entries.indexOfFirst { it.route == current },
-                onSelect = { i ->
-                    nav.navigate(Tab.entries[i].route) {
-                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onSelect = { i -> goTab(Tab.entries[i]) },
                 haze = haze,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.YearMonth
 
 data class TodayUi(
     val date: LocalDate = LocalDate.now(),
@@ -27,6 +28,10 @@ data class TodayUi(
     val eaten: Macros = Macros(),
     val entries: List<FoodEntry> = emptyList(),
     val groupByTime: Boolean = false,
+    /** Нормы обычного дня — для пояснения «+60 г углеводов» под типом дня. */
+    val baseNorms: Macros = Macros(),
+    /** Показывать ли «Цикл» (женский пол в профиле). */
+    val showCycle: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -45,7 +50,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val ui: StateFlow<TodayUi> = combine(
         date.flatMapLatest { repo.day(it) }, date, dayType, groupByTime,
     ) { entries, d, t, g ->
-        TodayUi(d, t, normsStore.norms(t), entries.fold(Macros()) { a, e -> a + e.macros }, entries, g)
+        TodayUi(
+            d, t, normsStore.norms(t), entries.fold(Macros()) { a, e -> a + e.macros }, entries, g,
+            baseNorms = normsStore.norms(DayType.Normal), showCycle = normsStore.isFemale,
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUi())
 
     fun setDate(d: LocalDate) {
@@ -53,7 +61,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         date.value = clamped
         dayType.value = normsStore.dayType(clamped)
     }
-    fun shiftDay(by: Long) = setDate(date.value.plusDays(by))
+    /** Дни месяца, в которых есть записи (epochDay) — точки в календаре. */
+    fun daysWithEntries(month: YearMonth) = repo.daysWithEntries(month.atDay(1), month.atEndOfMonth())
 
     fun setDayType(t: DayType) { normsStore.setDayType(date.value, t); dayType.value = t }
     fun setGroupByTime(v: Boolean) { normsStore.groupByTime = v; groupByTime.value = v }
