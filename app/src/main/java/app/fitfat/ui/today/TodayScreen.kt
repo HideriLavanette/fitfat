@@ -42,6 +42,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -80,10 +82,19 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.abs
+import app.fitfat.ui.components.Feedback
+import androidx.compose.ui.platform.LocalView
+import kotlin.math.sign
+import kotlin.math.exp
 import kotlin.math.min
 
 private val ru = Locale("ru")
 private val longDate = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
+/** Свайп строки: предел сдвига под сопротивлением, мягкость, порог срыва (dp). */
+private const val SWIPE_RESIST = 56f
+private const val SWIPE_SOFT = 70f
+private const val SWIPE_SNAP = 110f
+
 private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
 
 /** Разрыв между записями, после которого начинается новый блок в режиме «Время». */
@@ -107,7 +118,7 @@ private fun timeBlocks(entries: List<FoodEntry>): List<List<FoodEntry>> {
  * отрицательные отступы макета (−4, −8, −6) учтены в верхних отступах элементов.
  */
 @Composable
-fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight: (LocalDate) -> Unit, onAdd: (LocalDate) -> Unit) {
+fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight: (LocalDate) -> Unit, onAdd: (LocalDate, androidx.compose.ui.geometry.Rect?) -> Unit, onProduct: (Long) -> Unit = {}) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val deleted by vm.lastDeleted.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
@@ -162,9 +173,12 @@ fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight:
             }
         }
 
+        var fabRect by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
         AddFab(
-            onClick = { onAdd(ui.date) },
-            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 104.dp),
+            // Кнопка разворачивается в экран «Добавить» — нужны её границы
+            onClick = { onAdd(ui.date, fabRect) },
+            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 104.dp)
+                .onGloballyPositioned { fabRect = it.boundsInRoot() },
         )
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 196.dp))
     }
@@ -176,6 +190,7 @@ fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight:
             onSave = { g, pcs -> if (repeatMode) vm.repeat(e, g, pcs) else vm.changePortion(e, g, pcs); editing = null },
             onDelete = { vm.delete(e); editing = null },
             onSwitchToRepeat = { editing = e to true },
+            onCard = if (e.productId > 0) ({ editing = null; onProduct(e.productId) }) else null,
         )
     }
 
@@ -276,26 +291,16 @@ private const val DAY_PAGES = 3653
 private fun DayTypes(ui: TodayUi, onPick: (DayType) -> Unit, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
     val types = if (ui.showCycle) DayType.entries else DayType.entries.filter { it != DayType.Cycle }
-    Row(modifier.semantics { contentDescription = "Тип дня" }, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        types.forEach { t ->
-            val sel = t == ui.dayType
-            val c = typeColor(t, colors.secondary, MacroColors.training, MacroColors.cycle)
-            val icon = when (t) { DayType.Normal -> MockIcons.Sun; DayType.Training -> MockIcons.Dumbbell; DayType.Cycle -> MockIcons.Drop }
-            Row(
-                Modifier
-                    .height(40.dp)
-                    .clip(RoundedCornerShape(if (sel) 20.dp else 12.dp))
-                    .background(if (sel) c else colors.surfaceContainerHigh)
-                    .selectable(selected = sel, role = Role.RadioButton, onClick = { onPick(t) })
-                    .padding(start = 10.dp, end = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(icon, null, Modifier.size(18.dp), tint = if (sel) colors.onPrimary else c)
-                Text(t.label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (sel) colors.onSecondary else colors.onSurface)
-            }
-        }
-    }
+    // Режимы одного дня — переключатель как «Приёмы / Время», выбранный сегмент цветом типа
+    PillToggle(
+        options = types.map { it.label },
+        selected = types.indexOf(ui.dayType).coerceAtLeast(0),
+        onSelect = { onPick(types[it]) },
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = "Тип дня" },
+        icons = types.map { when (it) { DayType.Normal -> MockIcons.Sun; DayType.Training -> MockIcons.Dumbbell; DayType.Cycle -> MockIcons.Drop } },
+        selectedColors = types.map { typeColor(it, colors.secondary, MacroColors.training, MacroColors.cycle) },
+        iconTints = types.map { typeColor(it, colors.onSurfaceVariant, MacroColors.training, MacroColors.cycle) },
+    )
 }
 
 /** Карточка прогресса: скругление 32, `surfaceContainer`, поля 20, промежуток 20; кольцо 256. */
@@ -410,6 +415,8 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     val dx = remember { Animatable(0f) } // dp
+    var released by remember { mutableStateOf(false) } // строка «сорвалась» и идёт за пальцем
+    val view = LocalView.current
     val repeat by rememberUpdatedState(onRepeat)
     val delete by rememberUpdatedState(onDelete)
     val d = dx.value
@@ -419,12 +426,12 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
             Modifier.matchParentSize().background(if (d > 0) colors.primaryContainer else if (d < 0) colors.errorContainer else Color.Transparent).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(Modifier.alpha(if (d > 0) min(d / 90f, 1f) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.alpha(if (d > 0) (if (released) 1f else 0.55f * min(d / SWIPE_RESIST, 1f)) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(MockIcons.Repeat, null, Modifier.size(22.dp), tint = colors.onPrimaryContainer)
                 Text("Повторить", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimaryContainer)
             }
             Spacer(Modifier.weight(1f))
-            Row(Modifier.alpha(if (d < 0) min(-d / 90f, 1f) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.alpha(if (d < 0) (if (released) 1f else 0.55f * min(-d / SWIPE_RESIST, 1f)) else 0f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Удалить", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onErrorContainer)
                 Icon(MockIcons.Delete, null, Modifier.size(22.dp), tint = colors.onErrorContainer)
             }
@@ -434,27 +441,43 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
         Surface(
             onClick = onTap,
             color = colors.surfaceContainerLow,
+            // В покое — ровная часть блока; при сдвиге скругляется, чтобы углы не торчали на подложке
+            shape = RoundedCornerShape((20f * min(abs(d) / 24f, 1f)).dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 64.dp)
                 .offset { IntOffset(with(density) { d.dp.roundToPx() }, 0) }
                 .semantics { contentDescription = "${e.name}, ${fmt0(e.grams)} г. Нажмите, чтобы изменить; смахните вправо — повторить, влево — удалить" }
                 .pointerInput(e.id) {
+                    // Как свайп уведомлений Android: сопротивление нарастает, на пороге «срыв» со щелчком,
+                    // дальше строка догоняет палец и идёт за ним один в один. Вернули палец — снова прилипает.
+                    var raw = 0f
                     detectHorizontalDragGestures(
+                        onDragStart = { raw = dx.value; released = false },
                         onDragEnd = {
                             val v = dx.value
+                            val wasReleased = released
+                            released = false
                             scope.launch {
                                 when {
-                                    v > 90f -> { repeat(); dx.animateTo(0f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow)) }
-                                    v < -90f -> delete()
+                                    wasReleased && v > 0 -> { repeat(); dx.animateTo(0f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow)) }
+                                    wasReleased && v < 0 -> delete()
                                     else -> dx.animateTo(0f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow))
                                 }
                             }
                         },
-                        onDragCancel = { scope.launch { dx.animateTo(0f) } },
+                        onDragCancel = { released = false; scope.launch { dx.animateTo(0f) } },
                     ) { ch, amountPx ->
                         ch.consume()
-                        scope.launch { dx.snapTo((dx.value + amountPx / density.density).coerceIn(-170f, 170f)) }
+                        raw = (raw + amountPx / density.density).coerceIn(-320f, 320f)
+                        val a = abs(raw)
+                        if (!released && a >= SWIPE_SNAP) { released = true; Feedback.tick(view.context) }
+                        else if (released && a < SWIPE_SNAP * 0.75f) { released = false; Feedback.light(view.context) }
+                        val target = if (released) raw else sign(raw) * SWIPE_RESIST * (1f - exp(-a / SWIPE_SOFT))
+                        scope.launch {
+                            if (released) dx.animateTo(target, spring(dampingRatio = 0.85f, stiffness = 1600f))
+                            else dx.snapTo(target)
+                        }
                     }
                 },
         ) {

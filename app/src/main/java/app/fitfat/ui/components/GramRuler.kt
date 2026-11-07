@@ -60,7 +60,7 @@ fun GramRuler(
     // Значение, уже отданное наружу: за кадр может пройти несколько шагов подряд
     val latest = remember { intArrayOf(grams) }
     latest[0] = value
-    val drag = rememberStepDrag(SP) { dir ->
+    val drag = rememberStepDrag(SP, atLimit = { dir -> gramNext(latest[0], dir).let { it > max || it < min } }) { dir ->
         val nv = gramNext(latest[0], dir)
         if (nv > max || nv < min) false else { latest[0] = nv; change(nv); true }
     }

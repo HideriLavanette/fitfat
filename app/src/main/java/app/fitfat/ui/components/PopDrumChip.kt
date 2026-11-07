@@ -81,7 +81,7 @@ private const val SIDE = 96     // место под бабл с каждой с
 
 /**
  * Чип значения с всплывающим барабаном (макет Goals, чипы Б / Ж / У нормы).
- * Тап — барабан 72 × 232 над чипом остаётся открытым, внизу «✓ Готово»; удержание 300 мс — барабан на время
+ * Барабан — это сам чип, выросший в высоту до 232 (тот же цвет и ширина). Тап — остаётся открытым, внизу «✓ Готово»; удержание 300 мс — барабан на время
  * удержания: ведите вверх-вниз, отпустили — закрылся. Сбоку бабл с выбранным значением.
  * [value] — что показывает чип; [onTarget] получает число с барабана (шаг [step]).
  */
@@ -107,7 +107,7 @@ fun RowScope.PopDrumChip(
     var step by remember { mutableDoubleStateOf(1.0) }
     val target by rememberUpdatedState(onTarget)
     val current by rememberUpdatedState(value)
-    val drag = rememberStepDrag(ROW) { dir ->
+    val drag = rememberStepDrag(ROW, atLimit = { dir -> ((drumVal + dir * step) / step).roundToInt() * step < -1e-9 }) { dir ->
         val nv = ((drumVal + dir * step) / step).roundToInt() * step
         if (nv < 0) false else { drumVal = nv; target(nv); true }
     }
@@ -129,7 +129,6 @@ fun RowScope.PopDrumChip(
     Box(Modifier.weight(weight)) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 44.dp).onSizeChanged { chipW = it.width / density }.clip(RoundedCornerShape(12.dp)).background(bg)
-                .then(if (open) Modifier.border(2.dp, ink, RoundedCornerShape(12.dp)) else Modifier)
                 .semantics(mergeDescendants = true) { contentDescription = "$label: ${display(value)} $unit. Нажмите, чтобы изменить" }
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -166,58 +165,65 @@ fun RowScope.PopDrumChip(
                 onDismissRequest = { closeDrum() },
                 properties = PopupProperties(focusable = sticky, clippingEnabled = false),
             ) {
-                // Барабан строго над чипом, место под бабл — только с одной стороны
-                Box(Modifier.width((72 + SIDE).dp)) {
-                    Column(Modifier.align(if (bubbleRight) Alignment.TopStart else Alignment.TopEnd).width(72.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val t = expand.value.coerceIn(0f, 1.05f)
+                val tc = t.coerceAtMost(1f)
+                // Барабан строго над чипом и той же ширины; место под бабл — только с одной стороны
+                Box(Modifier.width((chipW + SIDE).dp)) {
+                    Column(
+                        Modifier.align(if (bubbleRight) Alignment.TopStart else Alignment.TopEnd).width(chipW.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         Box(
-                            Modifier.width(72.dp).height(DRUM_H.dp)
-                                // Растёт из чипа: центр плашки (116 из 232) остаётся на месте чипа
-                                .graphicsLayer {
-                                    val t = expand.value
-                                    scaleX = (chipW / 72f) + (1f - chipW / 72f) * t
-                                    scaleY = (44f / DRUM_H) + (1f - 44f / DRUM_H) * t
-                                    transformOrigin = TransformOrigin(0.5f, 0.5f)
-                                }
-                                .shadow((14 * expand.value.coerceIn(0f, 1f)).dp, RoundedCornerShape(36.dp)).clip(RoundedCornerShape(36.dp))
-                                .background(lerp(bg, colors.surfaceContainerHigh, expand.value.coerceIn(0f, 1f)))
+                            Modifier.fillMaxWidth().height(DRUM_H.dp)
                                 .semantics { contentDescription = label; stateDescription = "${fmt(drumVal)} $unit" }
                                 .then(if (sticky) Modifier.stepDrag(drag, horizontal = false) else Modifier),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Box(Modifier.padding(start = 6.dp, end = 6.dp, top = BAND_TOP.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(bg))
-                            for (k in -4..4) {
-                                val v = drumVal + k * step
-                                if (v < -1e-9) continue
-                                val y = k * ROW + drag.offset
-                                val th = y / R
-                                if (abs(th) > 1.3f) continue
-                                val c = cos(th)
-                                val wv = max(0f, 1f - abs(y) / ROW)
-                                Text(
-                                    fmt(v),
-                                    fontSize = ((15f + 4f * wv) * (0.8f + 0.2f * c)).sp,
-                                    fontWeight = FontWeight((400 + 300 * wv).roundToInt()),
-                                    color = lerp(colors.onSurfaceVariant, ink, wv),
-                                    textAlign = TextAlign.Center, maxLines = 1,
-                                    modifier = Modifier.fillMaxWidth().height(28.dp)
-                                        .offset(y = (DRUM_H / 2f + R * sin(th) - 14f).dp)
-                                        .graphicsLayer { alpha = max(0.15f, c.toDouble().pow(2.2).toFloat()) * expand.value.coerceIn(0f, 1f); scaleY = 0.6f + 0.4f * c },
-                                )
+                            // Сам чип растёт в высоту: тот же цвет и ширина, скругление 12 -> 36,
+                            // соседние числа проявляются за его краями
+                            val shape = RoundedCornerShape((12f + 24f * tc).dp)
+                            Box(
+                                Modifier.fillMaxWidth().height((44f + (DRUM_H - 44f) * t).dp)
+                                    .shadow((12f * tc).dp, shape).clip(shape).background(bg),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                // Плашка выбранного проявляется по мере раскрытия
+                                Box(Modifier.padding(horizontal = 6.dp).fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).background(ink.copy(alpha = 0.14f * tc)))
+                                for (k in -4..4) {
+                                    val v = drumVal + k * step
+                                    if (v < -1e-9) continue
+                                    val y = k * ROW + drag.offset
+                                    val th = y / R
+                                    if (abs(th) > 1.3f) continue
+                                    val c = cos(th)
+                                    val wv = max(0f, 1f - abs(y) / ROW)
+                                    Text(
+                                        fmt(v),
+                                        fontSize = ((15f + 4f * wv) * (0.8f + 0.2f * c)).sp,
+                                        fontWeight = FontWeight((400 + 300 * wv).roundToInt()),
+                                        color = lerp(ink.copy(alpha = 0.6f), ink, wv),
+                                        textAlign = TextAlign.Center, maxLines = 1,
+                                        modifier = Modifier.fillMaxWidth().height(28.dp)
+                                            .offset(y = (R * sin(th)).dp)
+                                            .graphicsLayer { alpha = max(0.15f, c.toDouble().pow(2.2).toFloat()); scaleY = 0.6f + 0.4f * c },
+                                    )
+                                }
                             }
                         }
                         if (sticky) {
                             Surface(onClick = { closeDrum() }, shape = CircleShape, color = colors.primary, shadowElevation = 6.dp,
-                                modifier = Modifier.size(48.dp).graphicsLayer { val t = expand.value.coerceIn(0f, 1f); alpha = t; scaleX = 0.6f + 0.4f * t; scaleY = 0.6f + 0.4f * t }) {
+                                modifier = Modifier.size(48.dp).graphicsLayer { alpha = tc; scaleX = 0.6f + 0.4f * tc; scaleY = 0.6f + 0.4f * tc }) {
                                 Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Check, "Готово", Modifier.size(22.dp), tint = colors.onPrimary) }
                             }
                         }
                     }
-                    // Бабл с выбранным значением — сбоку от барабана, на уровне плашки
+                    // Бабл с выбранным значением — сбоку от барабана, на уровне чипа
                     Box(
                         Modifier.align(if (bubbleRight) Alignment.TopEnd else Alignment.TopStart).padding(top = BAND_TOP.dp).width((SIDE - 10).dp).height(44.dp),
                         contentAlignment = if (bubbleRight) Alignment.CenterStart else Alignment.CenterEnd,
                     ) {
                         Box(
-                            Modifier.graphicsLayer { val t = expand.value.coerceIn(0f, 1f); alpha = t; scaleX = 0.8f + 0.2f * t; scaleY = 0.8f + 0.2f * t }
+                            Modifier.graphicsLayer { alpha = tc; scaleX = 0.8f + 0.2f * tc; scaleY = 0.8f + 0.2f * tc }
                                 .shadow(8.dp, RoundedCornerShape(22.dp)).clip(RoundedCornerShape(22.dp)).background(colors.inverseSurface)
                                 .heightIn(min = 44.dp).padding(horizontal = 14.dp),
                             contentAlignment = Alignment.Center,
@@ -234,7 +240,7 @@ fun RowScope.PopDrumChip(
 /** Центр барабана — над центром чипа, плашка выбранного — на уровне чипа; бабл слева или справа. */
 private class OverChip(private val bubbleRight: Boolean, private val density: Float) : PopupPositionProvider {
     override fun calculatePosition(anchorBounds: IntRect, windowSize: IntSize, layoutDirection: LayoutDirection, popupContentSize: IntSize): IntOffset {
-        val half = (36 * density).roundToInt()
+        val half = (popupContentSize.width - (SIDE * density).roundToInt()) / 2 // половина ширины барабана = чипа
         val cx = anchorBounds.center.x
         val x = if (bubbleRight) cx - half else cx - popupContentSize.width + half
         return IntOffset(x, anchorBounds.top - (BAND_TOP * density).roundToInt())

@@ -101,6 +101,12 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE id = :id")
     suspend fun get(id: Long): Product?
 
+    @Query("SELECT * FROM product WHERE id = :id")
+    fun observe(id: Long): Flow<Product?>
+
+    @Query("DELETE FROM product WHERE id = :id")
+    suspend fun delete(id: Long)
+
     @Query("UPDATE product SET useCount = useCount + 1, lastUsed = :now WHERE id = :id")
     suspend fun markUsed(id: Long, now: Long)
 }

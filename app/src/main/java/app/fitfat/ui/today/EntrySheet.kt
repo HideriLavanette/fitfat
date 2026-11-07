@@ -57,6 +57,8 @@ fun EntrySheet(
     onSave: (grams: Double, pieces: Double?) -> Unit,
     onDelete: () -> Unit,
     onSwitchToRepeat: () -> Unit,
+    /** Карточка продукта; null — продукта уже нет в базе. */
+    onCard: (() -> Unit)? = null,
 ) {
     val piece = entry.pieces != null
     var grams by remember(entry.id) { mutableDoubleStateOf(entry.grams) }
@@ -92,10 +94,10 @@ fun EntrySheet(
             MacroChip(fmtF1(entry.carbs * k), "г", MacroColors.carbs, MacroColors.carbsContainer, 1f, "Углеводы")
         }
         if (!repeatMode) {
-            // В макете третья плитка — «Карточка» продукта; экран карточки появится в 0.4
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Tile(MockIcons.Delete, "Удалить", colors.error, colors.error, onDelete)
                 Tile(MockIcons.Repeat, "Повторить", colors.onSurface, colors.onSurfaceVariant, onSwitchToRepeat)
+                if (onCard != null) Tile(MockIcons.Edit, "Карточка", colors.onSurface, colors.onSurfaceVariant, onCard)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import app.fitfat.ui.theme.MacroColors
 import kotlin.math.PI
+import androidx.compose.animation.core.animateFloat
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -80,6 +82,12 @@ fun WavyBar(
     extra: Double = 0.0, extraColor: Color = color, extraTrack: Color = track,
 ) {
     val over = MacroColors.over
+    // Волна бежит вправо: фаза 0…2π за 6 с
+    val phase by androidx.compose.animation.core.rememberInfiniteTransition(label = "wave").animateFloat(
+        0f, (2 * PI).toFloat(),
+        androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(6000, easing = androidx.compose.animation.core.LinearEasing)),
+        label = "phase",
+    )
     Canvas(modifier.fillMaxWidth().height(14.dp)) {
         val u = 1.dp.toPx()
         val cy = size.height / 2f
@@ -95,7 +103,7 @@ fun WavyBar(
             val p = Path()
             for (i in 0..n) {
                 val x = from + (to - from) * i / n
-                val y = cy + 2.6f * u * sin(x / (9f * u))
+                val y = cy + 2.6f * u * sin(x / (9f * u) - phase)
                 if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
             }
             return p

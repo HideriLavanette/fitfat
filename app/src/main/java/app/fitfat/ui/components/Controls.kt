@@ -25,6 +25,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,34 +56,46 @@ fun PillToggle(
     fontSize: TextUnit = 14.sp,
     fill: Boolean = true,
     gapped: Boolean = false,
+    /** Иконки сегментов (тип дня). */
+    icons: List<androidx.compose.ui.graphics.vector.ImageVector>? = null,
+    /** Цвет выбранного сегмента по индексу (тренировка — голубой); по умолчанию `secondary`. */
+    selectedColors: List<Color>? = null,
+    /** Цвет иконки невыбранного сегмента по индексу. */
+    iconTints: List<Color>? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     val full = height / 2
+    val view = androidx.compose.ui.platform.LocalView.current
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(if (gapped) 8.dp else 2.dp)) {
         options.forEachIndexed { i, label ->
             val sel = i == selected
+            // Плавно: цвет и скругление выбранного сегмента
+            val inner by androidx.compose.animation.core.animateDpAsState(if (sel) full else if (gapped) 12.dp else 8.dp, androidx.compose.animation.core.tween(220), label = "ri")
             val shape: Shape = when {
-                sel -> RoundedCornerShape(full)
-                gapped -> RoundedCornerShape(12.dp)
+                gapped || sel -> RoundedCornerShape(inner) // выбранный плавно скругляется полностью
                 options.size == 1 -> RoundedCornerShape(full)
-                i == 0 -> RoundedCornerShape(topStart = full, bottomStart = full, topEnd = 8.dp, bottomEnd = 8.dp)
-                i == options.lastIndex -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp, topEnd = full, bottomEnd = full)
-                else -> RoundedCornerShape(8.dp)
+                i == 0 -> RoundedCornerShape(topStart = full, bottomStart = full, topEnd = inner, bottomEnd = inner)
+                i == options.lastIndex -> RoundedCornerShape(topStart = inner, bottomStart = inner, topEnd = full, bottomEnd = full)
+                else -> RoundedCornerShape(inner)
             }
-            val bg = if (sel) colors.secondary else if (gapped) Color.Transparent else colors.surfaceContainerHighest
-            Box(
+            val selBg = selectedColors?.getOrNull(i) ?: colors.secondary
+            val bg by androidx.compose.animation.animateColorAsState(if (sel) selBg else if (gapped) Color.Transparent else colors.surfaceContainerHighest, androidx.compose.animation.core.tween(220), label = "bg")
+            val ink by androidx.compose.animation.animateColorAsState(if (sel) colors.onSecondary else colors.onSurface, androidx.compose.animation.core.tween(220), label = "ink")
+            Row(
                 (if (fill) Modifier.weight(1f) else Modifier)
                     .height(height)
                     .clip(shape)
                     .background(bg)
-                    .selectable(selected = sel, role = Role.RadioButton, onClick = { onSelect(i) })
+                    .selectable(selected = sel, role = Role.RadioButton, onClick = { if (!sel) Feedback.light(view.context); onSelect(i) })
                     .padding(horizontal = 14.dp),
-                contentAlignment = Alignment.Center,
+                horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false,
-                    color = if (sel) colors.onSecondary else colors.onSurface,
-                )
+                icons?.getOrNull(i)?.let {
+                    val tint by androidx.compose.animation.animateColorAsState(if (sel) colors.onSecondary else iconTints?.getOrNull(i) ?: colors.onSurface, androidx.compose.animation.core.tween(220), label = "tint")
+                    Icon(it, null, Modifier.size(18.dp), tint = tint)
+                }
+                Text(label, fontSize = fontSize, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false, color = ink)
             }
         }
     }
@@ -135,18 +148,18 @@ suspend fun SnackbarHostState.showUndo(message: String, action: String = "Отм
         showSnackbar(message, actionLabel = action, duration = SnackbarDuration.Indefinite) == SnackbarResult.ActionPerformed
     } ?: false
 
-/** Большая кнопка «+» на главном: 80×80, скругление 20, `primaryContainer`, иконка 32. */
+/** Большая кнопка «+» на главном: 80×80, скругление 20, акцентная `primary`, иконка 32. */
 @Composable
 fun AddFab(onClick: () -> Unit, modifier: Modifier = Modifier, contentDescription: String = "Добавить еду") {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.primaryContainer,
+        color = MaterialTheme.colorScheme.primary,
         shadowElevation = 4.dp,
         modifier = modifier.size(80.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(MockIcons.PlusBold, contentDescription, tint = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.size(32.dp))
+            Icon(MockIcons.PlusBold, contentDescription, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(32.dp))
         }
     }
 }

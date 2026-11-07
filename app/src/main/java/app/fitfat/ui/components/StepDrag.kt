@@ -1,9 +1,6 @@
 package app.fitfat.ui.components
 
-import android.os.Build
 import android.os.SystemClock
-import android.view.HapticFeedbackConstants
-import android.view.SoundEffectConstants
 import android.view.View
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -28,17 +25,11 @@ import kotlin.math.exp
 import kotlin.math.min
 import kotlin.math.pow
 
-/** Щелчок шага: вибрация + системный звук нажатия (звучит, если в системе включены звуки касания). */
-fun View.tick() {
-    performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-    playSoundEffect(SoundEffectConstants.CLICK)
-}
+/** Щелчок шага: короткая вибрация + тихий щелчок (свой, не зависит от системных звуков касания). */
+fun View.tick() = Feedback.tick(context)
 
 /** Упор в край диапазона: сильный отклик. */
-fun View.bump() {
-    performHapticFeedback(if (Build.VERSION.SDK_INT >= 30) HapticFeedbackConstants.REJECT else HapticFeedbackConstants.LONG_PRESS)
-    playSoundEffect(SoundEffectConstants.CLICK)
-}
+fun View.bump() = Feedback.bump(context)
 
 /**
  * Механика линеек и барабанов из макетов: палец двигает «ленту», каждые [spacing] dp — шаг значения
@@ -54,6 +45,8 @@ class StepDrag internal constructor(
     private val scope: CoroutineScope,
     private val view: View,
     private val step: (dir: Int) -> Boolean,
+    /** Упёрлись ли в край в направлении [dir] (+1 — значение растёт): тогда лента не сдвигается вовсе. */
+    private val atLimit: (dir: Int) -> Boolean,
 ) {
     var offset by mutableFloatStateOf(0f)
         private set
@@ -62,12 +55,18 @@ class StepDrag internal constructor(
 
     private fun limit() {
         val now = SystemClock.uptimeMillis()
-        if (now - lastBump > 300) { lastBump = now; view.bump() }
+        // Пока тянут в упор — частый сильный отклик
+        if (now - lastBump > 110) { lastBump = now; view.bump() }
     }
 
     /** Сдвиг на [d] dp. Возвращает false, если упёрлись в край. */
     fun push(d: Float): Boolean {
-        var acc = offset + d
+        // На краю лента стоит намертво: никакого «недошага» с отскоком
+        val next = offset + d
+        if ((next > 0f && d > 0f && atLimit(-1)) || (next < 0f && d < 0f && atLimit(1))) {
+            offset = 0f; limit(); return false
+        }
+        var acc = next
         while (acc <= -spacing) {
             if (!step(1)) { offset = 0f; limit(); return false }
             view.tick(); acc += spacing
@@ -108,11 +107,12 @@ class StepDrag internal constructor(
 }
 
 @Composable
-fun rememberStepDrag(spacing: Float, step: (dir: Int) -> Boolean): StepDrag {
+fun rememberStepDrag(spacing: Float, atLimit: (dir: Int) -> Boolean = { false }, step: (dir: Int) -> Boolean): StepDrag {
     val scope = rememberCoroutineScope()
     val view = LocalView.current
     val s by rememberUpdatedState(step)
-    return remember(spacing) { StepDrag(spacing, scope, view) { s(it) } }
+    val l by rememberUpdatedState(atLimit)
+    return remember(spacing) { StepDrag(spacing, scope, view, { s(it) }, { l(it) }) }
 }
 
 /**

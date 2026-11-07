@@ -80,6 +80,10 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     fun daysWithEntries(from: LocalDate, to: LocalDate) = food.observeDaysWithEntries(from.toEpochDay(), to.toEpochDay())
 
     suspend fun createProduct(p: Product): Product = p.copy(id = products.insert(p))
+    fun product(id: Long) = products.observe(id)
+    suspend fun updateProduct(p: Product) = products.update(p)
+    /** Записи дневника не трогаем: КБЖУ в них сохранены копией. */
+    suspend fun deleteProduct(id: Long) = products.delete(id)
 
     suspend fun add(date: LocalDate, time: LocalTime, meal: Meal, items: List<Pair<Product, Portion>>) {
         val now = System.currentTimeMillis()

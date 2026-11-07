@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import app.fitfat.ui.components.bump
 import app.fitfat.ui.components.tick
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -94,6 +95,7 @@ fun WeightDial(
     latest[0] = valueKg
     val onChange by rememberUpdatedState(onValueChange)
     val touched by rememberUpdatedState(onTouched)
+    val lastBump = remember { longArrayOf(0L) }
     var residual by remember { mutableFloatStateOf(0f) } // доля шага, которую палец уже провернул
     val spin = remember { Animatable(0f) }
     val colors = MaterialTheme.colorScheme
@@ -116,6 +118,14 @@ fun WeightDial(
     val shown = ((valueKg * 10).roundToInt() + demoSteps) / 10.0
 
     fun turn(deg: Float): Boolean {
+        // На краю (0 или 200 кг) круг стоит намертво, пока тянут — частый сильный отклик
+        val v = latest[0]
+        if ((v <= 0.0 && deg < 0f) || (v >= 200.0 && deg > 0f)) {
+            residual = 0f
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - lastBump[0] > 110) { lastBump[0] = now; view.bump() }
+            return false
+        }
         residual += deg
         var steps = 0
         while (residual >= DEG_PER_STEP) { residual -= DEG_PER_STEP; steps++ }

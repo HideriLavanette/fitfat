@@ -1,5 +1,14 @@
 package app.fitfat.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalView
+import kotlin.math.abs
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -24,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,7 +94,10 @@ fun FloatingNavBar(
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(36.dp)
-    Row(
+    // Один индикатор на всё меню: переезжает к выбранной вкладке на пружине и тянется в движении
+    val pos by animateFloatAsState(selected.coerceAtLeast(0).toFloat(), spring(dampingRatio = 0.72f, stiffness = 420f), label = "pos")
+    val view = LocalView.current
+    BoxWithConstraints(
         modifier
             .navigationBarsPadding()
             .padding(16.dp)
@@ -99,33 +112,49 @@ fun FloatingNavBar(
             }
             .border(1.dp, colors.onSurface.copy(alpha = 0.08f), shape)
             .padding(horizontal = 6.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        items.forEachIndexed { i, item ->
-            val sel = i == selected
-            Column(
+        val itemW = maxWidth / items.size
+        if (selected >= 0) {
+            val stretch = (abs(selected - pos)).coerceAtMost(1f) // 0 на месте, до 1 в пути
+            val w = 56.dp + 28.dp * stretch
+            Box(
                 Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
+                    .offset(x = itemW * pos + (itemW - w) / 2, y = (maxHeight - 52.dp) / 2)
+                    .width(w).height(32.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .selectable(selected = sel, role = Role.Tab, onClick = { onSelect(i) }),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
-            ) {
-                Box(
-                    Modifier.width(56.dp).height(32.dp).clip(RoundedCornerShape(16.dp))
-                        .background(if (sel) colors.secondaryContainer else Color.Transparent),
-                    contentAlignment = Alignment.Center,
+                    .background(colors.secondaryContainer),
+            )
+        }
+        Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+            items.forEachIndexed { i, item ->
+                val sel = i == selected
+                // Насколько индикатор сейчас над этой вкладкой: цвета перетекают вместе с его движением
+                val near = (1f - abs(pos - i)).coerceIn(0f, 1f)
+                val iconC = lerp(colors.onSurfaceVariant, colors.onSecondaryContainer, near)
+                val textC = lerp(colors.onSurfaceVariant, colors.secondary, near)
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(16.dp))
+                        .selectable(selected = sel, role = Role.Tab, indication = null, interactionSource = null, onClick = {
+                            if (!sel) Feedback.light(view.context)
+                            onSelect(i)
+                        }),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically),
                 ) {
-                    Icon(item.icon, null, Modifier.size(24.dp), tint = if (sel) colors.onSecondaryContainer else colors.onSurfaceVariant)
+                    Box(Modifier.width(56.dp).height(32.dp), contentAlignment = Alignment.Center) {
+                        Icon(item.icon, null, Modifier.size(24.dp).graphicsLayer { val k = 1f + 0.08f * near; scaleX = k; scaleY = k }, tint = iconC)
+                    }
+                    Text(
+                        item.label,
+                        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
+                        fontWeight = if (near > 0.5f) FontWeight.Bold else FontWeight.Medium,
+                        color = textC,
+                        maxLines = 1,
+                    )
                 }
-                Text(
-                    item.label,
-                    fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.5.sp,
-                    fontWeight = if (sel) FontWeight.Bold else FontWeight.Medium,
-                    color = if (sel) colors.secondary else colors.onSurfaceVariant,
-                    maxLines = 1,
-                )
             }
         }
     }

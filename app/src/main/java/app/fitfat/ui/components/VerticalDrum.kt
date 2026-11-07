@@ -65,7 +65,7 @@ fun VerticalDrum(
     val change by rememberUpdatedState(onValueChange)
     val latest = remember { doubleArrayOf(value) }
     latest[0] = v
-    val drag = rememberStepDrag(ROW) { dir ->
+    val drag = rememberStepDrag(ROW, atLimit = { dir -> r1(Math.round((latest[0] + dir * step) / step) * step).let { it > max + 1e-9 || it < min - 1e-9 } }) { dir ->
         val nv = r1(Math.round((latest[0] + dir * step) / step) * step)
         if (nv > max + 1e-9 || nv < min - 1e-9) false else { latest[0] = nv; change(nv); true }
     }

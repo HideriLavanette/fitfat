@@ -69,7 +69,7 @@ import java.time.LocalDate
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
+fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, onAllProducts: () -> Unit = {}, productId: Long = 0) {
     LaunchedEffect(date) { vm.start(date) }
     val products by vm.products.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
@@ -89,9 +89,19 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
     var whenOpen by remember { mutableStateOf(false) }
     // Фрагмент, для которого выбирали порцию, исчез из текста — закрываем выбор
 
+    // Открыли из карточки продукта — сразу окно порции этого продукта
+    var preselected by remember { mutableStateOf(false) }
+    LaunchedEffect(productId, products) {
+        if (productId > 0 && !preselected) products.firstOrNull { it.id == productId }?.let { p ->
+            preselected = true
+            portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null)
+        }
+    }
+
     fun accept(r: Recognized, p: Product) {
-        // Вес написан — сразу в список, иначе «Сколько съели»
-        if (r.fragment.grams != null || r.fragment.pieces != null) vm.confirm(r, p, r.fragment.grams, r.fragment.pieces)
+        // Количество написано (граммы, штуки или «14 у») — сразу в список
+        val (g, n) = app.fitfat.data.Recognizer.portionFor(r.fragment, p)
+        if (g != null || n != null) vm.confirm(r, p, g, n)
         else pending = r to p
     }
 
@@ -174,7 +184,15 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
 
             if (recent.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 4.dp else 6.dp)) {
-                    Row(Modifier.height(36.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) { SectionTitle("Недавние") }
+                    Row(Modifier.fillMaxWidth().height(36.dp).padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        SectionTitle("Недавние", Modifier.weight(1f))
+                        Surface(onClick = onAllProducts, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.height(36.dp)) {
+                            Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text("Посмотреть все", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurfaceVariant)
+                                Icon(MockIcons.ChevronRight, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+                            }
+                        }
+                    }
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(if (hasItems) 22.dp else 24.dp)).background(colors.surfaceContainerLow)) {
                         recent.forEach { p ->
                             if (hasItems) RecentCompact(p) { vm.add(p, null, null) }
