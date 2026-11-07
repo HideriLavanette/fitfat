@@ -1,5 +1,6 @@
 package app.fitfat.ui.theme
 
+import android.app.Activity
 import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -10,9 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 // Схемы сгенерированы алгоритмом Material You (tonal spot) от seed #E8749F
 private val LightScheme = lightColorScheme(
@@ -162,6 +166,17 @@ fun FitfatTheme(
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         darkTheme -> DarkScheme
         else -> LightScheme
+    }
+    // Значки строки состояния и навигации — по теме приложения, а не телефона (иначе тёмные на тёмном)
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
+        }
     }
     CompositionLocalProvider(LocalMacroPalette provides if (darkTheme) DarkMacros else LightMacros) {
         MaterialTheme(colorScheme = scheme, content = content)
