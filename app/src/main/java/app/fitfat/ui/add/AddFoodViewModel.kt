@@ -51,8 +51,8 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun onText(t: String) { text = t }
-    fun setMeal(m: Meal) { meal = m; mealTouched = true }
-    fun setTime(t: LocalTime) { time = t; if (!mealTouched) meal = Meal.byTime(t) }
+    fun selectMeal(m: Meal) { meal = m; mealTouched = true }
+    fun changeTime(t: LocalTime) { time = t; if (!mealTouched) meal = Meal.byTime(t) }
 
     fun recognized(): List<Recognized> =
         Recognizer.split(text).map { Recognized(it, Recognizer.candidates(it, products.value)) }

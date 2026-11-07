@@ -170,12 +170,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit) {
                     TimePicker(st)
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         Meal.entries.forEachIndexed { i, m ->
-                            SegmentedButton(selected = vm.meal == m, onClick = { vm.setMeal(m) }, shape = SegmentedButtonDefaults.itemShape(i, Meal.entries.size)) { Text(m.label) }
+                            SegmentedButton(selected = vm.meal == m, onClick = { vm.selectMeal(m) }, shape = SegmentedButtonDefaults.itemShape(i, Meal.entries.size)) { Text(m.label) }
                         }
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { vm.setTime(LocalTime.of(st.hour, st.minute)); timePicking = false }) { Text("Готово") } },
+            confirmButton = { TextButton(onClick = { vm.changeTime(LocalTime.of(st.hour, st.minute)); timePicking = false }) { Text("Готово") } },
             dismissButton = { TextButton(onClick = { timePicking = false }) { Text("Отмена") } },
         )
     }
