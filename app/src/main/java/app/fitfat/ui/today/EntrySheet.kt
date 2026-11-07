@@ -31,13 +31,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.fitfat.data.FoodEntry
 import app.fitfat.ui.common.CategoryIcon
-import app.fitfat.ui.common.Drum
-import app.fitfat.ui.common.GRAM_MAX
-import app.fitfat.ui.common.GRAM_STEP
-import app.fitfat.ui.common.PIECE_MAX_STEPS
-import app.fitfat.ui.common.gramIndex
-import app.fitfat.ui.common.pieceIndex
-import app.fitfat.ui.common.pieceOf
+import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.GramsReadout
+import app.fitfat.ui.components.PieceStepper
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 
@@ -68,20 +64,10 @@ fun EntrySheet(
                 }
             }
             if (piece) {
-                Drum(
-                    count = PIECE_MAX_STEPS, index = pieceIndex(pieces),
-                    onIndexChange = { pieces = pieceOf(it) },
-                    label = { "${fmt1(pieceOf(it))} шт" },
-                    description = "Порция",
-                )
-                Text("≈ ${fmt0(perPieceGrams * pieces)} г", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.CenterHorizontally))
+                PieceStepper(pieces, { pieces = it }, perPieceGrams)
             } else {
-                Drum(
-                    count = GRAM_MAX / GRAM_STEP + 1, index = gramIndex(grams),
-                    onIndexChange = { grams = (it * GRAM_STEP).toDouble() },
-                    label = { "${it * GRAM_STEP} г" },
-                    description = "Порция",
-                )
+                GramsReadout(grams.toInt())
+                GramRuler(grams.toInt(), { grams = it.toDouble() })
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("${fmt0(entry.kcal * k)} ккал", fontWeight = FontWeight.SemiBold)

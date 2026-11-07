@@ -73,8 +73,8 @@ import app.fitfat.data.DayType
 import app.fitfat.data.FoodEntry
 import app.fitfat.data.Meal
 import app.fitfat.ui.common.CategoryIcon
-import app.fitfat.ui.common.WavyBar
-import app.fitfat.ui.common.WavyRing
+import app.fitfat.ui.components.WavyBar
+import app.fitfat.ui.components.WavyRing
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.theme.MacroColors
@@ -316,7 +316,7 @@ private fun MacroBar(label: String, v: Double, goal: Double, color: Color, track
             Text(label, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Text("${fmt0(v)} / ${fmt0(goal)} г", color = if (v > goal * 1.05) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
         }
-        WavyBar(if (goal > 0) (v / goal).toFloat() else 0f, color, track)
+        WavyBar(v, goal, color, track)
     }
 }
 

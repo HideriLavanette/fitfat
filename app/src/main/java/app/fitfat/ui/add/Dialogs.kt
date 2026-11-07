@@ -38,13 +38,10 @@ import app.fitfat.data.Product
 import app.fitfat.data.portion
 import app.fitfat.ui.common.Categories
 import app.fitfat.ui.common.CategoryIcon
-import app.fitfat.ui.common.Drum
-import app.fitfat.ui.common.GRAM_MAX
-import app.fitfat.ui.common.GRAM_STEP
-import app.fitfat.ui.common.PIECE_MAX_STEPS
-import app.fitfat.ui.common.gramIndex
-import app.fitfat.ui.common.pieceIndex
-import app.fitfat.ui.common.pieceOf
+import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.GramsReadout
+import app.fitfat.ui.components.PieceStepper
+import androidx.compose.ui.unit.sp
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 
@@ -61,19 +58,10 @@ fun PortionDialog(item: Picked, onDismiss: () -> Unit, onSave: (Double, Double?)
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (p.perPiece) {
-                    Drum(
-                        count = PIECE_MAX_STEPS, index = pieceIndex(pieces),
-                        onIndexChange = { pieces = pieceOf(it) },
-                        label = { "${fmt1(pieceOf(it))} шт" },
-                        description = "Порция",
-                    )
+                    PieceStepper(pieces, { pieces = it }, p.pieceGrams ?: 0.0)
                 } else {
-                    Drum(
-                        count = GRAM_MAX / GRAM_STEP + 1, index = gramIndex(grams),
-                        onIndexChange = { grams = (it * GRAM_STEP).toDouble() },
-                        label = { "${it * GRAM_STEP} г" },
-                        description = "Порция",
-                    )
+                    GramsReadout(grams.toInt(), size = 30.sp)
+                    GramRuler(grams.toInt(), { grams = it.toDouble() })
                 }
                 Text("${fmt0(m.kcal)} ккал · Б ${fmt1(m.protein)} · Ж ${fmt1(m.fat)} · У ${fmt1(m.carbs)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

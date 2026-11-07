@@ -79,6 +79,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
+    implementation(libs.haze)
     ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.ui.tooling)
 }

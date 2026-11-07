@@ -1,6 +1,5 @@
 package app.fitfat.ui
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,14 +12,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.ShowChart
-import androidx.compose.material.icons.outlined.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,12 +21,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import app.fitfat.ui.common.MockIcons
+import app.fitfat.ui.components.FloatingNavBar
+import app.fitfat.ui.components.NavGuardZone
+import app.fitfat.ui.components.NavItem
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,10 +56,10 @@ import java.time.LocalDate
 import app.fitfat.update.UpdateViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {
-    Today("today", "Сегодня", Icons.Outlined.ViewList),
-    Weight("weight", "Вес", Icons.Outlined.ShowChart),
-    Assistant("assistant", "Ассистент", Icons.Outlined.AutoAwesome),
-    Profile("profile", "Профиль", Icons.Outlined.Person),
+    Today("today", "Сегодня", MockIcons.NavToday),
+    Weight("weight", "Вес", MockIcons.NavWeight),
+    Assistant("assistant", "Ассистент", MockIcons.NavAssistant),
+    Profile("profile", "Профиль", MockIcons.NavProfile),
 }
 
 @Composable
@@ -77,9 +76,11 @@ fun AppRoot(
     // Тихая проверка обновлений при запуске — не чаще раза в 12 часов
     LaunchedEffect(Unit) { updates.autoCheck() }
 
+    val haze = remember { HazeState() }
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize()) {
-        NavHost(navController = nav, startDestination = Tab.Today.route) {
+        // Всё содержимое — источник для блюра навбара и зоны под ним
+        NavHost(navController = nav, startDestination = Tab.Today.route, modifier = Modifier.fillMaxSize().haze(haze)) {
             composable(Tab.Today.route) { TodayScreen(today, onAdd = { d -> nav.navigate("add/${d.toEpochDay()}") }) }
             composable("add/{day}") { entry ->
                 val day = entry.arguments?.getString("day")?.toLongOrNull() ?: LocalDate.now().toEpochDay()
@@ -89,17 +90,22 @@ fun AppRoot(
             composable(Tab.Assistant.route) { PlaceholderScreen("Ассистент", "Советы и недельный отчёт") }
             composable(Tab.Profile.route) { ProfileScreen(updates) }
         }
-        if (current?.startsWith("add") != true) FloatingNavBar(
-            current = current,
-            onSelect = { tab ->
-                nav.navigate(tab.route) {
-                    popUpTo(nav.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            },
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
+        if (current?.startsWith("add") != true) {
+            NavGuardZone(haze, Modifier.align(Alignment.BottomCenter))
+            FloatingNavBar(
+                items = Tab.entries.map { NavItem(it.label, it.icon) },
+                selected = Tab.entries.indexOfFirst { it.route == current },
+                onSelect = { i ->
+                    nav.navigate(Tab.entries[i].route) {
+                        popUpTo(nav.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                haze = haze,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
     }
 
@@ -118,55 +124,5 @@ fun AppRoot(
             onSave = { weight.save(today, it) },
             onDismiss = weight::skipToday,
         )
-    }
-}
-
-/** Плавающий навбар: капсула 72 dp, индикатор 56×32 по спецификации M3. */
-@Composable
-private fun FloatingNavBar(current: String?, onSelect: (Tab) -> Unit, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier
-            .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-            .fillMaxWidth()
-            .height(72.dp),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 3.dp,
-        shadowElevation = 6.dp,
-    ) {
-        Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Tab.entries.forEach { tab ->
-                val selected = current == tab.route
-                val indicator by animateColorAsState(
-                    if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
-                    label = "indicator",
-                )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .selectable(selected = selected, role = Role.Tab, onClick = { onSelect(tab) }),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Box(
-                        Modifier.width(56.dp).height(32.dp).clip(CircleShape).background(indicator),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            tab.icon, contentDescription = null, modifier = Modifier.size(24.dp),
-                            tint = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Text(
-                        tab.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selected) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
     }
 }

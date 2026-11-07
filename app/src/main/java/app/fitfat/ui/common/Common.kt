@@ -37,101 +37,44 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-val OverRed = Color(0xFFFF5C63)
 
 data class Category(val id: String, val label: String, val icon: ImageVector, val bg: Color)
 
+// Категории и их иконки — как в макетах (Product-edit, Today): фон категории + линейная иконка 1,8.
+// Цвета фонов — фиксированная палитра категорий из макетов, не роли темы.
 val Categories = listOf(
-    Category("grain", "Крупы и хлеб", Icons.Outlined.RiceBowl, Color(0xFF4A3D22)),
-    Category("meat", "Мясо и рыба", Icons.Outlined.LunchDining, Color(0xFF4C2E26)),
-    Category("egg", "Яйца", Icons.Outlined.Egg, Color(0xFF423A2C)),
-    Category("dairy", "Молочное", Icons.Outlined.LocalDrink, Color(0xFF263449)),
-    Category("fruit", "Фрукты", Icons.Outlined.Spa, Color(0xFF3A4224)),
-    Category("veg", "Овощи", Icons.Outlined.Eco, Color(0xFF24402F)),
-    Category("oil", "Масла и орехи", Icons.Outlined.WaterDrop, Color(0xFF3A3122)),
-    Category("sweet", "Сладкое", Icons.Outlined.Cookie, Color(0xFF3B2A33)),
+    Category("grain", "Крупы и выпечка", strokeIcon("M3 11h18a9 9 0 0 1-18 0Z M8 7c0-1.5 1.5-1.5 1.5-3 M13 7c0-1.5 1.5-1.5 1.5-3", 1.8f), Color(0xFF4A3D22)),
+    Category("meat", "Мясо и рыба", strokeIcon("M14.5 3.5a5.5 5.5 0 0 1 3 9.5l-3.5 3.5-6-6 3.5-3.5a5.5 5.5 0 0 1 3-3.5Z M8 11l-3.5 3.5 M5.5 13.5a2 2 0 1 0 2.5 2.5", 1.8f), Color(0xFF4C2E26)),
+    Category("dairy", "Молочное", strokeIcon("M7 3h10l-1.3 17.1a1 1 0 0 1-1 .9H9.3a1 1 0 0 1-1-.9Z M7.5 9h9", 1.8f), Color(0xFF263449)),
+    Category("fruit", "Фрукты", strokeIcon("M12 7.5c-3.5-2.5-8-.5-8 4.5 0 4.5 3 9 6 9 1 0 1.5-.5 2-.5s1 .5 2 .5c3 0 6-4.5 6-9 0-5-4.5-7-8-4.5Z M12 7.5c0-2 1-4 3-4.5", 1.8f), Color(0xFF3A4224)),
+    Category("veg", "Овощи", strokeIcon("M5 19C5 10 10 5 19 5c0 9-5 14-14 14Z M5 19l8-8", 1.8f), Color(0xFF24402F)),
+    Category("sauce", "Соусы и сладкое", strokeIcon("M5 9h14v3a7 7 0 0 1-14 0ZM9 5h6", 1.8f), Color(0xFF3B2A33)),
 )
 
-fun category(id: String) = Categories.firstOrNull { it.id == id } ?: Categories.first()
+/** Яйца есть в дневнике макета, но не в списке выбора категории. */
+private val EggCategory = Category("egg", "Яйца", strokeIcon("M12 3c-4 0-7 6.5-7 11a7 7 0 0 0 14 0c0-4.5-3-11-7-11Z", 1.8f), Color(0xFF423A2C))
 
+/** Старые id из базы 0.3.0 показываем ближайшей категорией макета. */
+fun category(id: String): Category = when (id) {
+    "egg" -> EggCategory
+    "sweet", "oil" -> Categories.first { it.id == "sauce" }
+    else -> Categories.firstOrNull { it.id == id } ?: Categories.first()
+}
+
+/** Плашка категории: в макете 44 dp, скругление 14, иконка 22. */
 @Composable
 fun CategoryIcon(id: String, size: Dp = 44.dp) {
     val c = category(id)
-    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.32f)).background(c.bg), contentAlignment = Alignment.Center) {
-        Icon(c.icon, contentDescription = null, tint = Color(0xFFEFDFE1), modifier = Modifier.size(size * 0.5f))
+    Box(Modifier.size(size).clip(RoundedCornerShape(size * (14f / 44f))).background(c.bg), contentAlignment = Alignment.Center) {
+        Icon(c.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(size * 0.5f))
     }
 }
 
-fun fmt0(v: Double) = String.format(Locale("ru"), "%,d", Math.round(v)).replace('\u00A0', ' ')
+/** Целое с разделением тысяч неразрывным пробелом: «1 820». */
+fun fmt0(v: Double): String =
+    String.format(Locale("ru"), "%,d", Math.round(v)).replace(' ', ' ').replace(' ', ' ')
+
+/** Одна десятая всегда, как в строках дневника макета: «1,0», «12,6». */
+fun fmtF1(v: Double): String = String.format(Locale("ru"), "%.1f", v)
 fun fmt1(v: Double): String = if (v >= 100 || v == Math.floor(v)) Math.round(v).toString() else String.format(Locale("ru"), "%.1f", v)
 
-/** Волнистое кольцо M3 Expressive: волна — съеденное, тихий трек — остаток, красная волна поверх — перебор. */
-@Composable
-fun WavyRing(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier, stroke: Dp = 8.dp) {
-    Canvas(modifier) {
-        val w = stroke.toPx()
-        val r = size.minDimension / 2f - w * 1.6f
-        val c = center
-        val start = -PI.toFloat() / 2f
-        val f = min(fraction, 1f)
-        val end = start + f * 2f * PI.toFloat()
-        val amp = 3.dp.toPx()
-        fun wave(from: Float, to: Float): Path {
-            val p = Path()
-            val n = 200
-            for (i in 0..n) {
-                val t = from + (to - from) * i / n
-                val rr = r + amp * sin((t - start) * 12f)
-                val x = c.x + rr * cos(t); val y = c.y + rr * sin(t)
-                if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-            }
-            return p
-        }
-        if (f < 1f) {
-            val gap = (w * 1.5f + 4.dp.toPx()) / r
-            val ts = end + gap; val te = start + 2f * PI.toFloat() - gap
-            if (te > ts) {
-                val p = Path()
-                val n = 80
-                for (i in 0..n) {
-                    val t = ts + (te - ts) * i / n
-                    val x = c.x + r * cos(t); val y = c.y + r * sin(t)
-                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-                }
-                drawPath(p, track, style = Stroke(width = w, cap = StrokeCap.Round))
-            }
-        }
-        if (f > 0f) drawPath(wave(start, end), color, style = Stroke(width = w, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        val over = min(fraction - 1f, 1f)
-        if (over > 0f) drawPath(wave(start, start + over * 2f * PI.toFloat()), OverRed, style = Stroke(width = w * 1.4f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-    }
-}
-
-/** Волнистая полоска макроса с точкой-ограничителем и красным слоем перебора. */
-@Composable
-fun WavyBar(fraction: Float, color: Color, track: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier.fillMaxWidth().height(14.dp)) {
-        val w = 4.dp.toPx()
-        val cy = size.height / 2f
-        val amp = 2.6.dp.toPx()
-        val x0 = w / 2; val x1 = size.width - w / 2
-        val xe = x0 + (x1 - x0) * min(fraction, 1f)
-        fun wave(to: Float): Path {
-            val p = Path(); val n = 120
-            for (i in 0..n) {
-                val x = x0 + (to - x0) * i / n
-                val y = cy + amp * sin(x / 9.dp.toPx())
-                if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-            }
-            return p
-        }
-        val gap = 8.dp.toPx()
-        if (xe + gap < x1 - 6.dp.toPx()) {
-            drawLine(track, Offset(xe + gap, cy), Offset(x1 - 6.dp.toPx(), cy), strokeWidth = w, cap = StrokeCap.Round)
-            drawCircle(color, 2.dp.toPx(), Offset(x1, cy))
-        }
-        if (fraction > 0f) drawPath(wave(xe), color, style = Stroke(width = w, cap = StrokeCap.Round))
-        val over = min(fraction - 1f, 1f)
-        if (over > 0f) drawPath(wave(x0 + (x1 - x0) * over), OverRed, style = Stroke(width = w * 1.6f, cap = StrokeCap.Round))
-    }
-}

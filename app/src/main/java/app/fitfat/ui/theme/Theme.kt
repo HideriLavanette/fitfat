@@ -1,7 +1,6 @@
 package app.fitfat.ui.theme
 
 import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -147,7 +146,8 @@ object MacroColors {
 
 @Composable
 fun FitfatTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    // Всегда тёмная; выбор темы появится в настройках позже
+    darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {

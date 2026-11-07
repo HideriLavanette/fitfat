@@ -1,6 +1,6 @@
 package app.fitfat.ui.weight
 
-import app.fitfat.ui.common.tick
+import app.fitfat.ui.components.tick
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.animation.core.spring
