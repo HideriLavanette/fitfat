@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,6 +33,7 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -63,6 +66,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -126,9 +130,17 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
             item {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Дневник", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).padding(start = 8.dp))
-                    SingleChoiceSegmentedButtonRow {
-                        SegmentedButton(selected = !ui.groupByTime, onClick = { vm.setGroupByTime(false) }, shape = SegmentedButtonDefaults.itemShape(0, 2), icon = {}) { Text("Приёмы", fontSize = 13.sp, maxLines = 1) }
-                        SegmentedButton(selected = ui.groupByTime, onClick = { vm.setGroupByTime(true) }, shape = SegmentedButtonDefaults.itemShape(1, 2), icon = {}) { Text("Время", fontSize = 13.sp, maxLines = 1) }
+                    // Обе кнопки одной высоты, подписи всегда в одну строку
+                    SingleChoiceSegmentedButtonRow(Modifier.height(IntrinsicSize.Min)) {
+                        listOf(false to "Приёмы", true to "Время").forEachIndexed { i, (byTime, label) ->
+                            SegmentedButton(
+                                selected = ui.groupByTime == byTime,
+                                onClick = { vm.setGroupByTime(byTime) },
+                                shape = SegmentedButtonDefaults.itemShape(i, 2),
+                                icon = {},
+                                modifier = Modifier.fillMaxHeight(),
+                            ) { Text(label, fontSize = 13.sp, maxLines = 1, softWrap = false) }
+                        }
                     }
                 }
             }
@@ -137,7 +149,18 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
                     Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainerLow, modifier = Modifier.fillMaxWidth()) {
                         Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("Пока ничего не записано", style = MaterialTheme.typography.titleMedium)
-                            Text("Нажмите «+» и напишите, что съели: «гречка 200, грудка 150»", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                "Напишите, что съели: «гречка 200, грудка 150»",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            // Пока день пустой, FAB скрыт — добавление отсюда
+                            FilledTonalButton(onClick = { onAdd(ui.date) }) {
+                                Icon(Icons.Outlined.Add, null, Modifier.size(18.dp))
+                                Spacer(Modifier.size(8.dp))
+                                Text("Добавить еду")
+                            }
                         }
                     }
                 }
@@ -163,7 +186,7 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
             }
         }
 
-        FloatingActionButton(
+        if (ui.entries.isNotEmpty()) FloatingActionButton(
             onClick = { onAdd(ui.date) },
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = 120.dp),
@@ -202,7 +225,7 @@ fun TodayScreen(vm: TodayViewModel, onAdd: (LocalDate) -> Unit) {
     }
 }
 
-/** Капсула даты: свайп влево — вчера, вправо — вперёд (не дальше сегодня), тап — календарь. */
+/** Капсула даты: свайп вправо — вчера, влево — вперёд (не дальше сегодня), тап — календарь. */
 @Composable
 private fun DateCapsule(date: LocalDate, onShift: (Long) -> Unit, onPick: () -> Unit) {
     var drag by remember { mutableFloatStateOf(0f) }
@@ -216,7 +239,8 @@ private fun DateCapsule(date: LocalDate, onShift: (Long) -> Unit, onPick: () -> 
         modifier = Modifier.fillMaxWidth().height(60.dp).pointerInput(date) {
             detectHorizontalDragGestures(
                 onDragEnd = {
-                    if (drag < -120f) onShift(-1) else if (drag > 120f && date.isBefore(today)) onShift(1)
+                    // Как листание страниц: прошлое слева, тянем вправо — уходим назад
+                    if (drag > 120f) onShift(-1) else if (drag < -120f && date.isBefore(today)) onShift(1)
                     drag = 0f
                 },
                 onDragCancel = { drag = 0f },
