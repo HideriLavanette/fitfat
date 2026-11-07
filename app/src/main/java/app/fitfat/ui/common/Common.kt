@@ -63,10 +63,10 @@ fun category(id: String): Category = when (id) {
 
 /** Плашка категории: в макете 44 dp, скругление 14, иконка 22. */
 @Composable
-fun CategoryIcon(id: String, size: Dp = 44.dp) {
+fun CategoryIcon(id: String, size: Dp = 44.dp, radius: Dp = size * (14f / 44f), iconSize: Dp = size * 0.5f) {
     val c = category(id)
-    Box(Modifier.size(size).clip(RoundedCornerShape(size * (14f / 44f))).background(c.bg), contentAlignment = Alignment.Center) {
-        Icon(c.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(size * 0.5f))
+    Box(Modifier.size(size).clip(RoundedCornerShape(radius)).background(c.bg), contentAlignment = Alignment.Center) {
+        Icon(c.icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(iconSize))
     }
 }
 

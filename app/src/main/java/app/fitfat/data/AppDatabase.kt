@@ -66,6 +66,9 @@ data class FoodEntry(
     val carbs: Double,
 )
 
+/** Строка выборки частых продуктов. */
+data class Frequent(val productId: Long, val grams: Double, val pieces: Double?, val lastId: Long, val n: Int)
+
 @Dao
 interface WeightDao {
     @Query("SELECT * FROM weight ORDER BY epochDay ASC")
@@ -95,12 +98,19 @@ interface ProductDao {
     @Update
     suspend fun update(p: Product)
 
+    @Query("SELECT * FROM product WHERE id = :id")
+    suspend fun get(id: Long): Product?
+
     @Query("UPDATE product SET useCount = useCount + 1, lastUsed = :now WHERE id = :id")
     suspend fun markUsed(id: Long, now: Long)
 }
 
 @Dao
 interface FoodDao {
+    /** Частые продукты приёма пищи; граммы — из последней записи (в SQLite голые столбцы берутся из строки MAX). */
+    @Query("SELECT productId, grams, pieces, MAX(id) AS lastId, COUNT(*) AS n FROM food_entry WHERE meal = :meal AND productId > 0 GROUP BY productId ORDER BY n DESC, lastId DESC LIMIT :limit")
+    fun observeFrequent(meal: String, limit: Int): Flow<List<Frequent>>
+
     @Query("SELECT * FROM food_entry WHERE epochDay = :day ORDER BY minute DESC, id DESC")
     fun observeDay(day: Long): Flow<List<FoodEntry>>
 

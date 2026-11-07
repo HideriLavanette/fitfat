@@ -66,6 +66,7 @@ import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.common.fmtF1
 import app.fitfat.ui.components.AddFab
+import app.fitfat.ui.components.FitText
 import app.fitfat.ui.components.PillToggle
 import app.fitfat.ui.components.WavyBar
 import app.fitfat.ui.components.WavyRing
@@ -226,9 +227,9 @@ private fun DateCapsule(date: LocalDate, dayType: DayType, onSelect: (LocalDate)
                 val typed = d == date && dayType != DayType.Normal
                 Column(Modifier.fillMaxSize().padding(horizontal = 38.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text(title, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight(650), maxLines = 1)
-                    Text(
+                    FitText(
                         d.format(longDate) + if (typed) " · " + dayType.label.lowercase() else "",
-                        fontSize = 13.sp, maxLines = 1,
+                        fontSize = 13.sp,
                         fontWeight = if (typed) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (typed) tColor else colors.onSurfaceVariant,
                     )
@@ -285,7 +286,7 @@ private fun DayNote(ui: TodayUi, modifier: Modifier) {
         DayType.Normal -> return
     }
     val c = if (ui.dayType == DayType.Training) MacroColors.training else MacroColors.cycle
-    Text(text, fontSize = 12.sp, color = c, modifier = modifier)
+    FitText(text, fontSize = 12.sp, color = c, modifier = modifier)
 }
 
 /** Карточка прогресса: скругление 32, `surfaceContainer`, поля 20, промежуток 20; кольцо 256. */

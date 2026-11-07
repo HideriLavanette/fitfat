@@ -66,6 +66,7 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     val allProducts = products.observeAll()
     val recent = products.observeRecent(8)
     fun day(date: LocalDate) = food.observeDay(date.toEpochDay())
+    fun frequent(meal: Meal, limit: Int = 4) = food.observeFrequent(meal.name, limit)
     fun daysWithEntries(from: LocalDate, to: LocalDate) = food.observeDaysWithEntries(from.toEpochDay(), to.toEpochDay())
 
     suspend fun createProduct(p: Product): Product = p.copy(id = products.insert(p))
@@ -73,7 +74,7 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     suspend fun add(date: LocalDate, time: LocalTime, meal: Meal, items: List<Pair<Product, Portion>>) {
         val now = System.currentTimeMillis()
         food.insertAll(items.map { (p, por) ->
-            val m = p.portion(por.grams, por.pieces)
+            val m = por.macros ?: p.portion(por.grams, por.pieces)
             FoodEntry(
                 epochDay = date.toEpochDay(), minute = time.hour * 60 + time.minute, meal = meal.name,
                 productId = p.id, name = p.name, category = p.category,
@@ -100,5 +101,6 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     suspend fun restore(e: FoodEntry) = food.insert(e)
 }
 
-data class Portion(val grams: Double, val pieces: Double?)
+/** [macros] — КБЖУ, поправленные вручную только для этой записи. */
+data class Portion(val grams: Double, val pieces: Double?, val macros: Macros? = null)
 const val CYCLE_EXTRA_CARBS = 25.0

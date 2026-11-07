@@ -106,6 +106,8 @@ data class MacroPalette(
     val training: Color,
     val trainingContainer: Color,
     val cycle: Color,
+    /** Пунктир под словом, которого нет в базе. */
+    val unknown: Color,
 )
 
 // Значения из DESIGN.md (тёмная тема)
@@ -116,6 +118,7 @@ private val DarkMacros = MacroPalette(
     over = Color(0xFFFF5C63),
     training = Color(0xFF8AB4FF), trainingContainer = Color(0xFF1F2A40),
     cycle = Color(0xFFFF8A8A),
+    unknown = Color(0xFFFFB86B),
 )
 
 // Светлая тема: те же оттенки, тон 40 для линии и тон 90 для дорожки
@@ -126,6 +129,7 @@ private val LightMacros = MacroPalette(
     over = Color(0xFFD93A42),
     training = Color(0xFF2F5EA8), trainingContainer = Color(0xFFD9E3FF),
     cycle = Color(0xFFC23B3B),
+    unknown = Color(0xFFA35A00),
 )
 
 private val LocalMacroPalette = staticCompositionLocalOf { DarkMacros }
@@ -142,6 +146,7 @@ object MacroColors {
     val training: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.training
     val trainingContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.trainingContainer
     val cycle: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycle
+    val unknown: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.unknown
 }
 
 @Composable
