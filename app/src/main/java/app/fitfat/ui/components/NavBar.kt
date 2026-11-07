@@ -56,6 +56,8 @@ fun NavGuardZone(haze: HazeState, modifier: Modifier = Modifier) {
             .hazeChild(haze) {
                 blurRadius = 12.dp
                 tints = emptyList()
+                // Haze требует фон: без него падает при первой отрисовке (IllegalArgumentException)
+                backgroundColor = s
                 mask = Brush.verticalGradient(0f to Color.Transparent, 0.45f to Color.Black)
             }
             .background(Brush.verticalGradient(0f to s.copy(alpha = 0f), 0.45f to s.copy(alpha = 0.55f), 1f to s.copy(alpha = 0.85f)))
