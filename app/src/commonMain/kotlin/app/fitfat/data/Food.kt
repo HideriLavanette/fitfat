@@ -56,9 +56,22 @@ fun Product.gramsFor(pieces: Double) = (pieceGrams ?: 0.0) * pieces
 class NormsStore() {
     private val prefs = Prefs("norms")
 
+    init {
+        // 0.6: в дни цикла добавка и к жирам (+10 г). Сохранённые нормы цикла без своей правки жиров (= обычный день) поднимаем один раз
+        if (!prefs.getBoolean("cycle_fat_v1", false)) {
+            prefs.edit {
+                if (prefs.contains("f_cycle") && prefs.getFloat("f_cycle", 0f) == prefs.getFloat("f", 60f)) {
+                    putFloat("f_cycle", prefs.getFloat("f", 60f) + CYCLE_EXTRA_FAT.toFloat())
+                }
+                putBoolean("cycle_fat_v1", true)
+            }
+        }
+    }
+
     /**
      * Нормы типа дня. У дня тренировки и цикла могут быть свои Б и Ж (поправили в первой настройке),
-     * иначе — как в обычный день; углеводы — свои или обычные + добавка (тренировка — 100 г по умолчанию, цикл +25 г).
+     * иначе — как в обычный день; углеводы — свои или обычные + добавка (тренировка — 100 г по умолчанию, цикл +25 г);
+     * в дни цикла и жиры — обычные +10 г.
      */
     fun norms(type: DayType): Macros {
         val p = prefs.getFloat("p", 180f).toDouble()
@@ -66,7 +79,7 @@ class NormsStore() {
         val base = prefs.getFloat("u", 140f).toDouble()
         val (pt, ft, u) = when (type) {
             DayType.Training -> Triple(prefs.getFloat("p_train", p.toFloat()).toDouble(), prefs.getFloat("f_train", f.toFloat()).toDouble(), prefs.getFloat("u_train", 240f).toDouble())
-            DayType.Cycle -> Triple(prefs.getFloat("p_cycle", p.toFloat()).toDouble(), prefs.getFloat("f_cycle", f.toFloat()).toDouble(), prefs.getFloat("u_cycle", (base + CYCLE_EXTRA_CARBS).toFloat()).toDouble())
+            DayType.Cycle -> Triple(prefs.getFloat("p_cycle", p.toFloat()).toDouble(), prefs.getFloat("f_cycle", (f + CYCLE_EXTRA_FAT).toFloat()).toDouble(), prefs.getFloat("u_cycle", (base + CYCLE_EXTRA_CARBS).toFloat()).toDouble())
             DayType.Normal -> Triple(p, f, base)
         }
         return Macros(pt * 4 + ft * 9 + u * 4, pt, ft, u)
@@ -78,7 +91,7 @@ class NormsStore() {
             putFloat("p", normal.protein.toFloat()); putFloat("f", normal.fat.toFloat()); putFloat("u", normal.carbs.toFloat())
             val t = training ?: normal.copy(carbs = normal.carbs + TRAINING_EXTRA_CARBS)
             putFloat("p_train", t.protein.toFloat()); putFloat("f_train", t.fat.toFloat()); putFloat("u_train", t.carbs.toFloat())
-            val c = cycle ?: normal.copy(carbs = normal.carbs + CYCLE_EXTRA_CARBS)
+            val c = cycle ?: normal.copy(carbs = normal.carbs + CYCLE_EXTRA_CARBS, fat = normal.fat + CYCLE_EXTRA_FAT)
             putFloat("p_cycle", c.protein.toFloat()); putFloat("f_cycle", c.fat.toFloat()); putFloat("u_cycle", c.carbs.toFloat())
             putString("sex", if (female) "f" else "m")
         }
@@ -185,6 +198,8 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
 /** [macros] — КБЖУ, поправленные вручную только для этой записи. */
 data class Portion(val grams: Double, val pieces: Double?, val macros: Macros? = null)
 const val CYCLE_EXTRA_CARBS = 25.0
+/** Дни цикла: во второй половине цикла организм охотнее тратит жиры и расход немного выше — добавка и к жирам (09.11.2026). */
+const val CYCLE_EXTRA_FAT = 10.0
 
 /** КБЖУ всего блюда по сырым весам ингредиентов. Штучные продукты пересчитываются через вес штуки. */
 fun dishTotals(items: List<DishIngredient>, all: List<Product>): Macros = items.fold(Macros()) { acc, i ->

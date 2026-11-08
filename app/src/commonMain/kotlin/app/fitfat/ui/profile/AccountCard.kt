@@ -54,6 +54,14 @@ fun AccountCard() {
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    if (!app.fitfat.platform.Platform.supportsGoogleSignIn) {
+        // iPhone: входа Google пока нет (docs/IOS.md) — карточка без кнопки
+        Text(
+            "Вход через Google на iPhone появится в следующих версиях. Пока данные только на телефоне.",
+            fontSize = 12.sp, lineHeight = 16.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainerLow)

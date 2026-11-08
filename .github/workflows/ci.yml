@@ -22,3 +22,36 @@ jobs:
         with:
           name: fitfat-debug
           path: app/build/outputs/apk/debug/*.apk
+
+  # iOS собирается только здесь: у автора нет Mac (docs/IOS.md). Проверяется компиляция iosMain,
+  # линковка фреймворка и сборка приложения для симулятора без подписи.
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Фреймворк Kotlin для симулятора
+        run: gradle :app:linkDebugFrameworkIosSimulatorArm64
+      - name: Проект Xcode из iosApp/project.yml
+        run: |
+          brew install xcodegen
+          xcodegen generate --spec iosApp/project.yml
+      - name: Приложение для симулятора
+        run: |
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build | tail -200
+          test -d build/ios/Build/Products/Debug-iphonesimulator/FitFat.app
+      - name: Упаковать .app
+        run: |
+          cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fitfat-ios-simulator
+          path: FitFat-simulator.zip

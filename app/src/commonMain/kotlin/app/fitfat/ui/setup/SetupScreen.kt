@@ -198,7 +198,7 @@ fun SetupScreen(initial: Profile?, onClose: (() -> Unit)?, edit: SetupEdit? = nu
     }
 }
 
-/** Нормы по методике: обычный день, день тренировки (+90 г углеводов при интенсивных тренировках), дни цикла (+25 г). */
+/** Нормы по методике: обычный день, день тренировки (+90 г углеводов при интенсивных тренировках), дни цикла (+25 г углеводов и +10 г жиров). */
 private fun baseNorms(p: Profile, cuts: Int = 0): app.fitfat.data.DayNorms = app.fitfat.data.NormsPlan.calc(p, p.weightKg, cuts)
 
 @Composable

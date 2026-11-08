@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -83,7 +82,7 @@ fun AssistantChatScreen(vm: AssistantViewModel, onReport: () -> Unit) {
     // Новое сообщение или «думаю» — к низу переписки
     LaunchedEffect(vm.messages.size, vm.busy) { val n = vm.messages.size + (if (vm.busy) 1 else 0); if (n > 0) list.animateScrollToItem(n) }
 
-    val ime = WindowInsets.isImeVisible
+    val ime = app.fitfat.ui.components.imeVisible()
     Column(
         Modifier.fillMaxSize().statusBarsPadding().imePadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = if (ime) 12.dp else 128.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),

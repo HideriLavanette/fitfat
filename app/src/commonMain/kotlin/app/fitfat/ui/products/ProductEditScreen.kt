@@ -125,7 +125,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             // Фото 96 × 96 (скругление 20) слева от названия, как в макете 4.3
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                app.fitfat.ui.components.PhotoTile(photo, 96.dp, 20.dp, picker.busy) { photoSheet = true }
+                if (photo != null || app.fitfat.platform.Platform.supportsPhotoPick) app.fitfat.ui.components.PhotoTile(photo, 96.dp, 20.dp, picker.busy) { photoSheet = true }
                 Box(Modifier.weight(1f)) {
                     Field("Название") {
                         TextInput(name, { name = it }, "Например: Сырники домашние", 56.dp, "Название")
@@ -165,7 +165,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                             }
                         }
                     }
-                    Surface(onClick = { app.fitfat.ui.components.scanBarcode { barcode = it; lookNote = null } }, shape = RoundedCornerShape(16.dp), color = colors.secondaryContainer, modifier = Modifier.size(56.dp)) {
+                    if (app.fitfat.platform.Platform.supportsBarcodeScan) Surface(onClick = { app.fitfat.ui.components.scanBarcode { barcode = it; lookNote = null } }, shape = RoundedCornerShape(16.dp), color = colors.secondaryContainer, modifier = Modifier.size(56.dp)) {
                         Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(24.dp), tint = colors.onSecondaryContainer) }
                     }
                 }

@@ -9,6 +9,7 @@ import app.fitfat.ui.components.rememberNotificationPermission
 import app.fitfat.data.AppGraph
 
 import app.fitfat.platform.Platform
+import app.fitfat.platform.ioDispatcher
 
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
@@ -215,7 +216,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     importText = null
                     scope.launch {
-                        val ok = withContext(Dispatchers.IO) { runCatching { Backup.importJson(app.database, text) }.isSuccess }
+                        val ok = withContext(ioDispatcher) { runCatching { Backup.importJson(app.database, text) }.isSuccess }
                         message = if (ok) "Данные загружены." else "Файл повреждён — данные не изменились."
                     }
                 }) { Text("Заменить", color = colors.error) }

@@ -90,8 +90,10 @@ fun PhotoSheet(picker: PhotoPicker, hasPhoto: Boolean, onDismiss: () -> Unit, on
     val colors = MaterialTheme.colorScheme
     FfSheet(onDismiss = onDismiss, gap = 8.dp) {
         Text(if (hasPhoto) "Сменить фото" else "Добавить фото", fontSize = 20.sp, fontWeight = FontWeight(650), modifier = Modifier.padding(bottom = 6.dp))
-        PhotoRow(MockIcons.Camera, "Снять на камеру", colors.onSurface) { onDismiss(); picker.camera() }
-        PhotoRow(MockIcons.Gallery, "Выбрать из галереи", colors.onSurface) { onDismiss(); picker.gallery() }
+        if (app.fitfat.platform.Platform.supportsPhotoPick) {
+            PhotoRow(MockIcons.Camera, "Снять на камеру", colors.onSurface) { onDismiss(); picker.camera() }
+            PhotoRow(MockIcons.Gallery, "Выбрать из галереи", colors.onSurface) { onDismiss(); picker.gallery() }
+        }
         if (hasPhoto) PhotoRow(MockIcons.Delete, "Убрать фото", colors.error) { onDismiss(); onRemove() }
     }
 }

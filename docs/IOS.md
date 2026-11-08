@@ -50,7 +50,15 @@
 
 ## Порядок миграции (чекбоксы — что уже сделано)
 - [x] Модуль `app` → KMP, код в `androidMain`, зелёная сборка Android.
-- [ ] Общие заглушки: даты, формат, `Prefs`, `BuildValues`, `Platform`.
-- [ ] `data/` в `commonMain` (Room KMP, Ktor).
-- [ ] Тема, компоненты, экраны, `AppRoot` в `commonMain`; `expect`/`actual` для платформенного.
-- [ ] `iosMain`, `iosApp`, job `ios` в CI.
+- [x] Общие заглушки: даты, формат, `Prefs`, `BuildValues`, `Platform`.
+- [x] `data/` в `commonMain` (Room KMP, Ktor).
+- [x] Тема, компоненты, экраны, `AppRoot` в `commonMain`; `expect`/`actual` для платформенного.
+- [x] `iosMain`, `iosApp`, job `ios` в CI.
+- [ ] Первый зелёный прогон job `ios` в GitHub Actions (нужен пуш в `main`).
+- [ ] Аккаунт Apple Developer → подпись, TestFlight, шаг в `release.yml`.
+- [ ] Сканер штрихкодов, фото, вход Google на iOS (см. «Чего на iOS пока нет»).
+
+## Как проверять iOS-код без Mac
+Kotlin на Windows умеет компилировать iOS-библиотеку без линковки: `./gradlew :app:compileKotlinIosSimulatorArm64`
+проверяет `commonMain` и `iosMain` на ошибки (платформенные API iOS из дистрибутива Kotlin/Native). Линковка фреймворка
+и сборка приложения — только на macOS, то есть в CI.

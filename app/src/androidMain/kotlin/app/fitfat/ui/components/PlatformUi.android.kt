@@ -63,3 +63,5 @@ actual fun rememberTextFileOpener(onText: (String?) -> Unit): () -> Unit {
 
 actual fun fullScreenDialogProperties(): androidx.compose.ui.window.DialogProperties =
     androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
+
+actual fun noFontPadding(): androidx.compose.ui.text.PlatformTextStyle? = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false)

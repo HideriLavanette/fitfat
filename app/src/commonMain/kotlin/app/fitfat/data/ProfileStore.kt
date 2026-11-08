@@ -55,7 +55,7 @@ object NormsPlan {
         val protein = p.proteinPerKg?.let { it * weight } ?: NormsCalc.defaultProtein(b)
         var n = NormsCalc.norms(b, protein = protein)
         repeat(cuts) { n = NormsCalc.cut(n, NormsCalc.lean(b)) ?: n }
-        val cycle = n.copy(carbs = n.carbs + CYCLE_EXTRA_CARBS, kcal = n.kcal + CYCLE_EXTRA_CARBS * 4)
+        val cycle = n.copy(carbs = n.carbs + CYCLE_EXTRA_CARBS, fat = n.fat + CYCLE_EXTRA_FAT, kcal = n.kcal + CYCLE_EXTRA_CARBS * 4 + CYCLE_EXTRA_FAT * 9)
         return DayNorms(n, NormsCalc.trainingDay(b, n), cycle)
     }
 

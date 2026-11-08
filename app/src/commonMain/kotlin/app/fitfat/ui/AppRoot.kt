@@ -1,5 +1,6 @@
 package app.fitfat.ui
 
+import androidx.savedstate.read
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import androidx.compose.animation.core.Animatable
@@ -406,8 +407,8 @@ fun AppRoot(
             // Вкладки живут в слое под навигацией (TabLayer) — здесь только места в стеке
             Tab.entries.forEach { t -> composable(t.route) { } }
             composable(ADD_ROUTE) { entry ->
-                val day = entry.arguments?.getString("day")?.toLongOrNull() ?: app.fitfat.data.DayClock.today().toEpochDay()
-                val product = entry.arguments?.getString("product")?.toLongOrNull() ?: 0L
+                val day = entry.arguments?.read { getStringOrNull("day") }?.toLongOrNull() ?: app.fitfat.data.DayClock.today().toEpochDay()
+                val product = entry.arguments?.read { getStringOrNull("product") }?.toLongOrNull() ?: 0L
                 // Свой непрозрачный фон: под рамкой ещё виден главный экран, он не должен просвечивать
                 // Системное «назад» тоже сворачивает экран в кнопку
                 androidx.compose.ui.backhandler.BackHandler(enabled = lastFab != null && !closingAdd) { closeAdd() }
@@ -522,7 +523,7 @@ fun AppRoot(
                 )
             }
             composable("dish/{id}") { entry ->
-                val id = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                val id = entry.arguments?.read { getStringOrNull("id") }?.toLongOrNull() ?: 0L
                 DishCardScreen(
                     productsVm, id, onBack = { nav.popBackStack() },
                     onDeleted = { nav.popBackStack() },
@@ -530,7 +531,7 @@ fun AppRoot(
                 )
             }
             composable("product/{id}") { entry ->
-                val id = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                val id = entry.arguments?.read { getStringOrNull("id") }?.toLongOrNull() ?: 0L
                 // Блюдо открывается своей карточкой
                 if (productsVm.products.value.firstOrNull { it.id == id }?.isDish == true) {
                     DishCardScreen(
@@ -546,9 +547,9 @@ fun AppRoot(
                 )
             }
             composable("productEdit/{id}?toAdd={toAdd}") { entry ->
-                val id = entry.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                val id = entry.arguments?.read { getStringOrNull("id") }?.toLongOrNull() ?: 0L
                 // Новый продукт после скана на «Добавить» — сохранили и сразу в «Что съели»
-                val toAdd = entry.arguments?.getString("toAdd") == "true"
+                val toAdd = entry.arguments?.read { getStringOrNull("toAdd") } == "true"
                 ProductEditScreen(
                     productsVm, id, onClose = { nav.popBackStack() },
                     // Новый — сразу его карточка вместо формы; правка — назад к карточке

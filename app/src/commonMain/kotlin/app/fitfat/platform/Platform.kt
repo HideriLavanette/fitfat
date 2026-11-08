@@ -27,3 +27,6 @@ expect object Platform {
 
 /** Монотонное время, мс — вместо `SystemClock.uptimeMillis()`. */
 expect fun uptimeMillis(): Long
+
+/** Диспетчер для диска и сети: `Dispatchers.IO` на обеих платформах (в общем коде он недоступен напрямую). */
+expect val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher

@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -90,7 +89,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     val focus = remember { FocusRequester() }
     // Клавиатуру убрали или нажали мимо поля — курсор пропадает, «Что съели» выходит из фокуса
     val clearFocus = androidx.compose.ui.platform.LocalFocusManager.current
-    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    val imeVisible = app.fitfat.ui.components.imeVisible()
     var imeWasVisible by remember { mutableStateOf(false) }
     LaunchedEffect(imeVisible) {
         if (imeWasVisible && !imeVisible) clearFocus.clearFocus()
@@ -218,7 +217,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         // «Добавить блюдо» · «Создать блюдо (N)» из того, что уже выбрано (макет Add-food)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // Сканер штрихкода (макет Add-food: маленькая кнопка 48 слева)
-            Surface(
+            if (app.fitfat.platform.Platform.supportsBarcodeScan) Surface(
                 onClick = { app.fitfat.ui.components.scanBarcode { code -> onBarcode(code) { p -> portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null) } } },
                 shape = RoundedCornerShape(16.dp), color = colors.surfaceContainer, modifier = Modifier.size(48.dp),
             ) { Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(22.dp), tint = colors.onSurfaceVariant) } }
@@ -243,7 +242,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                                 "${forDish.size}", color = colors.onPrimary,
                                 style = androidx.compose.ui.text.TextStyle(
                                     fontSize = 12.sp, lineHeight = 12.sp, fontWeight = FontWeight.Bold,
-                                    platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                                    platformStyle = app.fitfat.ui.components.noFontPadding(),
                                     lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
                                         androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
                                         androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,

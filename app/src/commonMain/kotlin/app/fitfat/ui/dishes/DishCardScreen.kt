@@ -162,7 +162,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                 // Название
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     // Фото 84 × 84 (скругление 22), как в макете 4.4
-                    app.fitfat.ui.components.PhotoTile(photo, 84.dp, 22.dp, picker.busy) { focus.clearFocus(); photoSheet = true }
+                    if (photo != null || app.fitfat.platform.Platform.supportsPhotoPick) app.fitfat.ui.components.PhotoTile(photo, 84.dp, 22.dp, picker.busy) { focus.clearFocus(); photoSheet = true }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         // Название — в рамке (видно, что это поле); пустое — серая подсказка и карандаш
                         BasicTextField(
@@ -269,7 +269,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                                 .semantics { contentDescription = "Штрихкод блюда" },
                             decorationBox = { inner -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart) { if (barcode.isEmpty()) Text("не указан", fontSize = 16.sp, color = colors.onSurfaceVariant); inner() } },
                         )
-                        Surface(onClick = { focus.clearFocus(); app.fitfat.ui.components.scanBarcode { barcode = it } }, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHighest, modifier = Modifier.size(56.dp)) {
+                        if (app.fitfat.platform.Platform.supportsBarcodeScan) Surface(onClick = { focus.clearFocus(); app.fitfat.ui.components.scanBarcode { barcode = it } }, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHighest, modifier = Modifier.size(56.dp)) {
                             Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(24.dp), tint = colors.onSurface) }
                         }
                     }

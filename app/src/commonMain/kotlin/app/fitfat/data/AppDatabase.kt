@@ -372,7 +372,7 @@ fun createDatabase(): AppDatabase = databaseBuilder()
         }
     })
     .setDriver(BundledSQLiteDriver())
-    .setQueryCoroutineContext(Dispatchers.IO)
+    .setQueryCoroutineContext(app.fitfat.platform.ioDispatcher)
     .build()
 
 class WeightRepository(private val dao: WeightDao) {

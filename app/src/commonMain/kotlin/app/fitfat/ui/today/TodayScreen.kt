@@ -433,6 +433,9 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier, onWeek: () -> Unit = {
     val nU by animateFloatAsState(ui.norms.carbs.toFloat(), sp, label = "nu")
     val extraT = (ui.typeNorms.carbs - ui.baseNorms.carbs).coerceAtLeast(0.0).toFloat()
     val extra by animateFloatAsState(extraT, sp, label = "ex")
+    // Прибавка жиров (дни цикла) — так же отдельной частью полосы
+    val extraFT = (ui.typeNorms.fat - ui.baseNorms.fat).coerceAtLeast(0.0).toFloat()
+    val extraF by animateFloatAsState(extraFT, sp, label = "exf")
     val fraction by animateFloatAsState(if (ui.norms.kcal > 0) (e.kcal / ui.norms.kcal).toFloat() else 0f, sp, label = "fr")
     // Съеденное тоже перетекает: при смене дня числа досчитываются, полосы доезжают
     val eK by animateFloatAsState(e.kcal.toFloat(), sp, label = "ek")
@@ -471,7 +474,7 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier, onWeek: () -> Unit = {
             }
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 MacroBar("Белки", eP.toDouble(), nP.toDouble(), MacroColors.protein, MacroColors.proteinContainer)
-                MacroBar("Жиры", eF.toDouble(), nF.toDouble(), MacroColors.fat, MacroColors.fatContainer)
+                MacroBar("Жиры", eF.toDouble(), nF.toDouble(), MacroColors.fat, MacroColors.fatContainer, extraF.toDouble(), xc, xt)
                 // Прибавка углеводов в день тренировки / цикла — отдельной частью полосы своим цветом
                 MacroBar("Углеводы", eU.toDouble(), nU.toDouble(), MacroColors.carbs, MacroColors.carbsContainer, extra.toDouble(), xc, xt)
             }

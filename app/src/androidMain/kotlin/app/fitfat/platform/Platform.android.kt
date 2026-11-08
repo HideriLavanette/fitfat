@@ -18,3 +18,5 @@ actual object Platform {
 }
 
 actual fun uptimeMillis(): Long = SystemClock.uptimeMillis()
+
+actual val ioDispatcher: kotlinx.coroutines.CoroutineDispatcher = kotlinx.coroutines.Dispatchers.IO

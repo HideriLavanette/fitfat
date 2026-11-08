@@ -59,7 +59,7 @@ object Assistant {
 
     /** Токен входа Google или текст ошибки для экрана. */
     private suspend fun token(): Pair<String?, String?> {
-        if (!available) return null to "Ассистент не настроен в этой сборке."
+        if (!available) return null to (if (Platform.supportsGoogleSignIn) "Ассистент не настроен в этой сборке." else "Ассистент на iPhone появится в следующих версиях — ему нужен вход через Google.")
         val google = GoogleAccount.get()
         if (google.account.value == null) return null to "Чтобы пользоваться ассистентом, подключите аккаунт Google в «Профиле»."
         val t = google.idToken() ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или переподключите аккаунт в «Профиле»."

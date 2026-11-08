@@ -1,5 +1,7 @@
 package app.fitfat.ui.components
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.runtime.Composable
 
 /** Внутри `Dialog`: выключить системное затемнение — скрим рисуем сами (Android); на iOS его и нет. */
@@ -26,3 +28,10 @@ expect fun rememberTextFileOpener(onText: (String?) -> Unit): () -> Unit
 
 /** Окно во весь экран со своим скримом: без системной ширины и (на Android) без подгонки под системные панели. */
 expect fun fullScreenDialogProperties(): androidx.compose.ui.window.DialogProperties
+
+/** Текст без вертикальных полей шрифта (Android `includeFontPadding = false`); на iOS их и так нет — null. */
+expect fun noFontPadding(): androidx.compose.ui.text.PlatformTextStyle?
+
+/** Видна ли клавиатура — по высоте вставки IME (общий код, без Android-only `isImeVisible`). */
+@androidx.compose.runtime.Composable
+fun imeVisible(): Boolean = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0

@@ -237,7 +237,7 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                     }
                 }
                 // Скан: есть в базе — карточка, нет — новый продукт со штрихкодом
-                Surface(
+                if (app.fitfat.platform.Platform.supportsBarcodeScan) Surface(
                     onClick = { app.fitfat.ui.components.scanBarcode { code -> vm.resolveBarcode(code, onFound = { onOpen(it.id) }, onNew = onNewFromScan) } },
                     shape = RoundedCornerShape(20.dp), color = colors.surfaceContainerHighest, modifier = Modifier.size(40.dp),
                 ) { Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(20.dp), tint = colors.onSurface) } }

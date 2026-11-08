@@ -11,3 +11,8 @@
 *.jks
 *.keystore
 keystore.properties
+
+# iOS: проект Xcode генерируется XcodeGen (iosApp/project.yml), сборка — в build/
+/iosApp/iosApp.xcodeproj/
+/iosApp/build/
+/iosApp/*.xcworkspace/

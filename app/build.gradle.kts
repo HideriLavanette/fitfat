@@ -67,12 +67,12 @@ kotlin {
             implementation(libs.sqlite.bundled)
             implementation(libs.haze)
             implementation(libs.compose.ui.backhandler)
+            implementation(libs.compose.material.icons.extended)
         }
         androidMain.dependencies {
             implementation(compose.preview)
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.androidx.material.icons.extended)
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.code.scanner)
