@@ -44,10 +44,14 @@ jobs:
           xcodegen generate --spec iosApp/project.yml
       - name: Приложение для симулятора
         run: |
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug \
-            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build | tail -200
-          test -d build/ios/Build/Products/Debug-iphonesimulator/FitFat.app
+          set -o pipefail
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'             -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build/xcodebuild.log | tail -150
+          # Сборка должна дать исполняемый файл внутри .app, а не пустую папку
+          test -f build/ios/Build/Products/Debug-iphonesimulator/FitFat.app/FitFat
+          ls -la build/ios/Build/Products/Debug-iphonesimulator/FitFat.app | head -30
+      - name: Лог xcodebuild при падении
+        if: failure()
+        run: grep -E "error:|warning: .*Kotlin|Undefined symbol|ld: " build/xcodebuild.log | head -100 || tail -200 build/xcodebuild.log
       - name: Упаковать .app
         run: |
           cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
