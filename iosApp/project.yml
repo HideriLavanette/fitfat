@@ -1,5 +1,9 @@
 # Проект Xcode генерируется XcodeGen'ом: `xcodegen generate --spec iosApp/project.yml` (CI делает это сам).
 # Сам iosApp.xcodeproj в репозитории не хранится.
+#
+# Фреймворк Kotlin (статический) линкует Gradle: `./gradlew :app:link<Debug|Release>Framework<IosSimulatorArm64|IosArm64>`,
+# результат лежит в app/build/bin/<цель>/<debug|release>Framework/Fitfat.framework. Xcode берёт его оттуда напрямую —
+# без embedAndSignAppleFrameworkForXcode, которому нужна синхронизация ресурсов Compose (у нас их нет) и переменные Xcode.
 name: iosApp
 options:
   bundleIdPrefix: app.fitfat
@@ -10,6 +14,11 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+  configs:
+    Debug:
+      KOTLIN_FRAMEWORK_BUILD_TYPE: debug
+    Release:
+      KOTLIN_FRAMEWORK_BUILD_TYPE: release
 targets:
   iosApp:
     type: application
@@ -36,10 +45,12 @@ targets:
         MARKETING_VERSION: "0.0.0"
         CURRENT_PROJECT_VERSION: "1"
         TARGETED_DEVICE_FAMILY: "1"
-        # Фреймворк Kotlin собирает Gradle в app/build/xcode-frameworks (см. скрипт ниже)
-        FRAMEWORK_SEARCH_PATHS:
+        "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]":
           - $(inherited)
-          - $(SRCROOT)/../app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
+          - $(SRCROOT)/../app/build/bin/iosSimulatorArm64/$(KOTLIN_FRAMEWORK_BUILD_TYPE)Framework
+        "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]":
+          - $(inherited)
+          - $(SRCROOT)/../app/build/bin/iosArm64/$(KOTLIN_FRAMEWORK_BUILD_TYPE)Framework
         OTHER_LDFLAGS:
           - $(inherited)
           - -framework
@@ -50,4 +61,6 @@ targets:
         script: |
           cd "$SRCROOT/.."
           if [ -z "$JAVA_HOME" ] && [ -x /usr/libexec/java_home ]; then export JAVA_HOME="$(/usr/libexec/java_home -v 17 2>/dev/null || /usr/libexec/java_home)"; fi
-          ./gradlew :app:embedAndSignAppleFrameworkForXcode
+          if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then T=IosSimulatorArm64; else T=IosArm64; fi
+          if [ "$CONFIGURATION" = "Release" ]; then B=Release; else B=Debug; fi
+          ./gradlew ":app:link${B}Framework${T}"
