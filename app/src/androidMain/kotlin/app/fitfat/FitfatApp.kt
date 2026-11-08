@@ -22,6 +22,8 @@ class FitfatApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AndroidApp.context = this
+        // Падение — в файл; при следующем запуске уходит разработчику (Настройки → «Отправлять отчёты о сбоях»)
+        app.fitfat.platform.CrashStore.install()
         graph = AppGraph.start()
         app.fitfat.notify.Reminders.schedule()
         // Фото, на которые больше не ссылается ни один продукт (заменили, убрали, отменили правку), — удаляем

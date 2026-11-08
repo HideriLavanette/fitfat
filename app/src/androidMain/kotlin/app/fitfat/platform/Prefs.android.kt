@@ -13,6 +13,7 @@ actual class Prefs actual constructor(name: String) {
     actual fun getString(key: String, def: String?): String? = p.getString(key, def)
     actual fun getStringSet(key: String, def: Set<String>?): Set<String>? = p.getStringSet(key, def)?.toSet()
     actual fun contains(key: String): Boolean = p.contains(key)
+    actual fun all(): Map<String, Any?> = p.all.toMap()
 
     actual fun edit(block: PrefsEditor.() -> Unit) {
         val e = p.edit()

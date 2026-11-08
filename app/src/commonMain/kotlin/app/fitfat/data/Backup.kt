@@ -23,10 +23,14 @@ import kotlinx.serialization.json.longOrNull
 
 /**
  * Экспорт и импорт данных (макет Settings, «Данные»). JSON — все таблицы целиком (вес, продукты, состав блюд,
- * дневник, тренировки); CSV — дневник еды для таблиц. Импорт JSON заменяет данные в этих таблицах — только после подтверждения.
+ * дневник, тренировки) и настройки ([PREFS]: нормы и отметки дней, профиль, тренировки, настройки, подсказки); CSV — дневник
+ * еды для таблиц. Импорт JSON заменяет данные — только после подтверждения. Тот же JSON — копия в Google Диске ([CloudBackup]).
+ * Фото продуктов в JSON не входят — остаются на телефоне (решение 09.11.2026).
  */
 object Backup {
     private val TABLES = listOf("weight", "product", "dish_ingredient", "food_entry", "training")
+    /** Файлы настроек в копии. Без входа, черновика «Добавить», согласий ассистента и обновлений — они про этот телефон. */
+    private val PREFS = listOf("norms", "profile", "settings", "training", "weight", "choices", "hints")
     private val json = Json { prettyPrint = true; prettyPrintIndent = " " }
 
     suspend fun exportJson(db: AppDatabase): String {
@@ -51,8 +55,9 @@ object Backup {
             }
         }
         val root = LinkedHashMap<String, JsonElement>()
-        root["app"] = JsonPrimitive("fitfat"); root["format"] = JsonPrimitive(1); root["exported"] = JsonPrimitive(LocalDate.now().toString())
+        root["app"] = JsonPrimitive("fitfat"); root["format"] = JsonPrimitive(2); root["exported"] = JsonPrimitive(LocalDate.now().toString())
         root.putAll(tables)
+        root["prefs"] = exportPrefs()
         return json.encodeToString(JsonObject.serializer(), JsonObject(root))
     }
 
@@ -117,7 +122,52 @@ object Backup {
                 }
             }
         }
+        (root["prefs"] as? JsonObject)?.let(::importPrefs)
         // Room узнаёт об изменениях и обновляет экраны
         db.invalidationTracker.refreshAsync()
+    }
+
+    /** Настройки: файл → ключ → {тип: значение}, тип i/l/f/b/s/ss — чтобы вернуть ровно тем же типом. */
+    private fun exportPrefs(): JsonObject = JsonObject(PREFS.associateWith { name ->
+        JsonObject(app.fitfat.platform.Prefs(name).all().mapNotNull { (k, v) ->
+            val (t, el) = when (v) {
+                is Int -> "i" to JsonPrimitive(v)
+                is Long -> "l" to JsonPrimitive(v)
+                is Float -> "f" to JsonPrimitive(v)
+                is Double -> "f" to JsonPrimitive(v)
+                is Boolean -> "b" to JsonPrimitive(v)
+                is String -> "s" to JsonPrimitive(v)
+                is Set<*> -> "ss" to JsonArray(v.map { JsonPrimitive(it.toString()) })
+                else -> return@mapNotNull null
+            }
+            k to JsonObject(mapOf(t to el))
+        }.toMap())
+    })
+
+    private fun importPrefs(all: JsonObject) {
+        for (name in PREFS) {
+            val keys = all[name] as? JsonObject ?: continue
+            app.fitfat.platform.Prefs(name).edit {
+                clear()
+                for ((k, el) in keys) {
+                    val (t, v) = (el as? JsonObject)?.entries?.firstOrNull() ?: continue
+                    runCatching {
+                        when (t) {
+                            "i" -> putInt(k, v.jsonPrimitive.content.toDouble().toInt())
+                            "l" -> putLong(k, v.jsonPrimitive.content.toDouble().toLong())
+                            "f" -> putFloat(k, v.jsonPrimitive.content.toFloat())
+                            "b" -> putBoolean(k, v.jsonPrimitive.content.toBoolean())
+                            "s" -> putString(k, v.jsonPrimitive.content)
+                            "ss" -> putStringSet(k, v.jsonArray.map { it.jsonPrimitive.content }.toSet())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** На телефоне ещё нет своих записей — копию можно предложить восстановить сразу после входа. */
+    suspend fun isEmpty(db: AppDatabase): Boolean = db.useReaderConnection { tx ->
+        listOf("food_entry", "weight").all { t -> tx.usePrepared("SELECT COUNT(*) FROM $t") { st -> st.step(); st.getLong(0) == 0L } }
     }
 }

@@ -12,7 +12,7 @@ enum class ThemeMode(val label: String) { System("Как в системе"), Li
 
 /**
  * Цвет приложения (макет Settings): [swatch] — образец в настройках (у сгенерированных — цвет кнопки тёмной темы),
- * [ink] — галочка на образце, [accent] — вторая половина образца (у «Графита» — хвойно-аквамариновый акцент). «Графит» — палитра автора, по умолчанию (08.11.2026).
+ * [ink] — галочка на образце, [accent] — вторая половина образца (у «Графита» — хвойно-аквамариновый акцент). «Графит» — палитра автора (08.11.2026); по умолчанию с 09.11.2026 — «Синий» и тема «Как в системе».
  */
 enum class AppPalette(val label: String, val swatch: Long, val ink: Long, val accent: Long? = null) {
     Graphite("Графит", 0xFF5F7685, 0xFFFFFFFF, 0xFF2A9A83),
@@ -33,9 +33,9 @@ data class Schedule(val on: Boolean, val days: Set<Int>, val minute: Int)
  */
 object AppSettings {
     private var prefs: Prefs? = null
-    private val _theme = MutableStateFlow(ThemeMode.Dark)
+    private val _theme = MutableStateFlow(ThemeMode.System)
     private val _dynamic = MutableStateFlow(false)
-    private val _palette = MutableStateFlow(AppPalette.Graphite)
+    private val _palette = MutableStateFlow(AppPalette.Blue)
     private val _haptic = MutableStateFlow(true)
     private val _remind = MutableStateFlow(Schedule(true, (0..6).toSet(), 7 * 60 + 30))
     private val _report = MutableStateFlow(Schedule(true, setOf(6), 20 * 60))
@@ -49,9 +49,16 @@ object AppSettings {
     fun init() {
         val p = Prefs("settings")
         prefs = p
-        _theme.value = ThemeMode.entries.firstOrNull { it.name == p.getString("theme", null) } ?: ThemeMode.Dark
+        // 09.11.2026: новые умолчания — «Синий» и «Как в системе». Сохранённая пара прежних умолчаний («Графит» + «Тёмная») меняется один раз
+        if (!p.getBoolean("defaults_v2", false)) p.edit {
+            if (p.getString("palette", null) == AppPalette.Graphite.name && p.getString("theme", null) == ThemeMode.Dark.name) {
+                putString("palette", AppPalette.Blue.name); putString("theme", ThemeMode.System.name)
+            }
+            putBoolean("defaults_v2", true)
+        }
+        _theme.value = ThemeMode.entries.firstOrNull { it.name == p.getString("theme", null) } ?: ThemeMode.System
         _dynamic.value = p.getBoolean("dynamic", false)
-        _palette.value = AppPalette.entries.firstOrNull { it.name == p.getString("palette", null) } ?: AppPalette.Graphite
+        _palette.value = AppPalette.entries.firstOrNull { it.name == p.getString("palette", null) } ?: AppPalette.Blue
         _haptic.value = p.getBoolean("haptic", true)
         _remind.value = read(p, "remind", _remind.value)
         _report.value = read(p, "report", _report.value)

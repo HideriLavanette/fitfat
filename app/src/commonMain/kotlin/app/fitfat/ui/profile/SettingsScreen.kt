@@ -1,5 +1,10 @@
 package app.fitfat.ui.profile
 
+import app.fitfat.data.GoogleAccount
+import app.fitfat.data.Reports
+import app.fitfat.data.CloudBackup
+import app.fitfat.data.cloudWhen
+import app.fitfat.platform.restartApp
 import app.fitfat.ui.components.rememberTextFileOpener
 
 import app.fitfat.ui.components.rememberTextFileSaver
@@ -105,6 +110,11 @@ fun SettingsScreen(
     var editDayStart by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var importText by remember { mutableStateOf<String?>(null) }
+    var cloudBusy by remember { mutableStateOf(false) }
+    /** Восстановить копию из Диска, сохранённую в это время (мс); null — окна нет. */
+    var restoreFrom by remember { mutableStateOf<Long?>(null) }
+    var restarting by remember { mutableStateOf(false) }
+    var feedbackOpen by remember { mutableStateOf(false) }
 
     // Уведомления — с разрешения (Android 13+, iOS); просим, когда включают напоминание
     val needPermission = rememberNotificationPermission { message = "Без разрешения на уведомления напоминания не придут. Его можно дать в настройках телефона." }
@@ -163,13 +173,57 @@ fun SettingsScreen(
                 Text("Дневник по умолчанию", fontSize = 15.sp)
                 PillToggle(listOf("Приёмы", "Время"), if (groupByTime) 1 else 0, { onGroupByTime(it == 1) }, Modifier.fillMaxWidth(), height = 40.dp)
             }
-            NavRow(MockIcons.Clock, "Новый день начинается в ${DayClock.label(dayStart)}", "До этого часа продолжается текущий день") { editDayStart = true }
+            NavRow(MockIcons.Clock, "Новый день начинается в ${DayClock.label(dayStart)}", "До этого часа — прошлый день") { editDayStart = true }
+        }
+
+        // Копия в Google Диске пользователя (как у WhatsApp): без своего сервера, фото остаются на телефоне
+        if (Platform.supportsGoogleSignIn) Group("Копия в Google Диске") {
+            val account by GoogleAccount.get().account.collectAsState()
+            val last by CloudBackup.lastSaved.collectAsState()
+            val auto by CloudBackup.auto.collectAsState()
+            if (account == null) {
+                Text(
+                    "Войдите через Google в «Профиле» — тогда дневник, вес, база продуктов и нормы будут сохраняться в ваш Google Диск, и их можно будет вернуть на новом телефоне.",
+                    fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            } else {
+                SwitchRow(MockIcons.Cloud, "Сохранять автоматически", "Раз в день, когда открываете приложение", auto) { CloudBackup.setAuto(it) }
+                NavRow(MockIcons.Cloud, if (cloudBusy) "Сохраняю…" else "Сохранить сейчас",
+                    if (last > 0) "Последняя копия: ${cloudWhen(last)}" else "С этого телефона ещё не сохраняли") {
+                    if (cloudBusy) return@NavRow
+                    cloudBusy = true
+                    scope.launch {
+                        message = when (val r = CloudBackup.save(interactive = true)) {
+                            CloudBackup.Result.Ok -> "Копия сохранена в Google Диск."
+                            is CloudBackup.Result.Error -> r.message
+                        }
+                        cloudBusy = false
+                    }
+                }
+                NavRow(MockIcons.Repeat, "Восстановить из копии", "Заменит данные на телефоне") {
+                    if (cloudBusy) return@NavRow
+                    cloudBusy = true
+                    scope.launch {
+                        runCatching { CloudBackup.remote(interactive = true) }
+                            .onSuccess { r -> if (r == null) message = "В Google Диске ещё нет копии." else restoreFrom = r.savedAt }
+                            .onFailure { message = it.message ?: "Нет связи с Google Диском." }
+                        cloudBusy = false
+                    }
+                }
+            }
         }
 
         Group("Данные") {
-            NavRow(MockIcons.ChevronRight, "Экспорт в JSON", "Всё: вес, продукты, блюда, дневник, тренировки") { exportJson("fitfat-${LocalDate.now()}.json") { Backup.exportJson(app.database) } }
-            NavRow(MockIcons.ChevronRight, "Экспорт дневника в CSV", "Для таблиц: дата, продукт, граммы, КБЖУ") { exportCsv("fitfat-diary-${LocalDate.now()}.csv") { "\uFEFF" + Backup.exportCsv(app.database) } }
-            NavRow(MockIcons.Repeat, "Импорт данных", "Из файла JSON — заменит текущие данные") { importFile() }
+            NavRow(MockIcons.ChevronRight, "Экспорт в JSON", "Все данные и настройки") { exportJson("fitfat-${LocalDate.now()}.json") { Backup.exportJson(app.database) } }
+            NavRow(MockIcons.ChevronRight, "Экспорт дневника в CSV", "Дневник для таблиц") { exportCsv("fitfat-diary-${LocalDate.now()}.csv") { "\uFEFF" + Backup.exportCsv(app.database) } }
+            NavRow(MockIcons.Repeat, "Импорт данных", "Заменит текущие данные") { importFile() }
+        }
+
+        // Отчёты разработчику (DESIGN.md, «Отчёты о сбоях»)
+        if (Reports.available) Group("Помощь") {
+            val crashOn by Reports.crashes.collectAsState()
+            NavRow(MockIcons.Edit, "Сообщить о проблеме", "Письмо разработчику") { feedbackOpen = true }
+            SwitchRow(MockIcons.Repeat, "Отправлять отчёты о сбоях", "Только текст ошибки и модель телефона", crashOn) { Reports.setCrashes(it) }
         }
 
         if (Platform.supportsSelfUpdate) Group("Обновления") {
@@ -217,11 +271,41 @@ fun SettingsScreen(
                     importText = null
                     scope.launch {
                         val ok = withContext(ioDispatcher) { runCatching { Backup.importJson(app.database, text) }.isSuccess }
-                        message = if (ok) "Данные загружены." else "Файл повреждён — данные не изменились."
+                        if (ok) restarting = true else message = "Файл повреждён — данные не изменились."
                     }
                 }) { Text("Заменить", color = colors.error) }
             },
         )
+    }
+    restoreFrom?.let { at ->
+        AlertDialog(
+            onDismissRequest = { restoreFrom = null },
+            title = { Text("Восстановить копию?") },
+            text = { Text("Копия из Google Диска от ${cloudWhen(at)} заменит дневник, вес, базу продуктов и нормы на этом телефоне. Отменить это нельзя. Фото продуктов останутся как есть.") },
+            dismissButton = { TextButton(onClick = { restoreFrom = null }) { Text("Отмена") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    restoreFrom = null; cloudBusy = true
+                    scope.launch {
+                        when (val r = CloudBackup.restore(interactive = true)) {
+                            CloudBackup.Result.Ok -> restarting = true
+                            is CloudBackup.Result.Error -> message = r.message
+                        }
+                        cloudBusy = false
+                    }
+                }) { Text("Восстановить", color = colors.error) }
+            },
+        )
+    }
+    // После восстановления настройки и экраны читаются заново — проще всего перезапуском
+    if (restarting) AlertDialog(
+        onDismissRequest = {},
+        text = { Text("Данные восстановлены. Приложение перезапустится, чтобы всё подхватить.") },
+        confirmButton = { TextButton(onClick = { restartApp() }) { Text("Перезапустить") } },
+    )
+    if (feedbackOpen) FeedbackSheet(onDismiss = { feedbackOpen = false }) { ok ->
+        feedbackOpen = false
+        message = if (ok) "Спасибо! Сообщение отправлено разработчику." else "Не получилось отправить — проверьте интернет и попробуйте ещё раз."
     }
     message?.let { m ->
         AlertDialog(onDismissRequest = { message = null }, text = { Text(m) }, confirmButton = { TextButton(onClick = { message = null }) { Text("Понятно") } })
@@ -279,9 +363,10 @@ internal fun NavRow(icon: ImageVector, title: String, sub: String?, onClick: () 
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         IconBox(icon)
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 15.sp)
-            if (sub != null) Text(sub, fontSize = 13.sp, color = colors.onSurfaceVariant)
+        // Название и подпись — по строке, плотный интервал: при крупном шрифте строка не раздувается (09.11.2026)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontSize = 15.sp, lineHeight = 20.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            if (sub != null) Text(sub, fontSize = 13.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Icon(MockIcons.ChevronRight, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
     }
@@ -373,3 +458,41 @@ private fun PaletteRow(selected: AppPalette, onPick: (AppPalette) -> Unit) {
 private fun Modifier.swatchSemantics(label: String, sel: Boolean) = this.then(
     Modifier.semantics { contentDescription = label + if (sel) ", выбран" else "" },
 )
+
+/**
+ * «Сообщить о проблеме»: что случилось (поле), «Приложить журнал» (последние переходы, без данных дневника) — включено,
+ * «Отмена» слева, «Отправить» справа. Модель телефона и версия приложения добавляются сами.
+ */
+@Composable
+private fun FeedbackSheet(onDismiss: () -> Unit, onSent: (Boolean) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var text by remember { mutableStateOf("") }
+    var withLog by remember { mutableStateOf(true) }
+    var sending by remember { mutableStateOf(false) }
+    app.fitfat.ui.components.FfSheet(onDismiss = onDismiss) {
+        Text("Сообщить о проблеме", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text("Опишите, что случилось и что вы делали перед этим. Модель телефона и версия приложения добавятся сами.", fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant)
+        androidx.compose.foundation.text.BasicTextField(
+            text, { text = it.take(4000) },
+            textStyle = androidx.compose.ui.text.TextStyle(color = colors.onSurface, fontSize = 16.sp, lineHeight = 22.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primary),
+            modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp).clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerHighest).padding(14.dp),
+            decorationBox = { inner -> Box { if (text.isEmpty()) Text("Например: после добавления блюда пропала запись", fontSize = 16.sp, color = colors.onSurfaceVariant); inner() } },
+        )
+        Row(Modifier.fillMaxWidth().clickable { withLog = !withLog }, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Приложить журнал", fontSize = 15.sp)
+                Text("Какие экраны открывали — без вашего дневника", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            }
+            Switch(checked = withLog, onCheckedChange = { withLog = it })
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(48.dp)) { Text("Отмена") }
+            Button(
+                onClick = { sending = true; scope.launch { val ok = Reports.feedback(text.trim(), withLog); sending = false; onSent(ok) } },
+                enabled = text.isNotBlank() && !sending, modifier = Modifier.weight(1f).height(48.dp),
+            ) { Text(if (sending) "Отправляю…" else "Отправить") }
+        }
+    }
+}

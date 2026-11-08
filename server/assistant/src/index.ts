@@ -3,16 +3,47 @@
  *
  * POST /estimate — строка из окна «Добавить» → блюда с примерными КБЖУ, уточняющий вопрос или текстовый ответ.
  * POST /chat — вкладка «Ассистент» (макет 5.2): переписка + сводка данных пользователя → ответ и продукты-предложения.
- * Пускает только запросы с действующим токеном входа Google (подпись Google, aud = наш Web Client ID)
- * от почт из ALLOWED_EMAILS. Ключ Anthropic живёт только в секрете Worker'а.
+ * POST /access — что доступно этому телефону и аккаунту: полный доступ, пробная неделя (идёт / закончилась / не начата).
+ * POST /trial — начать пробную неделю. Привязана к телефону (заголовок X-Device), а не к аккаунту: сменой аккаунта не продлить.
+ * POST /report — отчёт о сбое или сообщение о проблеме из приложения (без входа) → KV REPORTS, хранится 90 дней.
+ * /estimate и /chat пускают только с действующим токеном входа Google (подпись Google, aud = наш Web Client ID)
+ * и только при доступе: почта в FREE_EMAILS (полный бесплатный доступ) или идущая пробная неделя телефона.
+ * Ключ Anthropic живёт только в секрете Worker'а.
  */
 import Anthropic from "@anthropic-ai/sdk";
 
 interface Env {
   ANTHROPIC_API_KEY: string;
   GOOGLE_CLIENT_ID: string;
+  /** Полный бесплатный доступ (через запятую). Старое имя переменной — оставлено для совместимости. */
   ALLOWED_EMAILS: string;
   MODEL: string;
+  /** Пробные недели: trial:<устройство> → начало (мс). */
+  ACCESS: KVNamespace;
+  /** Отчёты о сбоях и сообщения о проблемах. */
+  REPORTS: KVNamespace;
+}
+
+const TRIAL_MS = 7 * 24 * 60 * 60_000;
+const MAX_REPORT = 32_000;
+
+/** Идентификатор телефона из приложения: буквы, цифры, дефис; иначе null. */
+function deviceOf(req: Request): string | null {
+  const d = (req.headers.get("X-Device") ?? "").trim();
+  return /^[A-Za-z0-9-]{8,64}$/.test(d) ? d : null;
+}
+
+function isFree(env: Env, email: string | null) {
+  if (!email) return false;
+  return env.ALLOWED_EMAILS.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean).includes(email.toLowerCase());
+}
+
+/** Состояние доступа: free — полный бесплатный, trial — идёт пробная неделя (до trialEnds), none — нет. */
+async function accessOf(env: Env, email: string | null, device: string | null) {
+  const trialStart = device ? Number(await env.ACCESS.get(`trial:${device}`)) || 0 : 0;
+  const trialEnds = trialStart ? trialStart + TRIAL_MS : 0;
+  const status = isFree(env, email) ? "free" : trialEnds > Date.now() ? "trial" : "none";
+  return { status, trialUsed: trialStart > 0, trialEnds };
 }
 
 /** Продукт из базы пользователя, похожий на слова строки. КБЖУ — на 100 г (или на 1 шт, если perPiece). */
@@ -43,12 +74,29 @@ const MAX_KNOWN = 30;
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
-    if (req.method !== "POST" || (url.pathname !== "/estimate" && url.pathname !== "/chat")) return json({ error: "Не найдено" }, 404);
+    const path = url.pathname;
+    if (req.method !== "POST" || !["/estimate", "/chat", "/access", "/trial", "/report"].includes(path)) return json({ error: "Не найдено" }, 404);
 
+    // Отчёт о сбое — без входа: падает и у тех, кто не входил
+    if (path === "/report") return report(req, env);
+
+    const device = deviceOf(req);
     const email = await verifyGoogle(req.headers.get("Authorization"), env).catch(() => null);
+
+    if (path === "/access") return json(await accessOf(env, email, device));
+    if (path === "/trial") {
+      if (!device) return json({ error: "Не удалось определить телефон." }, 400);
+      const a = await accessOf(env, email, device);
+      if (a.trialUsed) return json({ ...a, error: a.status === "trial" ? undefined : "Пробная неделя на этом телефоне уже была." }, a.status === "trial" ? 200 : 409);
+      await env.ACCESS.put(`trial:${device}`, String(Date.now()));
+      return json(await accessOf(env, email, device));
+    }
+
     if (!email) return json({ error: "Войдите через Google в «Профиле», чтобы пользоваться ассистентом." }, 401);
-    const allowed = env.ALLOWED_EMAILS.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
-    if (!allowed.includes(email.toLowerCase())) return json({ error: "Ассистент пока доступен только тестовым аккаунтам." }, 403);
+    const access = await accessOf(env, email, device);
+    if (access.status === "none") {
+      return json({ error: access.trialUsed ? "Пробная неделя закончилась. Ассистент доступен по подписке." : "Ассистент доступен по подписке — или включите бесплатную неделю во вкладке «Ассистент»." }, 402);
+    }
 
     let raw: unknown;
     try {
@@ -58,7 +106,7 @@ export default {
     }
 
     try {
-      if (url.pathname === "/chat") {
+      if (path === "/chat") {
         const body = raw as ChatRequest;
         const messages = (body.messages ?? [])
           .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.text === "string" && m.text.trim())
@@ -85,6 +133,19 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 class Refused extends Error {}
+
+/** Отчёт: { kind: "crash" | "feedback", text, log?, app?, device? } → KV REPORTS на 90 дней. */
+async function report(req: Request, env: Env): Promise<Response> {
+  const raw = await req.text();
+  if (raw.length > MAX_REPORT) return json({ error: "Слишком большой отчёт" }, 413);
+  let body: { kind?: string; text?: string; log?: string; app?: string; device?: string };
+  try { body = JSON.parse(raw); } catch { return json({ error: "Неверный запрос" }, 400); }
+  const kind = body.kind === "feedback" ? "feedback" : "crash";
+  if (!(body.text ?? "").trim()) return json({ error: "Пустой отчёт" }, 400);
+  const id = `${kind}:${new Date().toISOString()}:${crypto.randomUUID().slice(0, 8)}`;
+  await env.REPORTS.put(id, JSON.stringify({ ...body, kind, device: deviceOf(req), at: Date.now() }), { expirationTtl: 90 * 24 * 3600 });
+  return json({ ok: true, id });
+}
 
 const CATEGORIES = ["grain", "meat", "dairy", "fruit", "veg", "sauce", "drink"] as const;
 

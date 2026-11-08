@@ -25,6 +25,26 @@ Worker'а, — в приложении и репозитории его нет. 
    В конце будет адрес вида `https://fitfat-assistant.<имя>.workers.dev`.
 7. Впиши адрес в `gradle.properties` проекта: `assistantUrl=https://fitfat-assistant.<имя>.workers.dev` и пересобери приложение.
 
+## Хранилища (один раз)
+
+Пробные недели и отчёты о сбоях лежат в Cloudflare KV (бесплатно). В этой папке:
+```
+npx wrangler kv namespace create ACCESS
+npx wrangler kv namespace create REPORTS
+```
+Каждая команда напечатает `id` — впиши их в `wrangler.toml` вместо `REPLACE_WITH_…` и сделай `npx wrangler deploy`.
+
+## Отчёты о сбоях
+
+Список: `npx wrangler kv key list --binding REPORTS --remote`
+Один отчёт: `npx wrangler kv key get --binding REPORTS --remote "<ключ из списка>"`
+Ключи вида `crash:2026-11-09T…` (падение) и `feedback:…` (сообщение из «Настроек»). Хранятся 90 дней.
+
+## Бесплатный доступ
+
+`ALLOWED_EMAILS` в `wrangler.toml` — почты с полным доступом без подписки. Пробная неделя привязана к телефону:
+сбросить её для телефона — `npx wrangler kv key delete --binding ACCESS --remote "trial:<устройство>"`.
+
 ## Поменять
 
 - Модель — `MODEL` в `wrangler.toml`, потом `npx wrangler deploy`. По умолчанию `claude-sonnet-5-5` — выше Sonnet не поднимать, Opus для этих задач избыточен и дорог. `claude-haiku-5-5` ещё дешевле, но оценки сложных блюд у неё грубее.

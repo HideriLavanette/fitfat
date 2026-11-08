@@ -65,6 +65,7 @@ import androidx.compose.ui.zIndex
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,6 +75,9 @@ import app.fitfat.ui.components.NavGuardZone
 import app.fitfat.ui.components.NavItem
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -126,9 +130,15 @@ fun AppRoot(
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
     val current = backStack?.destination?.route
+    // Журнал переходов — для отчётов о сбоях
+    LaunchedEffect(current) { current?.let { app.fitfat.platform.AppLog.i("screen $it") } }
 
     // Тихая проверка обновлений при запуске — не чаще раза в 12 часов
     LaunchedEffect(Unit) { updates.autoCheck() }
+    // Прошлый запуск упал — отчёт разработчику
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(3_000); app.fitfat.data.Reports.sendPendingCrash() }
+    // Копия в Google Диск раз в день — тихо, если вошли и доступ к Диску уже дан
+    LaunchedEffect(Unit) { kotlinx.coroutines.delay(4_000); runCatching { app.fitfat.data.CloudBackup.autoIfDue() } }
 
     val haze = remember { HazeState() }
     // Первая настройка: при первом запуске — сразу; потом — из «Профиля» («Пересчитать нормы»)
@@ -309,7 +319,12 @@ fun AppRoot(
             Tab.Weight -> WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) }) {
                 app.fitfat.ui.week.WeekCard(weekDays) { nav.navigate("week") }
             }
-            Tab.Assistant -> app.fitfat.ui.assistant.AssistantChatScreen(assistantVm, onReport = { nav.navigate("week") })
+            Tab.Assistant -> {
+                // Без доступа — рассказ, цена и пробная неделя; с доступом — чат (DESIGN.md, «Подписка и доступ»)
+                val access by app.fitfat.data.Access.state.collectAsState()
+                if (access.has) app.fitfat.ui.assistant.AssistantChatScreen(assistantVm, onReport = { nav.navigate("week") })
+                else app.fitfat.ui.assistant.AssistantIntro()
+            }
             Tab.Profile -> {
                 // Без профиля «Тело и цель» не из чего показывать — сначала первая настройка
                 fun needSetup() = (profileNow == null).also { if (it) { setupFirstRun = false; setupEdit = false; setupOpen = true } }
@@ -320,6 +335,7 @@ fun AppRoot(
                     onTraining = { nav.navigate("training") },
                     onProducts = { nav.navigate("products") },
                     onSettings = { nav.navigate("settings") },
+                    onAssistant = { goTab(Tab.Assistant) },
                 )
             }
         }
@@ -425,6 +441,7 @@ fun AppRoot(
                     onAllProducts = { nav.navigate("products") }, productId = product,
                     pendingProduct = pendingProduct, onPendingTaken = { pendingProduct = 0L },
                     onDishes = { nav.navigate("dishes") }, session = entry.id,
+                    onAssistantInfo = { focus.clearFocus(force = true); nav.popBackStack(); goTab(Tab.Assistant) },
                     onBarcode = { code, onFound -> productsVm.resolveBarcode(code, onFound, onNew = { nav.navigate("productEdit/0?toAdd=true") }) },
                     onCreateDish = { picked ->
                         productsVm.draft = picked.map { app.fitfat.data.DishIngredient(dishId = 0, productId = it.product.id, grams = it.grams) }
@@ -584,6 +601,12 @@ fun AppRoot(
                     clipPath(hole, androidx.compose.ui.graphics.ClipOp.Difference) { this@drawWithContent.drawContent() }
                 }
             }) {
+                // Под строкой состояния — плавное затемнение цветом фона: прокрученный текст не лезет под часы и значки
+                val bg = androidx.compose.material3.MaterialTheme.colorScheme.surface
+                androidx.compose.foundation.layout.Column(Modifier.align(Alignment.TopCenter).fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(bg))
+                    Box(Modifier.fillMaxWidth().height(14.dp).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(bg, bg.copy(alpha = 0f)))))
+                }
                 NavGuardZone(haze, Modifier.align(Alignment.BottomCenter))
                 FloatingNavBar(
                     items = Tab.entries.map { NavItem(it.label, it.icon) },

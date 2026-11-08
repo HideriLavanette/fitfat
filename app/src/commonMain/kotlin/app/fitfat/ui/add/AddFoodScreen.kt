@@ -81,7 +81,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     onBarcode: (code: String, onFound: (Product) -> Unit) -> Unit = { _, _ -> },
     /** Ключ открытия экрана: тот же — значит вернулись, выбранное не сбрасывается. */
     session: String = date.toString(),
+    /** «Подробнее» на плашке ассистента без подписки — во вкладку «Ассистент». */
+    onAssistantInfo: () -> Unit = {},
 ) {
+    // Ассистент в «Добавить» — только с доступом (подписка, пробная неделя, бесплатный список; DESIGN.md, «Подписка и доступ»)
+    val access by app.fitfat.data.Access.state.collectAsStateWithLifecycle()
+    val aiOn = app.fitfat.data.Assistant.available && access.has
     LaunchedEffect(date, session) { vm.start(date, session) }
     val products by vm.products.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
@@ -202,7 +207,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                 popupsEnabled = !modal,
                 placeholder = !hasItems,
                 // Ассистент — кнопкой в той же подсказке над словом, слева от продукта из базы
-                onAssistant = if (app.fitfat.data.Assistant.available) ({ _ ->
+                onAssistant = if (aiOn) ({ _ ->
                     if (app.fitfat.data.Assistant.consented()) vm.askAssistant() else consent = true
                 }) else null,
                 assistantBusy = vm.assistantBusy,
@@ -258,8 +263,16 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp)) {
             unknown?.let { u -> UnknownBanner(u.fragment.query) { creating = u } }
 
+            // Без доступа — единственная подсказка про ассистента: строку, которую можно понять только ему, без рекламы
+            if (app.fitfat.data.Assistant.available && !access.has) {
+                val messy = remember(vm.text, recognized) { onlyAssistantGets(vm.text, recognized) }
+                androidx.compose.animation.AnimatedVisibility(messy, enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(), exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically()) {
+                    AssistantOnlyNote(onAssistantInfo)
+                }
+            }
+
             // Ассистент (0.6): спрашивают кнопкой над словом; здесь — «думает…» и ответ карточкой, без «Добавить» ничего не пишется
-            if (app.fitfat.data.Assistant.available) {
+            if (aiOn) {
                 val reply = vm.assistant
                 androidx.compose.animation.AnimatedVisibility(reply == null && vm.assistantBusy) { AssistantBar(busy = true) {} }
                 androidx.compose.animation.AnimatedVisibility(reply != null, Modifier.bringIntoViewRequester(bringCard)) {
@@ -508,4 +521,36 @@ private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { m, c ->
 private fun wantsAssistant(r: Recognized, text: String): Boolean {
     val best = r.candidates.firstOrNull() ?: return true
     return looksLikeRequest(text) || (best.score != Int.MAX_VALUE && app.fitfat.data.Recognizer.uncovered(r.fragment, best.product).isNotEmpty())
+}
+
+/**
+ * Строку поймёт только ассистент: не меньше трёх слов, и это вопрос или просьба, либо почти половина слов —
+ * не из базы и не покрыта найденными продуктами («бургер из кафе возле дома, съел половину»).
+ */
+private fun onlyAssistantGets(text: String, recognized: List<Recognized>): Boolean {
+    val words = text.trim().split(Regex("\\s+")).filter { it.length >= 2 }
+    if (words.size < 3) return false
+    if (looksLikeRequest(text)) return true
+    val stray = recognized.sumOf { r ->
+        val best = r.candidates.firstOrNull()
+        if (best == null) r.fragment.query.split(' ').count { it.length >= 3 && it.all(Char::isLetter) }
+        else app.fitfat.data.Recognizer.uncovered(r.fragment, best.product).size
+    }
+    return stray >= 2 && stray * 2 >= words.count { w -> w.all(Char::isLetter) }
+}
+
+/** «Такое поймёт только ассистент — сам разберёт и посчитает граммовки» · «Подробнее». Тихо: `surfaceContainer`, без иконки-кричалки. */
+@Composable
+private fun AssistantOnlyNote(onMore: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(colors.surfaceContainer).padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(MockIcons.NavAssistant, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
+        Text("Такое поймёт только ассистент — сам разберёт и посчитает граммовки.", fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f))
+        Surface(onClick = onMore, shape = RoundedCornerShape(18.dp), color = Color.Transparent, modifier = Modifier.heightIn(min = 40.dp)) {
+            Box(Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) { Text("Подробнее", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.primary) }
+        }
+    }
 }

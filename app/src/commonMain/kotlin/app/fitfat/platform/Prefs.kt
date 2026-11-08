@@ -12,6 +12,8 @@ expect class Prefs(name: String) {
     fun getString(key: String, def: String?): String?
     fun getStringSet(key: String, def: Set<String>?): Set<String>?
     fun contains(key: String): Boolean
+    /** Все ключи файла со значениями (Int, Long, Float, Boolean, String, Set<String>) — для копии в облако. */
+    fun all(): Map<String, Any?>
     /** Несколько изменений разом. */
     fun edit(block: PrefsEditor.() -> Unit)
 }

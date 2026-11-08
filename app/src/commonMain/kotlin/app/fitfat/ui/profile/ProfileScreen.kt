@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,7 @@ import app.fitfat.ui.theme.MacroColors
 fun ProfileScreen(
     profile: Profile?, weight: Double?, norms: (DayType) -> Macros, todayType: DayType,
     onMe: () -> Unit, onTraining: () -> Unit, onProducts: () -> Unit, onSettings: () -> Unit,
+    onAssistant: () -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     var open by remember { mutableStateOf<DayType?>(null) }
@@ -70,6 +72,8 @@ fun ProfileScreen(
 
         // Аккаунт Google — первым, как в макете
         AccountCard()
+        // Подписка на ассистента: статус, срок, автопродление (решение автора 09.11.2026)
+        if (app.fitfat.data.Assistant.available) SubscriptionCard(onAssistant)
 
         // Сводка тела и цели — тап открывает «Тело и цель»
         Row(
@@ -109,10 +113,10 @@ fun ProfileScreen(
 
         Group("Разделы") {
             NavRow(MockIcons.Dumbbell, "Тренировки", "Виды, расписание, история", onTraining)
-            NavRow(MockIcons.Search, "Продукты и блюда", "Поиск, карточки, правка, штрихкоды", onProducts)
+            NavRow(MockIcons.Search, "Продукты и блюда", "Поиск, правка, штрихкоды", onProducts)
         }
         Group("Ещё") {
-            NavRow(MockIcons.Sun, "Настройки приложения", "Тема, напоминания, данные, обновления", onSettings)
+            NavRow(MockIcons.Sun, "Настройки приложения", "Тема, напоминания, данные", onSettings)
         }
         Spacer(Modifier.height(120.dp)) // место под плавающий навбар
     }
@@ -204,6 +208,51 @@ private fun TableRow(label: String, a: String, b: String, c: String, ink: Color 
                 fontWeight = if (!head && i == 1) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (head) sub else if (i == 2 && s.startsWith("+")) colors.primary else if (i == 2) sub else colors.onSurface,
             )
+        }
+    }
+}
+
+/**
+ * Подписка на ассистента: статус (полный доступ / пробная неделя до … / закончилась / не подключена), автопродление —
+ * по умолчанию выключено (без него покупается месяц без автосписаний); «Подробнее» — во вкладку «Ассистент».
+ */
+@Composable
+private fun SubscriptionCard(onAssistant: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val access by app.fitfat.data.Access.state.collectAsState()
+    val autoRenew by app.fitfat.data.Access.autoRenew.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(Unit) { app.fitfat.data.Access.refresh() }
+    val status = when {
+        access.status == app.fitfat.data.Access.Status.Free -> "Полный доступ"
+        access.has -> "Пробная неделя ${app.fitfat.ui.assistant.trialUntil(access.trialEnds)}"
+        access.trialUsed -> "Пробная неделя закончилась"
+        else -> "Не подключён"
+    }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainerLow).padding(vertical = 4.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onAssistant).heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(colors.secondaryContainer), contentAlignment = Alignment.Center) {
+                Icon(MockIcons.NavAssistant, null, Modifier.size(20.dp), tint = colors.onSecondaryContainer)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Ассистент", fontSize = 15.sp, lineHeight = 20.sp)
+                Text(status, fontSize = 13.sp, lineHeight = 17.sp, color = if (access.has) colors.primary else colors.onSurfaceVariant, maxLines = 1)
+            }
+            Icon(MockIcons.ChevronRight, null, Modifier.size(18.dp), tint = colors.onSurfaceVariant)
+        }
+        if (access.status != app.fitfat.data.Access.Status.Free) Row(
+            Modifier.fillMaxWidth().clickable { app.fitfat.data.Access.setAutoRenew(!autoRenew) }.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Column(Modifier.weight(1f).padding(start = 54.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Автопродление", fontSize = 15.sp, lineHeight = 20.sp)
+                Text(if (autoRenew) "Подписка продлится сама" else "Месяц без автосписаний", fontSize = 13.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant, maxLines = 1)
+            }
+            androidx.compose.material3.Switch(checked = autoRenew, onCheckedChange = { app.fitfat.data.Access.setAutoRenew(it) })
         }
     }
 }

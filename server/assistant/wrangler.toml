@@ -7,9 +7,18 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Web Client ID из Google Cloud Console — тот же, что googleWebClientId в gradle.properties
 GOOGLE_CLIENT_ID = "708835430684-gcd4jakjonpkrepbjkqihc8bagpo5bqr.apps.googleusercontent.com"
-# Почты, которым можно пользоваться ассистентом, через запятую. Пусто — никому.
+# Полный бесплатный доступ к ассистенту, без подписки: почты через запятую. Остальным — пробная неделя или подписка.
 ALLOWED_EMAILS = "eldiderry@gmail.com"
 # Модель Claude. Не дороже Sonnet: Opus для оценки блюд избыточен (решение 08.11.2026)
 MODEL = "claude-sonnet-5-5"
 
 # Ключ Anthropic — НЕ здесь. Он задаётся секретом: npx wrangler secret put ANTHROPIC_API_KEY
+
+# Хранилища Cloudflare KV (бесплатно). Создать один раз — README.md, «Хранилища»; id вписать сюда.
+[[kv_namespaces]]
+binding = "ACCESS"
+id = "27dcc53757c346a0b0f927bbdcc60d9d"
+
+[[kv_namespaces]]
+binding = "REPORTS"
+id = "d8b35a6516f14dd79c2698db3d02b7ac"

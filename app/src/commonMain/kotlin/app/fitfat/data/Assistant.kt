@@ -61,8 +61,8 @@ object Assistant {
     private suspend fun token(): Pair<String?, String?> {
         if (!available) return null to (if (Platform.supportsGoogleSignIn) "Ассистент не настроен в этой сборке." else "Ассистент на iPhone появится в следующих версиях — ему нужен вход через Google.")
         val google = GoogleAccount.get()
-        if (google.account.value == null) return null to "Чтобы пользоваться ассистентом, подключите аккаунт Google в «Профиле»."
-        val t = google.idToken() ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или переподключите аккаунт в «Профиле»."
+        if (google.account.value == null) return null to "Чтобы пользоваться ассистентом, войдите через Google в «Профиле»."
+        val t = google.idToken() ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или выйдите и снова войдите в «Профиле»."
         return t to null
     }
 
@@ -118,12 +118,14 @@ object Assistant {
     private suspend fun post(url: String, token: String, body: JsonObject): Pair<JsonObject?, String?> {
         val resp = Http.client.post(url) {
             header("Authorization", "Bearer $token")
+            header("X-Device", app.fitfat.platform.Device.id)
             contentType(ContentType.Application.Json)
             setBody(body.toString())
             timeout { connectTimeoutMillis = 15_000; requestTimeoutMillis = 90_000; socketTimeoutMillis = 90_000 }
         }
         val raw = resp.bodyAsText()
         val json = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull()
+        if (resp.status.value == 402) Access.refresh()
         if (!resp.status.isSuccess()) return null to (json?.optString("error")?.takeIf { it.isNotBlank() } ?: "Ассистент недоступен (${resp.status.value}).")
         return if (json != null) json to null else null to "Ассистент вернул непонятный ответ — попробуйте ещё раз."
     }

@@ -31,7 +31,7 @@
 
 ## Чего на iOS пока нет (первая версия)
 Флаги в `Platform` прячут соответствующие кнопки, чтобы не оставлять кнопок без действия.
-- **Вход через Google** и, как следствие, **ассистент** — нужен SDK Google Sign-In или OAuth через `ASWebAuthenticationSession`.
+- **Вход через Google** и, как следствие, **ассистент** и **копия в Google Диске** (`DriveAuth.ios.kt` — заглушка) — нужен SDK Google Sign-In или OAuth через `ASWebAuthenticationSession`.
 - **Сканер штрихкодов** — на Android это ML Kit; на iOS нужен `AVCaptureSession`.
 - **Фото продуктов** с камеры и из галереи — нужен `PHPickerViewController`; уже сохранённые фото показываются.
 - **Самообновление** — на iOS его нет по правилам платформы: обновления через TestFlight / App Store.
@@ -56,6 +56,7 @@
 - [x] `iosMain`, `iosApp`, job `ios` в CI.
 - [ ] Первый зелёный прогон job `ios` в GitHub Actions (нужен пуш в `main`).
 - [ ] Аккаунт Apple Developer → подпись, TestFlight, шаг в `release.yml`.
+- [ ] Перехват падений на iOS (`CrashStore` в `Device.ios.kt` — заглушка; «Сообщить о проблеме» работает)
 - [ ] Сканер штрихкодов, фото, вход Google на iOS (см. «Чего на iOS пока нет»).
 
 ## Как проверять iOS-код без Mac

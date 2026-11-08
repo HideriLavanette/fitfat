@@ -15,6 +15,8 @@ actual class Prefs actual constructor(name: String) {
     actual fun getStringSet(key: String, def: Set<String>?): Set<String>? =
         d.arrayForKey(key)?.filterIsInstance<String>()?.toSet() ?: def
     actual fun contains(key: String): Boolean = d.objectForKey(key) != null
+    actual fun all(): Map<String, Any?> =
+        (d.persistentDomainForName(suite) ?: emptyMap<Any?, Any?>()).entries.associate { (k, v) -> k.toString() to (if (v is List<*>) v.filterIsInstance<String>().toSet() else v) }
 
     actual fun edit(block: PrefsEditor.() -> Unit) {
         object : PrefsEditor {

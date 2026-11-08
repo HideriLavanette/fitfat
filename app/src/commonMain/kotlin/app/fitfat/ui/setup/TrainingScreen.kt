@@ -54,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fitfat.data.DayClock
@@ -85,6 +86,9 @@ private fun word(n: Int, a: String, b: String, c: String) =
  * дата начала, предпросмотр ближайших 4 недель и «≈ N тренировок в месяц»; история и «Записать тренировку».
  * Виды занятий — те же, что в первой настройке (силовые = зал). Расписание и виды сохраняются сразу.
  * В дни по расписанию главный экран сам ставит тип дня «Тренировка» (своя отметка дня главнее).
+ * Вёрстка (09.11.2026, правка автора поверх макета — «больше воздуха, чёткая иерархия»): разделы через 32, заголовки
+ * разделов 18 / 600, подписи 13 `onSurfaceVariant`; в карточке расписания поля 20 и блоки через 24; календарь с шапкой
+ * дней недели, дни отдыха — без заливки, залиты только тренировки.
  */
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -103,8 +107,8 @@ fun TrainingScreen(
     var picking by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize().background(colors.surface)) {
         Column(
-            Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 110.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 128.dp),
+            verticalArrangement = Arrangement.spacedBy(32.dp),
         ) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Surface(onClick = onBack, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
@@ -113,47 +117,56 @@ fun TrainingScreen(
                 Text("Тренировки", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             }
             // Чем занимаетесь
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Чем занимаетесь", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                SectionTitle("Чем занимаетесь")
+                // Маленькие карточки-теги с иконкой вида (09.11.2026, правка автора): выбранные — цветом тренировки
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     TRAINING_TYPES.forEach { (id, label, _) ->
                         val sel = id in types
-                        val bg by animateColorAsState(if (sel) colors.secondaryContainer else Color.Transparent, label = "tt")
+                        val bg by animateColorAsState(if (sel) MacroColors.trainingContainer else colors.surfaceContainer, label = "tt")
+                        val ink by animateColorAsState(if (sel) MacroColors.training else colors.onSurfaceVariant, label = "ti")
                         Surface(
-                            onClick = { onTypes(if (sel) types - id else types + id) }, shape = RoundedCornerShape(8.dp), color = bg,
-                            border = BorderStroke(1.dp, if (sel) colors.secondaryContainer else colors.outlineVariant), modifier = Modifier.height(32.dp),
+                            onClick = { onTypes(if (sel) types - id else types + id) }, shape = RoundedCornerShape(14.dp), color = bg,
+                            border = BorderStroke(1.dp, if (sel) MacroColors.training.copy(alpha = 0.5f) else Color.Transparent),
+                            modifier = Modifier.heightIn(min = 44.dp).semantics { contentDescription = label + if (sel) ", выбрано" else "" },
                         ) {
-                            Row(Modifier.padding(start = if (sel) 8.dp else 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                if (sel) Icon(MockIcons.Check, null, Modifier.size(16.dp), tint = colors.onPrimaryContainer)
-                                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (sel) colors.onPrimaryContainer else colors.onSurface)
+                            Row(Modifier.padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Box(Modifier.size(30.dp).clip(RoundedCornerShape(10.dp)).background(if (sel) MacroColors.training.copy(alpha = 0.16f) else colors.surfaceContainerHighest), contentAlignment = Alignment.Center) {
+                                    Icon(trainingIcon(id), null, Modifier.size(17.dp), tint = ink)
+                                }
+                                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (sel) MacroColors.training else colors.onSurface)
                             }
                         }
                     }
                 }
             }
             // Расписание
-            Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainer).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
-                val cells = (0 until 28).map { monday.plusDays(it.toLong()) }
-                val count = cells.count { plan != null && p.kind(it) == TrainingPlan.Kind.Train }
-                val perMonth = Math.round(count / 28.0 * 30).toInt()
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text("Расписание", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Text(if (plan == null) "не задано" else "≈ $perMonth ${word(perMonth, "тренировка", "тренировки", "тренировок")} в месяц", fontSize = 13.sp, color = colors.onSurfaceVariant)
+            val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+            val cells = (0 until 28).map { monday.plusDays(it.toLong()) }
+            val count = cells.count { plan != null && p.kind(it) == TrainingPlan.Kind.Train }
+            val perMonth = Math.round(count / 28.0 * 30).toInt()
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    SectionTitle("Расписание")
+                    Text(
+                        if (plan == null) "Не задано" else "≈ $perMonth ${word(perMonth, "тренировка", "тренировки", "тренировок")} в месяц",
+                        fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp),
+                    )
                 }
-                PillToggle(PlanMode.entries.map { it.label }, p.mode.ordinal, onSelect = { onPlan(p.copy(mode = PlanMode.entries[it])) }, modifier = Modifier.fillMaxWidth(), height = 40.dp, fontSize = 13.sp)
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainer).padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                PillToggle(PlanMode.entries.map { it.label }, p.mode.ordinal, onSelect = { onPlan(p.copy(mode = PlanMode.entries[it])) }, modifier = Modifier.fillMaxWidth(), height = 44.dp, fontSize = 13.sp)
                 AnimatedVisibility(p.mode == PlanMode.Interval, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Stepper("Дней тренировок подряд", null, p.trainDays, 1, 6) { onPlan(p.copy(trainDays = it)) }
                         Stepper("Затем дней отдыха", null, p.restDays, 1, 7) { onPlan(p.copy(restDays = it)) }
                         Text("${p.trainDays} ${word(p.trainDays, "день", "дня", "дней")} тренировок, ${p.restDays} ${word(p.restDays, "день", "дня", "дней")} отдыха — и по кругу", fontSize = 13.sp, color = colors.onSurfaceVariant)
                     }
                 }
                 AnimatedVisibility(p.mode == PlanMode.Shift, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Stepper("Активный период", "дней, когда тренируетесь", p.onDays, 1, 60) { onPlan(p.copy(onDays = it)) }
                         Stepper("Без тренировок", "вахта, отпуск, перерыв", p.offDays, 1, 60) { onPlan(p.copy(offDays = it)) }
                         Text("В активный период тренируюсь", fontSize = 13.sp, color = colors.onSurfaceVariant)
@@ -180,26 +193,30 @@ fun TrainingScreen(
                 AnimatedVisibility(p.mode != PlanMode.Week) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(if (p.mode == PlanMode.Shift) "Активный период начинается" else "Первая тренировка", fontSize = 15.sp, modifier = Modifier.weight(1f))
-                        Surface(onClick = { picking = true }, shape = RoundedCornerShape(12.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(44.dp)) {
-                            Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Text(p.start.format(dateShort), fontSize = 15.sp) }
+                        Surface(onClick = { picking = true }, shape = RoundedCornerShape(14.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(44.dp)) {
+                            Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text(p.start.format(dateShort), fontSize = 15.sp, fontWeight = FontWeight.Medium) }
                         }
                     }
                 }
                 // Ближайшие 4 недели
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Ближайшие 4 недели", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Ближайшие 4 недели", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        dn.forEach { Text(it, fontSize = 11.sp, color = colors.outline, textAlign = TextAlign.Center, modifier = Modifier.weight(1f)) }
+                    }
                     cells.chunked(7).forEach { week ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             week.forEach { d ->
                                 val k = if (plan == null) TrainingPlan.Kind.Rest else p.kind(d)
                                 val isToday = d == today
-                                val shape = RoundedCornerShape(10.dp)
-                                val m = Modifier.weight(1f).height(34.dp).clip(shape)
+                                val shape = RoundedCornerShape(12.dp)
+                                val m = Modifier.weight(1f).height(36.dp).clip(shape)
+                                // Залиты только тренировки; отдых — просто число, перерыв — пунктирно-бледный контур, сегодня — обводка
                                 Box(
                                     when (k) {
-                                        TrainingPlan.Kind.Train -> m.background(MacroColors.trainingContainer).border(1.dp, MacroColors.training, shape)
-                                        TrainingPlan.Kind.Off -> m.border(1.dp, colors.outline.copy(alpha = 0.6f), shape)
-                                        TrainingPlan.Kind.Rest -> m.background(colors.surfaceContainerHigh).border(1.dp, if (isToday) colors.primary else Color.Transparent, shape)
+                                        TrainingPlan.Kind.Train -> m.background(MacroColors.trainingContainer).border(if (isToday) 1.5.dp else 0.dp, MacroColors.training, shape)
+                                        TrainingPlan.Kind.Off -> m.border(1.dp, colors.outlineVariant, shape)
+                                        TrainingPlan.Kind.Rest -> m.border(1.5.dp, if (isToday) colors.primary else Color.Transparent, shape)
                                     },
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -212,23 +229,27 @@ fun TrainingScreen(
                             }
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        Legend(Modifier.background(MacroColors.trainingContainer).border(1.dp, MacroColors.training, RoundedCornerShape(4.dp)), "тренировка")
-                        Legend(Modifier.background(colors.surfaceContainerHigh), "отдых")
-                        Legend(Modifier.border(1.dp, colors.outline, RoundedCornerShape(4.dp)), "перерыв")
+                    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Legend(Modifier.background(MacroColors.trainingContainer), "тренировка")
+                        if (p.mode == PlanMode.Shift) Legend(Modifier.border(1.dp, colors.outlineVariant, RoundedCornerShape(4.dp)), "перерыв")
+                        Legend(Modifier.border(1.5.dp, colors.primary, RoundedCornerShape(4.dp)), "сегодня")
                     }
                 }
-                Text("В дни тренировок главный экран сам предложит тип дня «Тренировка» с повышенной нормой углеводов.", fontSize = 12.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant)
+            }
+                Text(
+                    "В дни тренировок главный экран сам предложит тип дня «Тренировка» с повышенной нормой углеводов.",
+                    fontSize = 12.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp),
+                )
             }
             // История
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("История", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                SectionTitle("История")
                 if (log.isEmpty()) {
-                    Text("Пока пусто — записывайте тренировки кнопкой ниже.", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-                } else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerLow)) {
+                    Text("Пока пусто — записывайте тренировки кнопкой ниже.", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 4.dp))
+                } else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainerLow).padding(vertical = 4.dp)) {
                     log.take(20).forEach { l ->
                         Row(
-                            Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable { deleting = l }.padding(horizontal = 16.dp),
+                            Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { deleting = l }.padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                             Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MacroColors.trainingContainer), contentAlignment = Alignment.Center) {
@@ -279,6 +300,24 @@ fun TrainingScreen(
     }
 }
 
+/** Иконка вида занятий. */
+private fun trainingIcon(id: String) = when (id) {
+    "strength" -> MockIcons.Dumbbell
+    "cardio" -> MockIcons.Cardio
+    "run" -> MockIcons.Run
+    "swim" -> MockIcons.Swim
+    "fight" -> MockIcons.Fight
+    "team" -> MockIcons.Team
+    "bike" -> MockIcons.Bike
+    "yoga" -> MockIcons.Yoga
+    else -> MockIcons.Dumbbell
+}
+
+/** Заголовок раздела: 18 / 600, отступ 4 от края. */
+@Composable
+private fun SectionTitle(text: String) =
+    Text(text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 4.dp))
+
 @Composable
 private fun Legend(box: Modifier, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -294,12 +333,12 @@ private fun Legend(box: Modifier, label: String) {
 @Composable
 private fun Stepper(label: String, sub: String?, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
     val colors = MaterialTheme.colorScheme
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(label, fontSize = 15.sp)
             if (sub != null) Text(sub, fontSize = 12.sp, color = colors.onSurfaceVariant)
         }
-        Row(Modifier.width(96.dp)) {
+        Row(Modifier.width(76.dp)) {
             PopDrumChip(
                 value.toDouble(), { onChange(it.toInt().coerceIn(min, max)) }, "дн", colors.onSecondaryContainer, colors.secondaryContainer, label,
                 stepFor = { 1.0 }, display = { it.toInt().toString() }, min = min.toDouble(), max = max.toDouble(),

@@ -12,11 +12,11 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlin.io.encoding.Base64
 
-/** Подключённый аккаунт: почта, имя (может не быть). */
-data class Account(val email: String, val name: String?)
+/** Аккаунт, в который вошли: почта, имя и адрес аватарки Google (могут не прийти). */
+data class Account(val email: String, val name: String?, val photo: String? = null)
 
-/** Что вернула платформа при входе: токен входа (JWT, живёт час), почта, имя. */
-data class GoogleCredential(val idToken: String, val email: String, val name: String?)
+/** Что вернула платформа при входе: токен входа (JWT, живёт час), почта, имя, аватарка. */
+data class GoogleCredential(val idToken: String, val email: String, val name: String?, val photo: String? = null)
 
 /** Итог окна входа на платформе. */
 sealed interface SignInOutcome {
@@ -36,8 +36,8 @@ expect class GoogleSignIn() {
 }
 
 /**
- * Вход через Google. Приложение получает только имя и почту — ни пароля, ни доступа к Gmail, Диску или платежам.
- * На диске — только почта и имя для карточки профиля. Токен входа (живёт час) держим в памяти: им ассистент
+ * Вход через Google. Приложение получает имя, почту и аватарку — ни пароля, ни доступа к Gmail или платежам.
+ * На диске — почта, имя и адрес аватарки для карточки профиля. Токен входа (живёт час) держим в памяти: им ассистент
  * подтверждает серверу, кто спрашивает (DESIGN.md, «Ассистент»).
  */
 class GoogleAccount private constructor() {
@@ -65,10 +65,27 @@ class GoogleAccount private constructor() {
         if (_account.value == null) return null
         token?.let { if (tokenExp - nowMillis() > 5 * 60_000L) return it }
         val clientId = BuildValues.GOOGLE_WEB_CLIENT_ID.takeIf { it.isNotBlank() } ?: return null
-        return signer.silent(clientId)?.also(::keep)?.idToken
+        return signer.silent(clientId)?.also(::keep)?.also(::remember)?.idToken
     }
 
-    private fun load(): Account? = prefs.getString("email", null)?.let { Account(it, prefs.getString("name", null)) }
+    /** Аватарка или имя поменялись (или вошли до того, как приложение их запоминало) — обновить карточку. */
+    private fun remember(c: GoogleCredential) {
+        val cur = _account.value ?: return
+        val next = cur.copy(name = c.name?.takeIf { it.isNotBlank() } ?: cur.name, photo = c.photo ?: cur.photo)
+        if (next == cur) return
+        prefs.edit { putString("name", next.name); putString("photo", next.photo) }
+        _account.value = next
+    }
+
+    /** Вошли раньше, а аватарки ещё нет — тихо спросить её у Google (без окна). */
+    suspend fun refreshProfile() {
+        val acc = _account.value ?: return
+        if (acc.photo != null) return
+        val clientId = BuildValues.GOOGLE_WEB_CLIENT_ID.takeIf { it.isNotBlank() } ?: return
+        signer.silent(clientId)?.also(::keep)?.also(::remember)
+    }
+
+    private fun load(): Account? = prefs.getString("email", null)?.let { Account(it, prefs.getString("name", null), prefs.getString("photo", null)) }
 
     /** Итог входа: аккаунт, отмена пользователем или текст ошибки для экрана. */
     sealed interface Result {
@@ -83,8 +100,8 @@ class GoogleAccount private constructor() {
         if (clientId.isBlank()) return Result.Error("Вход ещё не настроен в этой сборке — нет идентификатора клиента Google.")
         return when (val r = signer.signIn(clientId)) {
             is SignInOutcome.Ok -> {
-                val acc = Account(r.credential.email, r.credential.name?.takeIf { it.isNotBlank() })
-                prefs.edit { putString("email", acc.email); putString("name", acc.name) }
+                val acc = Account(r.credential.email, r.credential.name?.takeIf { it.isNotBlank() }, r.credential.photo)
+                prefs.edit { putString("email", acc.email); putString("name", acc.name); putString("photo", acc.photo) }
                 keep(r.credential)
                 _account.value = acc
                 Result.Ok(acc)
@@ -94,7 +111,7 @@ class GoogleAccount private constructor() {
         }
     }
 
-    /** Отключить: забываем аккаунт и просим систему не подставлять его автоматически. */
+    /** Выйти: забываем аккаунт и просим систему не подставлять его автоматически. */
     suspend fun signOut() {
         prefs.edit { clear() }
         _account.value = null

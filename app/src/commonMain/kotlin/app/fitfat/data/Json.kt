@@ -5,6 +5,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -17,6 +19,10 @@ fun JsonObject.optString(key: String): String = (this[key] as? JsonPrimitive)?.c
 fun JsonObject.optDouble(key: String, def: Double = Double.NaN): Double = (this[key] as? JsonPrimitive)?.doubleOrNull ?: def
 
 fun JsonObject.optInt(key: String, def: Int = 0): Int = (this[key] as? JsonPrimitive)?.intOrNull ?: def
+
+fun JsonObject.optBoolean(key: String, def: Boolean = false): Boolean = (this[key] as? JsonPrimitive)?.booleanOrNull ?: def
+
+fun JsonObject.optLong(key: String, def: Long = 0L): Long = (this[key] as? JsonPrimitive)?.let { it.longOrNull ?: it.doubleOrNull?.toLong() } ?: def
 
 fun JsonObject.isNull(key: String): Boolean = this[key].let { it == null || it is JsonNull }
 

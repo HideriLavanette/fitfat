@@ -24,7 +24,7 @@ actual class GoogleSignIn actual constructor() {
                 return SignInOutcome.Error("Google вернул неожиданный ответ. Попробуйте ещё раз.")
             }
             val g = GoogleIdTokenCredential.createFrom(cred.data)
-            SignInOutcome.Ok(GoogleCredential(g.idToken, g.id, g.displayName))
+            SignInOutcome.Ok(GoogleCredential(g.idToken, g.id, g.displayName, g.profilePictureUri?.toString()))
         } catch (e: GetCredentialCancellationException) {
             SignInOutcome.Cancelled
         } catch (e: NoCredentialException) {
@@ -41,7 +41,7 @@ actual class GoogleSignIn actual constructor() {
         return runCatching {
             val cred = CredentialManager.create(context).getCredential(context, GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
             if (cred !is CustomCredential || cred.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) return null
-            GoogleIdTokenCredential.createFrom(cred.data).let { GoogleCredential(it.idToken, it.id, it.displayName) }
+            GoogleIdTokenCredential.createFrom(cred.data).let { GoogleCredential(it.idToken, it.id, it.displayName, it.profilePictureUri?.toString()) }
         }.getOrNull()
     }
 
