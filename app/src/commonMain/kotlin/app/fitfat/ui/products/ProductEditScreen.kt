@@ -1,5 +1,7 @@
 package app.fitfat.ui.products
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.Math
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -25,7 +27,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -283,7 +284,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
     }
     if (photoSheet) app.fitfat.ui.components.PhotoSheet(picker, photo != null, onDismiss = { photoSheet = false }, onRemove = { photo = null })
     if (confirmDelete && existing != null) {
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { confirmDelete = false },
             icon = { Icon(MockIcons.Delete, null, tint = colors.error) },
             title = { Text("Удалить «${existing.name}»?") },

@@ -1,11 +1,15 @@
 package app.fitfat.ui
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import app.fitfat.data.AppSettings
 import app.fitfat.data.ThemeMode
+import app.fitfat.ui.components.FadeIndication
+import app.fitfat.ui.components.isCupertino
 import app.fitfat.ui.theme.FitfatTheme
 
 /** Корень интерфейса для обеих платформ: тема из настроек (как в системе / светлая / тёмная, палитра, цвета системы) и [AppRoot]. */
@@ -20,6 +24,7 @@ fun FitfatAppUi() {
         ThemeMode.Dark -> true
     }
     FitfatTheme(darkTheme = dark, dynamicColor = dynamic, palette = palette) {
-        AppRoot()
+        // iOS: нажатие затемняет, а не пускает круги ripple (Cupertino.kt)
+        if (isCupertino) CompositionLocalProvider(LocalIndication provides FadeIndication) { AppRoot() } else AppRoot()
     }
 }

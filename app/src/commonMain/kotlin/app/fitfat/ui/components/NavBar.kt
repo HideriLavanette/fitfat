@@ -144,12 +144,13 @@ fun FloatingNavBar(
                 .shadow(20.dp, shape, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
                 .clip(shape)
                 .hazeEffect(haze) {
-                    blurRadius = 24.dp
+                    // iOS: стекло прозрачнее и с более сильным размытием, как у системных панелей
+                    blurRadius = if (isCupertino) 32.dp else 24.dp
                     inputScale = HazeInputScale.Fixed(0.5f)
-                    tints = listOf(HazeTint(colors.surfaceContainerHigh.copy(alpha = 0.72f)))
+                    tints = listOf(HazeTint(colors.surfaceContainerHigh.copy(alpha = if (isCupertino) 0.55f else 0.72f)))
                     backgroundColor = colors.surfaceContainerHigh
                 }
-                .border(1.dp, colors.onSurface.copy(alpha = 0.08f), shape)
+                .then(if (isCupertino) Modifier.glassBorder(shape) else Modifier.border(1.dp, colors.onSurface.copy(alpha = 0.08f), shape))
                 .padding(horizontal = 6.dp, vertical = 8.dp)
                 .pointerInput(items.size) {
                     val n = items.size

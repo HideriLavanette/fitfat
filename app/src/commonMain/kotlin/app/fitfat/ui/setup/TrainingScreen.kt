@@ -1,5 +1,7 @@
 package app.fitfat.ui.setup
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import androidx.compose.animation.AnimatedVisibility
@@ -32,7 +34,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -277,7 +278,7 @@ fun TrainingScreen(
     }
     if (logging) LogSheet(types, onDismiss = { logging = false }) { t, m -> onLog(t, m); logging = false }
     deleting?.let { l ->
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { deleting = null },
             title = { Text("Удалить запись?") },
             text = { Text("${trainingLabel(l.type)}, ${LocalDate.ofEpochDay(l.epochDay).format(dayLong)} · ${l.minutes} мин") },

@@ -1,5 +1,7 @@
 package app.fitfat.ui.profile
 
+import app.fitfat.ui.components.FfAlert
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -131,7 +133,7 @@ fun AccountCard() {
         )
     }
     offer?.let { at ->
-        androidx.compose.material3.AlertDialog(
+        app.fitfat.ui.components.FfAlert(
             onDismissRequest = { offer = null },
             title = { Text("Нашлась копия") },
             text = { Text("В вашем Google Диске есть копия FitFat от ${app.fitfat.data.cloudWhen(at)}. Вернуть дневник, вес, базу продуктов и нормы на этот телефон?") },
@@ -150,7 +152,7 @@ fun AccountCard() {
             },
         )
     }
-    if (restored) androidx.compose.material3.AlertDialog(
+    if (restored) app.fitfat.ui.components.FfAlert(
         onDismissRequest = {},
         text = { Text("Данные восстановлены. Приложение перезапустится, чтобы всё подхватить.") },
         confirmButton = { androidx.compose.material3.TextButton(onClick = { app.fitfat.platform.restartApp() }) { Text("Перезапустить") } },

@@ -1,5 +1,7 @@
 package app.fitfat.ui.products
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.*
 import kotlinx.datetime.LocalDateTime
 import app.fitfat.time.Fmt
@@ -23,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -131,7 +132,7 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
 
     if (addingAlias) p?.let { prod ->
         var text by remember { mutableStateOf("") }
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { addingAlias = false },
             title = { Text("Другое название") },
             text = {

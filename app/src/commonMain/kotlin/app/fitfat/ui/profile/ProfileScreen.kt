@@ -252,7 +252,7 @@ private fun SubscriptionCard(onAssistant: () -> Unit) {
                 Text("Автопродление", fontSize = 15.sp, lineHeight = 20.sp)
                 Text(if (autoRenew) "Подписка продлится сама" else "Месяц без автосписаний", fontSize = 13.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant, maxLines = 1)
             }
-            androidx.compose.material3.Switch(checked = autoRenew, onCheckedChange = { app.fitfat.data.Access.setAutoRenew(it) })
+            app.fitfat.ui.components.FfSwitch(checked = autoRenew, onCheckedChange = { app.fitfat.data.Access.setAutoRenew(it) })
         }
     }
 }

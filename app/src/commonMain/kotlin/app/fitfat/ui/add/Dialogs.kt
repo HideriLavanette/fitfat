@@ -1,5 +1,7 @@
 package app.fitfat.ui.add
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
@@ -28,7 +30,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -355,7 +356,7 @@ fun WhenSheet(vm: AddFoodViewModel, onDismiss: () -> Unit) {
     }
     if (clock) {
         val st = rememberTimePickerState(vm.time.hour, vm.time.minute, is24Hour = true)
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { clock = false },
             title = { Text("Время") },
             text = { TimePicker(st) },

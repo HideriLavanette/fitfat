@@ -120,7 +120,8 @@ fun FfSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        // iOS: скругление шторок крупнее, как у системных листов
+        shape = RoundedCornerShape(topStart = if (isCupertino) 38.dp else 28.dp, topEnd = if (isCupertino) 38.dp else 28.dp),
         containerColor = color,
         scrimColor = Color.Black.copy(alpha = 0.5f),
         tonalElevation = 0.dp,

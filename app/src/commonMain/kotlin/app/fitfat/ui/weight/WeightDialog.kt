@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import androidx.compose.foundation.BorderStroke
@@ -17,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -219,7 +220,7 @@ fun WeightEditSheet(
     }
 
     if (confirm) {
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { confirm = false },
             title = { Text("Удалить запись?") },
             text = { Text("Вес за ${date.format(dateFmt)} пропадёт из графика и календаря.") },

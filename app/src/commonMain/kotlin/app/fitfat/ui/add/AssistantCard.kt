@@ -1,5 +1,7 @@
 package app.fitfat.ui.add
 
+import app.fitfat.ui.components.FfAlert
+
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,7 +19,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -221,7 +222,7 @@ private fun Buttons(cancel: String, onCancel: () -> Unit, ok: String? = null, on
 /** Согласие перед первым запросом: что уходит и куда. */
 @Composable
 fun AssistantConsentDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
-    AlertDialog(
+    FfAlert(
         onDismissRequest = onDismiss,
         title = { Text("Ассистент") },
         text = {

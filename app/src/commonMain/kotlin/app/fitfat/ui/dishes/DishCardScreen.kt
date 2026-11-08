@@ -1,5 +1,7 @@
 package app.fitfat.ui.dishes
 
+import app.fitfat.ui.components.FfAlert
+
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,7 +26,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -303,7 +304,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
     }
     if (photoSheet) app.fitfat.ui.components.PhotoSheet(picker, photo != null, onDismiss = { photoSheet = false }, onRemove = { photo = null })
     if (confirmDelete) {
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { confirmDelete = false },
             icon = { Icon(MockIcons.Delete, null, tint = colors.error) },
             title = { Text("Удалить «$name»?") },

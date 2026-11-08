@@ -1,5 +1,7 @@
 package app.fitfat.update
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import androidx.compose.foundation.layout.Arrangement
@@ -8,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -28,14 +29,14 @@ fun UpdateDialog(vm: UpdateViewModel) {
         UpdateState.Idle -> Unit
         is UpdateState.Checking -> Unit // проверка идёт тихо; кнопка в профиле может показать индикатор
 
-        UpdateState.UpToDate -> AlertDialog(
+        UpdateState.UpToDate -> FfAlert(
             onDismissRequest = vm::dismiss,
             title = { Text("Обновлений нет") },
             text = { Text("У вас последняя версия — ${app.fitfat.platform.Platform.versionName}.") },
             confirmButton = { TextButton(onClick = vm::dismiss) { Text("Хорошо") } },
         )
 
-        is UpdateState.Failed -> AlertDialog(
+        is UpdateState.Failed -> FfAlert(
             onDismissRequest = vm::dismiss,
             title = { Text("Не получилось") },
             text = { Text(s.message) },
@@ -43,7 +44,7 @@ fun UpdateDialog(vm: UpdateViewModel) {
             dismissButton = { TextButton(onClick = vm::dismiss) { Text("Закрыть") } },
         )
 
-        is UpdateState.Available -> AlertDialog(
+        is UpdateState.Available -> FfAlert(
             onDismissRequest = vm::dismiss,
             icon = { Icon(app.fitfat.ui.common.MockIcons.ArrowUp, contentDescription = null) },
             title = { Text("Доступна версия ${s.update.versionName}") },
@@ -52,7 +53,7 @@ fun UpdateDialog(vm: UpdateViewModel) {
             dismissButton = { TextButton(onClick = { vm.skip(s.update) }) { Text("Позже") } },
         )
 
-        is UpdateState.Downloading -> AlertDialog(
+        is UpdateState.Downloading -> FfAlert(
             onDismissRequest = {},
             title = { Text("Загрузка ${s.update.versionName}") },
             text = {
@@ -67,7 +68,7 @@ fun UpdateDialog(vm: UpdateViewModel) {
 
         is UpdateState.Ready -> {
             val allowed = vm.canInstall()
-            AlertDialog(
+            FfAlert(
                 onDismissRequest = vm::dismiss,
                 title = { Text("Готово к установке") },
                 text = {

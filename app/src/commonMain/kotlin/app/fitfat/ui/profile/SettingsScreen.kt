@@ -1,5 +1,9 @@
 package app.fitfat.ui.profile
 
+import app.fitfat.ui.components.FfSwitch
+
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.data.GoogleAccount
 import app.fitfat.data.Reports
 import app.fitfat.data.CloudBackup
@@ -42,13 +46,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -234,7 +236,7 @@ fun SettingsScreen(
                         Text("Бета-версии", fontSize = 15.sp)
                         Text("Получать тестовые сборки раньше остальных", fontSize = 13.sp, color = colors.onSurfaceVariant)
                     }
-                    Switch(checked = updates.betaChannel, onCheckedChange = updates::setBeta)
+                    FfSwitch(checked = updates.betaChannel, onCheckedChange = updates::setBeta)
                 }
                 Button(onClick = { updates.check(silent = false) }, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Проверить обновления") }
             }
@@ -256,7 +258,7 @@ fun SettingsScreen(
 
     importText?.let { text ->
         val n = Backup.peek(text).orEmpty()
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { importText = null },
             title = { Text("Заменить данные?") },
             text = {
@@ -278,7 +280,7 @@ fun SettingsScreen(
         )
     }
     restoreFrom?.let { at ->
-        AlertDialog(
+        FfAlert(
             onDismissRequest = { restoreFrom = null },
             title = { Text("Восстановить копию?") },
             text = { Text("Копия из Google Диска от ${cloudWhen(at)} заменит дневник, вес, базу продуктов и нормы на этом телефоне. Отменить это нельзя. Фото продуктов останутся как есть.") },
@@ -298,7 +300,7 @@ fun SettingsScreen(
         )
     }
     // После восстановления настройки и экраны читаются заново — проще всего перезапуском
-    if (restarting) AlertDialog(
+    if (restarting) FfAlert(
         onDismissRequest = {},
         text = { Text("Данные восстановлены. Приложение перезапустится, чтобы всё подхватить.") },
         confirmButton = { TextButton(onClick = { restartApp() }) { Text("Перезапустить") } },
@@ -308,7 +310,7 @@ fun SettingsScreen(
         message = if (ok) "Спасибо! Сообщение отправлено разработчику." else "Не получилось отправить — проверьте интернет и попробуйте ещё раз."
     }
     message?.let { m ->
-        AlertDialog(onDismissRequest = { message = null }, text = { Text(m) }, confirmButton = { TextButton(onClick = { message = null }) { Text("Понятно") } })
+        FfAlert(onDismissRequest = { message = null }, text = { Text(m) }, confirmButton = { TextButton(onClick = { message = null }) { Text("Понятно") } })
     }
 }
 
@@ -351,7 +353,7 @@ private fun SwitchRow(icon: ImageVector, title: String, sub: String, on: Boolean
             Text(title, fontSize = 15.sp)
             Text(sub, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = on, onCheckedChange = onToggle)
+        FfSwitch(checked = on, onCheckedChange = onToggle)
     }
 }
 
@@ -485,7 +487,7 @@ private fun FeedbackSheet(onDismiss: () -> Unit, onSent: (Boolean) -> Unit) {
                 Text("Приложить журнал", fontSize = 15.sp)
                 Text("Какие экраны открывали — без вашего дневника", fontSize = 13.sp, color = colors.onSurfaceVariant)
             }
-            Switch(checked = withLog, onCheckedChange = { withLog = it })
+            FfSwitch(checked = withLog, onCheckedChange = { withLog = it })
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = onDismiss, modifier = Modifier.weight(1f).height(48.dp)) { Text("Отмена") }

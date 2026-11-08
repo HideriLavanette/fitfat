@@ -1,5 +1,7 @@
 package app.fitfat.ui.products
 
+import app.fitfat.ui.components.FfAlert
+
 import app.fitfat.time.Math
 import app.fitfat.time.nowMillis
 import androidx.compose.animation.animateColorAsState
@@ -375,7 +377,7 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
             one != null -> "Продукт исчезнет из базы."
             else -> "Они исчезнут из базы."
         }
-        androidx.compose.material3.AlertDialog(
+        app.fitfat.ui.components.FfAlert(
             onDismissRequest = { confirmDelete = null },
             icon = { Icon(MockIcons.Delete, null, tint = colors.error) },
             title = { Text(if (one != null) "Удалить «${one.name}»?" else "Удалить ${productsWord(ids.size)}?") },
