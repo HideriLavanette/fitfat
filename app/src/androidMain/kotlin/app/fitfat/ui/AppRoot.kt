@@ -70,7 +70,7 @@ import app.fitfat.ui.components.FloatingNavBar
 import app.fitfat.ui.components.NavGuardZone
 import app.fitfat.ui.components.NavItem
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeSource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -326,7 +326,7 @@ fun AppRoot(
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
     Box(Modifier.fillMaxSize()) {
         // Всё содержимое — источник для блюра навбара и зоны под ним
-        Box(Modifier.fillMaxSize().haze(haze)) {
+        Box(Modifier.fillMaxSize().hazeSource(haze)) {
         TabLayer(
             current = Tab.entries.indexOfFirst { it.route == current },
             layerAlpha = tabLayerAlpha.value,

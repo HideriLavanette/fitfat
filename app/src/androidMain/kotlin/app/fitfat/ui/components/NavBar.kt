@@ -68,7 +68,7 @@ import androidx.compose.ui.unit.sp
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.hazeEffect
 
 data class NavItem(val label: String, val icon: ImageVector)
 
@@ -83,7 +83,7 @@ fun NavGuardZone(haze: HazeState, modifier: Modifier = Modifier) {
     Column(
         modifier
             .fillMaxWidth()
-            .hazeChild(haze) {
+            .hazeEffect(haze) {
                 blurRadius = 12.dp
                 // Блюр считается в половинном разрешении — в 4 раза меньше пикселей, на радиусе 12 разницы не видно
                 inputScale = HazeInputScale.Fixed(0.5f)
@@ -145,7 +145,7 @@ fun FloatingNavBar(
                 .fillMaxSize()
                 .shadow(20.dp, shape, ambientColor = Color.Black.copy(alpha = 0.35f), spotColor = Color.Black.copy(alpha = 0.35f))
                 .clip(shape)
-                .hazeChild(haze) {
+                .hazeEffect(haze) {
                     blurRadius = 24.dp
                     inputScale = HazeInputScale.Fixed(0.5f)
                     tints = listOf(HazeTint(colors.surfaceContainerHigh.copy(alpha = 0.72f)))
