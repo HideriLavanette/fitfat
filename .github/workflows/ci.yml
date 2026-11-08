@@ -52,7 +52,16 @@ jobs:
       - name: Лог xcodebuild при падении
         if: failure()
         run: |
-          grep -E "error:|warning: .*Kotlin|Undefined symbol|ld: " build/xcodebuild.log | head -100 || tail -200 build/xcodebuild.log
+          # В сводку прогона (видна без входа на GitHub) — ошибки xcodebuild и хвост лога
+          {
+            echo "## xcodebuild упал"
+            echo '```'
+            grep -E "error:|error |Undefined symbol|ld: |fatal|Could not|No such|failed" build/xcodebuild.log | head -80
+            echo "--- хвост лога ---"
+            tail -120 build/xcodebuild.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -200 build/xcodebuild.log
       - name: Упаковать .app
         run: |
           cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
