@@ -1,5 +1,7 @@
 package app.fitfat.ui.assistant
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -19,7 +21,7 @@ import app.fitfat.data.Recognizer
 import app.fitfat.data.SOURCE_AI
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.time.LocalTime
+import kotlinx.datetime.LocalTime
 
 /** Сообщение чата. У ответа ассистента — продукты-предложения и вывод; [error] — текст ошибки вместо ответа. */
 data class ChatMsg(

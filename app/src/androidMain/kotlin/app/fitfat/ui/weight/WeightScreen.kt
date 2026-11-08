@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,17 +63,15 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.components.PillToggle
 import app.fitfat.ui.components.tick
 import app.fitfat.ui.theme.MacroColors
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
+import app.fitfat.time.ChronoUnit
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-private val ru = Locale("ru")
 private val shortMonths = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
-private val rangeFmt = DateTimeFormatter.ofPattern("d MMMM", ru)
+private val rangeFmt = DateTimeFormatter.ofPattern("d MMMM")
 
 /**
  * Вкладка «Вес» (макет Weight-history, 1.2). Поля 12 / 16, промежуток 16. Стрелки «Назад» нет — это вкладка навбара.

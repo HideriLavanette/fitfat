@@ -1,5 +1,7 @@
 package app.fitfat.notify
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -21,9 +23,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneId
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 
 /**
  * Напоминание о весе и недельный отчёт (макет Settings). Будильники неточные (`AlarmManager.setWindow`, окно 10 минут):
@@ -54,7 +55,7 @@ object Reminders {
         val pi = pending(context, kind)
         am.cancel(pi)
         val at = next(s, LocalDateTime.now()) ?: return
-        val ms = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val ms = at.toEpochMilli()
         am.setWindow(AlarmManager.RTC_WAKEUP, ms, 10 * 60_000L, pi)
     }
 

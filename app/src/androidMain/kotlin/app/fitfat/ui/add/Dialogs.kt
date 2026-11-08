@@ -1,5 +1,7 @@
 package app.fitfat.ui.add
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -83,13 +85,11 @@ import app.fitfat.ui.components.VerticalDrum
 import app.fitfat.ui.theme.MacroColors
 import app.fitfat.ui.today.MonthCalendar
 import kotlinx.coroutines.flow.flowOf
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import app.fitfat.time.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val ru = Locale("ru")
 
 /** Карточка окна: поля 20, скругление 28, `surfaceContainerHigh`, тень. */
 @Composable
@@ -282,7 +282,7 @@ fun whenLabel(date: LocalDate, time: LocalTime, meal: Meal, touched: Boolean): S
         today.minusDays(1) -> "Вчера, "
         else -> "${date.dayOfMonth} ${shortMonths[date.monthValue - 1]}, "
     }
-    return "$day%02d:%02d · ${meal.label}".format(time.hour, time.minute)
+    return "$day${Fmt.hhmm(time.hour, time.minute)} · ${meal.label}"
 }
 
 /**
@@ -319,7 +319,7 @@ fun WhenSheet(vm: AddFoodViewModel, onDismiss: () -> Unit) {
             if (other) {
                 Text("Дата", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
                 Field(48.dp, onClick = { calendar = true }) {
-                    Text(vm.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy", ru)), fontSize = 16.sp)
+                    Text(vm.date.format(DateTimeFormatter.ofPattern("d MMMM yyyy")), fontSize = 16.sp)
                 }
             }
         }
@@ -327,7 +327,7 @@ fun WhenSheet(vm: AddFoodViewModel, onDismiss: () -> Unit) {
             Caption("Время")
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Field(56.dp, Modifier.weight(1f), onClick = { clock = true }) {
-                    Text("%02d:%02d".format(vm.time.hour, vm.time.minute), fontSize = 24.sp, fontWeight = FontWeight(650))
+                    Text(Fmt.hhmm(vm.time.hour, vm.time.minute), fontSize = 24.sp, fontWeight = FontWeight(650))
                 }
                 Surface(onClick = { other = false; vm.now() }, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHighest, modifier = Modifier.height(56.dp)) {
                     Box(Modifier.padding(horizontal = 18.dp), contentAlignment = Alignment.Center) { Text("Сейчас", fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }

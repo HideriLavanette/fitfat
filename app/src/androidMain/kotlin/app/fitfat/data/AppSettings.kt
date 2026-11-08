@@ -1,5 +1,7 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,7 +77,7 @@ object AppSettings {
 
     private val dn = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
     private val dpl = listOf("по понедельникам", "по вторникам", "по средам", "по четвергам", "по пятницам", "по субботам", "по воскресеньям")
-    fun time(min: Int) = "%02d:%02d".format(min / 60, min % 60)
+    fun time(min: Int) = Fmt.hhmm(min / 60, min % 60)
 
     /** «каждый день в 07:30», «по будням в 07:30», «Пн, Ср в 07:30». */
     fun remindText(s: Schedule): String {

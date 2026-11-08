@@ -1,5 +1,7 @@
 package app.fitfat.ui.common
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -31,7 +33,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.min
@@ -82,11 +83,11 @@ fun CategoryIcon(id: String, size: Dp = 44.dp, radius: Dp = size * (14f / 44f), 
 
 /** Целое с разделением тысяч неразрывным пробелом: «1 820». */
 fun fmt0(v: Double): String =
-    String.format(Locale("ru"), "%,d", Math.round(v)).replace(' ', ' ').replace(' ', ' ')
+    Fmt.int(v)
 
 /** Одна десятая всегда, как в строках дневника макета: «1,0», «12,6». */
-fun fmtF1(v: Double): String = String.format(Locale("ru"), "%.1f", v)
-fun fmt1(v: Double): String = if (v >= 100 || v == Math.floor(v)) Math.round(v).toString() else String.format(Locale("ru"), "%.1f", v)
+fun fmtF1(v: Double): String = Fmt.f1(v)
+fun fmt1(v: Double): String = if (v >= 100 || v == Math.floor(v)) Math.round(v).toString() else Fmt.f1(v)
 
 
 /**

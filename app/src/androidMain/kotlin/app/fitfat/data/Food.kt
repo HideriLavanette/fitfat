@@ -1,12 +1,14 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalDate
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 enum class Meal(val label: String) { Breakfast("Завтрак"), Lunch("Обед"), Dinner("Ужин");
     companion object {

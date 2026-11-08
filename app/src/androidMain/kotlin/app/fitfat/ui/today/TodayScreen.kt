@@ -1,5 +1,7 @@
 package app.fitfat.ui.today
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -90,10 +92,9 @@ import app.fitfat.ui.components.showUndo
 import app.fitfat.ui.theme.MacroColors
 import app.fitfat.ui.weight.formatKg
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
+import app.fitfat.time.ChronoUnit
 import kotlin.math.abs
 import app.fitfat.ui.components.Feedback
 import androidx.compose.ui.platform.LocalView
@@ -101,8 +102,7 @@ import kotlin.math.sign
 import kotlin.math.exp
 import kotlin.math.min
 
-private val ru = Locale("ru")
-private val weekday = DateTimeFormatter.ofPattern("EEEE", ru)
+private val weekday = DateTimeFormatter.ofPattern("EEEE")
 private val monthShort = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
 /** «суббота, 7 нояб» — месяц коротко, чтобы « · тренировка» влезала целиком. */
 private fun subtitleDate(d: LocalDate) = "${d.format(weekday)}, ${d.dayOfMonth} ${monthShort[d.monthValue - 1]}"
@@ -111,7 +111,7 @@ private const val SWIPE_RESIST = 56f
 private const val SWIPE_SOFT = 70f
 private const val SWIPE_SNAP = 110f
 
-private fun hhmm(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
+private fun hhmm(minute: Int) = Fmt.hhmm(minute / 60, minute % 60)
 
 /** Разрыв между записями, после которого начинается новый блок в режиме «Время». */
 private const val BLOCK_GAP_MIN = 10
@@ -312,7 +312,7 @@ private fun DateCapsule(date: LocalDate, dayType: DayType, onSelect: (LocalDate)
                 val d = dateOf(page)
                 val title = when (d) {
                     today -> "Сегодня"; today.minusDays(1) -> "Вчера"; today.minusDays(2) -> "Позавчера"
-                    else -> d.format(DateTimeFormatter.ofPattern("d MMMM", ru))
+                    else -> d.format(DateTimeFormatter.ofPattern("d MMMM"))
                 }
                 val typed = d == date && dayType != DayType.Normal
                 Column(Modifier.fillMaxSize().padding(horizontal = 38.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
@@ -400,7 +400,7 @@ private fun DayTypes(ui: TodayUi, onPick: (DayType) -> Unit, modifier: Modifier)
     )
 }
 
-private val cutDays = java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale("ru"))
+private val cutDays = DateTimeFormatter.ofPattern("EEEE")
 
 /** Плашка компенсации: скругление 14, `surfaceContainerHigh`, текст 12 `onSurfaceVariant`, шеврон; тап — «Неделя». */
 @Composable
@@ -666,7 +666,7 @@ private fun PlateauCard(o: PlateauOffer, onCut: () -> Unit, onLater: () -> Unit,
             }
             Text("Вес стоит 2 недели", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         }
-        val drop = "%.1f".format(java.util.Locale("ru"), kotlin.math.abs(o.dropKg))
+        val drop = Fmt.f1(kotlin.math.abs(o.dropKg))
         val parts = listOfNotNull(
             if (o.after.fat != o.before.fat) "жиры ${fmt0(o.before.fat)} → ${fmt0(o.after.fat)} г" else null,
             if (o.after.carbs != o.before.carbs) "углеводы ${fmt0(o.before.carbs)} → ${fmt0(o.after.carbs)} г" else null,

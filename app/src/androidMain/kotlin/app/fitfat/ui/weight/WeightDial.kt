@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -48,7 +50,6 @@ import androidx.compose.ui.unit.sp
 import app.fitfat.ui.components.bump
 import app.fitfat.ui.components.tick
 import kotlinx.coroutines.launch
-import java.util.Locale
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -60,7 +61,7 @@ import kotlin.math.sin
 /** 12° поворота = 0,1 кг, полный оборот = 3 кг. Шесть крупных меток по 0,5 кг, между ними точки. */
 private const val DEG_PER_STEP = 12f
 
-fun formatKg(kg: Double) = String.format(Locale("ru"), "%.1f", kg)
+fun formatKg(kg: Double) = Fmt.f1(kg)
 
 /** «+0,3», «−0,2», «±0,0». */
 fun signedKg(d: Double): String {

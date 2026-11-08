@@ -1,7 +1,9 @@
 package app.fitfat.data
 
-import java.time.DayOfWeek
-import java.time.LocalDate
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
+import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.LocalDate
 
 /**
  * Компенсация переборов (макет Report, DESIGN.md «Неделя»). Перебор прошедшего дня делится поровну на оставшиеся дни

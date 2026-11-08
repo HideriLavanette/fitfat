@@ -1,5 +1,7 @@
 package app.fitfat.ui.profile
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import app.fitfat.data.Hints
 import android.Manifest
 import android.os.Build
@@ -73,7 +75,7 @@ import app.fitfat.update.UpdateViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 /**
  * «Настройки приложения» (макет Settings, 5.5): оформление, уведомления, колёса, дневник, данные, обновления.

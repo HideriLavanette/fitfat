@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,13 +41,10 @@ import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.components.WavyBar
 import app.fitfat.ui.theme.MacroColors
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
 
-private val ru = Locale("ru")
-private val dateFmt = DateTimeFormatter.ofPattern("d MMMM", ru)
+private val dateFmt = DateTimeFormatter.ofPattern("d MMMM")
 
 /**
  * Сводка дня из календаря веса: дата и тип дня; вес, изменение к прошлому взвешиванию и заметка;
@@ -77,7 +76,7 @@ fun DaySummarySheet(
             // Дата и тип дня
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(date.dayOfWeek.getDisplayName(TextStyle.FULL, ru).replaceFirstChar { it.uppercase() }, fontSize = 13.sp, color = colors.onSurfaceVariant)
+                    Text(RuDates.dayFull(date.dayOfWeek).replaceFirstChar { it.uppercase() }, fontSize = 13.sp, color = colors.onSurfaceVariant)
                     Text(date.format(dateFmt), fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium)
                 }
                 TypeChip(type)
@@ -203,7 +202,7 @@ private fun FoodRow(e: FoodEntry) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(e.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             val amount = e.pieces?.let { "${fmt1(it)} шт" } ?: "${fmt0(e.grams)} г"
-            Text("$amount · %02d:%02d".format(e.minute / 60, e.minute % 60), fontSize = 12.sp, color = colors.onSurfaceVariant)
+            Text("$amount · ${Fmt.hhmm(e.minute)}", fontSize = 12.sp, color = colors.onSurfaceVariant)
         }
         Text("${fmt0(e.kcal)} ккал", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }

@@ -1,5 +1,7 @@
 package app.fitfat.ui.setup
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.expandVertically
@@ -67,15 +69,11 @@ import app.fitfat.ui.components.GramRuler
 import app.fitfat.ui.components.PillToggle
 import app.fitfat.ui.components.tick
 import app.fitfat.ui.theme.MacroColors
-import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
 
-private val ru = Locale("ru")
-private val dayLong = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
-private val dateShort = DateTimeFormatter.ofPattern("d MMMM yyyy", ru)
+private val dayLong = DateTimeFormatter.ofPattern("EEEE, d MMMM")
+private val dateShort = DateTimeFormatter.ofPattern("d MMMM yyyy")
 private val dn = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 private val months = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
 
@@ -267,13 +265,13 @@ fun TrainingScreen(
         )
     }
     if (picking) {
-        val state = rememberDatePickerState(initialSelectedDateMillis = p.start.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+        val state = rememberDatePickerState(initialSelectedDateMillis = p.start.toEpochDay() * 86_400_000L)
         DatePickerDialog(
             onDismissRequest = { picking = false },
             dismissButton = { TextButton(onClick = { picking = false }) { Text("Отмена") } },
             confirmButton = {
                 TextButton(onClick = {
-                    state.selectedDateMillis?.let { onPlan(p.copy(start = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())) }
+                    state.selectedDateMillis?.let { onPlan(p.copy(start = LocalDate.ofEpochDay(it.floorDiv(86_400_000L)))) }
                     picking = false
                 }) { Text("Готово") }
             },

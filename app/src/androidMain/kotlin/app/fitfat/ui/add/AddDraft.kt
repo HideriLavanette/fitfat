@@ -1,13 +1,15 @@
 package app.fitfat.ui.add
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.core.content.edit
 import app.fitfat.data.Macros
 import app.fitfat.data.Meal
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.LocalDate
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Черновик «Добавить» (DESIGN.md, «Добавление еды»): строка, выбранные продукты, день, время и приём.

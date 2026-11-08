@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.app.Application
 import android.content.Context
 import androidx.core.content.edit
@@ -17,7 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 enum class Period(val label: String, val days: Long) {
     Week("1 нед", 7), Month("1 мес", 30), Quarter("3 мес", 90), Half("6 мес", 180), Year("1 год", 365)

@@ -1,13 +1,15 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 
 /**
  * Сутки дневника: новый день начинается не в полночь, а в [startMinute] (по умолчанию 07:00, меняется в профиле).
@@ -47,5 +49,5 @@ object DayClock {
     /** Время до начала дня — это ночь предыдущего дня. */
     fun isNight(t: LocalTime, start: Int = startMinute): Boolean = t.hour * 60 + t.minute < start
 
-    fun label(minutes: Int = startMinute) = "%02d:%02d".format(minutes / 60, minutes % 60)
+    fun label(minutes: Int = startMinute) = Fmt.hhmm(minutes / 60, minutes % 60)
 }

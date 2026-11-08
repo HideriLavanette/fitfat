@@ -1,5 +1,7 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.room.ColumnInfo
 import androidx.room.Dao
@@ -16,7 +18,7 @@ import androidx.room.Upsert
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 /** Утреннее взвешивание: одна запись на день, ключ — номер дня от эпохи. */
 @Entity(tableName = "weight")

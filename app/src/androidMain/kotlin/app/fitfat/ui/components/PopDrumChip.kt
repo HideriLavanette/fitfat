@@ -1,5 +1,7 @@
 package app.fitfat.ui.components
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -65,7 +67,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import app.fitfat.ui.common.MockIcons
 import kotlinx.coroutines.withTimeoutOrNull
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.max
@@ -97,7 +98,7 @@ fun RowScope.PopDrumChip(
     bubbleRight: Boolean = false,
     stepFor: (Double) -> Double = { if (it < 10) 0.5 else 1.0 },
     /** Как показывать значение в закрытом чипе. */
-    display: (Double) -> String = { String.format(Locale("ru"), "%.1f", it) },
+    display: (Double) -> String = { Fmt.f1(it) },
     min: Double = 0.0,
     max: Double = Double.MAX_VALUE,
     /** Палец-подсказка «нажмите или удерживайте и ведите» (первый чип в группе; DESIGN.md, «Подсказки и жесты»). */
@@ -128,7 +129,7 @@ fun RowScope.PopDrumChip(
     fun closeDrum() {
         scope.launch { expand.animateTo(0f, tween(150)); open = false }
     }
-    fun fmt(v: Double) = if (step < 1) String.format(Locale("ru"), "%.1f", v) else v.roundToInt().toString()
+    fun fmt(v: Double) = if (step < 1) Fmt.f1(v) else v.roundToInt().toString()
 
     Box(Modifier.weight(weight)) {
         Row(

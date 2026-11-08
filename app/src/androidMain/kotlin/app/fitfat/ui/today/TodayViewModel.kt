@@ -1,5 +1,7 @@
 package app.fitfat.ui.today
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -21,9 +23,9 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalTime
-import java.time.YearMonth
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.YearMonth
 
 data class TodayUi(
     val date: LocalDate = DayClock.today(),

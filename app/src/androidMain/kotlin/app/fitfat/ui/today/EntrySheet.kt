@@ -1,5 +1,7 @@
 package app.fitfat.ui.today
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,8 +43,8 @@ import app.fitfat.ui.components.GramRuler
 import app.fitfat.ui.components.GramsReadout
 import app.fitfat.ui.components.PieceStepper
 import app.fitfat.ui.theme.MacroColors
-import java.time.LocalDate
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /**
  * Шторка записи (макет 2.4): правка порции либо повтор. Граммы — линейка, штуки — «−/+».
@@ -66,10 +68,10 @@ fun EntrySheet(
     val k = if (piece) pieces / (entry.pieces ?: 1.0) else if (entry.grams > 0) grams / entry.grams else 1.0
     val perPieceGrams = if (piece && (entry.pieces ?: 0.0) > 0) entry.grams / entry.pieces!! else 0.0
     val colors = MaterialTheme.colorScheme
-    val time = "%02d:%02d".format(entry.minute / 60, entry.minute % 60)
+    val time = Fmt.hhmm(entry.minute / 60, entry.minute % 60)
     val sub = when {
         !repeatMode -> "${Meal.of(entry.meal).label} · $time · запись в дневнике"
-        date == app.fitfat.data.DayClock.today() -> LocalTime.now().let { "Повтор · запишется сейчас, %02d:%02d".format(it.hour, it.minute) }
+        date == app.fitfat.data.DayClock.today() -> LocalTime.now().let { "Повтор · запишется сейчас, ${Fmt.hhmm(it.hour, it.minute)}" }
         else -> "Повтор · запишется на $time"
     }
 

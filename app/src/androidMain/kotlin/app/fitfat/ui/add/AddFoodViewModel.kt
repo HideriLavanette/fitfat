@@ -1,5 +1,7 @@
 package app.fitfat.ui.add
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import app.fitfat.data.DayClock
 import android.app.Application
 import android.content.Context
@@ -31,8 +33,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.LocalTime
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 
 /** Подтверждённый продукт. [override] — КБЖУ, поправленные вручную только для этой записи. */
 data class Picked(val key: Long, val product: Product, val grams: Double, val pieces: Double?, val override: Macros? = null) {

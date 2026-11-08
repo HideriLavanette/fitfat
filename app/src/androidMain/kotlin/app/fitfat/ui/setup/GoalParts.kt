@@ -1,5 +1,7 @@
 package app.fitfat.ui.setup
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -67,15 +69,14 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.components.tick
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private fun fmt1(v: Double) = String.format(Locale("ru"), "%.1f", v)
+private fun fmt1(v: Double) = Fmt.f1(v)
 
-private val etaFmt = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
+private val etaFmt = DateTimeFormatter.ofPattern("d MMMM yyyy")
 
 /**
  * Целевой вес (08.11.2026, решение автора вместо «− / +»): число 32 сверху, под ним линейка с рисками, как вес порции
@@ -168,10 +169,10 @@ internal fun HorizontalDrum(values: List<Double>, value: Double, description: St
 internal fun targetEta(target: Double, weight: Double, trend: List<Pair<LocalDate, Double>>): String {
     val today = app.fitfat.data.DayClock.today()
     val window = trend.filter { !it.first.isBefore(today.minusDays(14)) }
-    return if (window.size < 6 || java.time.temporal.ChronoUnit.DAYS.between(window.first().first, window.last().first) < 10) {
+    return if (window.size < 6 || ChronoUnit.DAYS.between(window.first().first, window.last().first) < 10) {
         "Срок появится, когда наберётся 2 недели взвешиваний"
     } else {
-        val days = java.time.temporal.ChronoUnit.DAYS.between(window.first().first, window.last().first).toDouble()
+        val days = ChronoUnit.DAYS.between(window.first().first, window.last().first).toDouble()
         val perWeek = (window.last().second - window.first().second) / days * 7
         val remain = target - weight
         if (abs(perWeek) < 0.05 || perWeek * remain <= 0) "Сейчас вес не движется к цели — срок не посчитать"

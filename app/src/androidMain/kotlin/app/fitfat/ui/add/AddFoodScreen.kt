@@ -1,5 +1,7 @@
 package app.fitfat.ui.add
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -64,7 +66,7 @@ import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.common.macroLine
 import app.fitfat.ui.components.FitText
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 /**
  * Добавление еды (макеты Add-empty 3.1 и Add-food 3.2). Поля 12 / 16 / 20.

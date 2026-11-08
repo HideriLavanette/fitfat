@@ -1,5 +1,7 @@
 package app.fitfat.update
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.fitfat.BuildConfig
-import java.util.Locale
 
 @Composable
 fun UpdateDialog(vm: UpdateViewModel) {
@@ -100,4 +101,4 @@ private fun ReleaseNotes(update: AppUpdate) {
 }
 
 private fun formatSize(bytes: Long): String =
-    if (bytes <= 0) "" else String.format(Locale("ru"), "%.1f МБ", bytes / 1_048_576.0)
+    if (bytes <= 0) "" else Fmt.f1(bytes / 1_048_576.0) + " МБ"

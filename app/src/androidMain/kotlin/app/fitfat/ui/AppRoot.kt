@@ -1,5 +1,7 @@
 package app.fitfat.ui
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -101,7 +103,7 @@ import app.fitfat.ui.weight.WeightEditSheet
 import app.fitfat.ui.weight.WeightScreen
 import app.fitfat.ui.weight.WeightViewModel
 import app.fitfat.update.UpdateDialog
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 import app.fitfat.update.UpdateViewModel
 
 private enum class Tab(val route: String, val label: String, val icon: ImageVector) {

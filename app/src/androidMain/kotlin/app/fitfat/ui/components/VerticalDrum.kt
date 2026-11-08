@@ -1,5 +1,7 @@
 package app.fitfat.ui.components
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.wrapContentHeight
@@ -94,7 +96,7 @@ fun VerticalDrum(
         val nv = next(latest[0], dir)
         if (nv > max + 1e-9 || nv < min - 1e-9) false else { latest[0] = nv; change(nv); true }
     }
-    fun fmt(x: Double) = if (decimals == 0) x.roundToInt().toString() else "%.${decimals}f".format(java.util.Locale("ru"), x)
+    fun fmt(x: Double) = if (decimals == 0) x.roundToInt().toString() else Fmt.fixed(x, decimals)
     val colors = MaterialTheme.colorScheme
     var editing by remember { mutableStateOf(false) }
 
@@ -141,7 +143,7 @@ fun VerticalDrum(
             }
             // Ввод точного числа поверх выбранного: десятичная клавиатура, «Готово» или уход фокуса — применить
             if (editing) {
-                val start = if (value % 1.0 == 0.0) value.roundToInt().toString() else "%.1f".format(java.util.Locale("ru"), value)
+                val start = if (value % 1.0 == 0.0) value.roundToInt().toString() else Fmt.f1(value)
                 var text by remember { mutableStateOf(TextFieldValue(start, TextRange(0, start.length))) }
                 val fr = remember { FocusRequester() }
                 var focused by remember { mutableStateOf(false) }

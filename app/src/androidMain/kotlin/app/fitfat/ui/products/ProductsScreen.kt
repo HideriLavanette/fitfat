@@ -1,5 +1,6 @@
 package app.fitfat.ui.products
 
+import app.fitfat.time.nowMillis
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -129,7 +130,7 @@ private fun Tag.matches(p: Product) = when (this) {
 private val periods = listOf("Любое время" to Long.MAX_VALUE, "Сегодня" to 0L, "За неделю" to 7L, "За месяц" to 30L)
 
 private fun daysAgo(lastUsed: Long): Long? =
-    if (lastUsed <= 0) null else TimeUnit.MILLISECONDS.toDays(System.currentTimeMillis() - lastUsed).coerceAtLeast(0)
+    if (lastUsed <= 0) null else ((nowMillis() - lastUsed) / 86_400_000L).coerceAtLeast(0L)
 
 /** «сегодня», «вчера», «3 дн. назад», «неделю назад», «давно». */
 fun usedAgo(lastUsed: Long): String? = daysAgo(lastUsed)?.let { d ->

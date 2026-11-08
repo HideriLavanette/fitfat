@@ -1,5 +1,7 @@
 package app.fitfat.ui.week
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -61,9 +63,8 @@ import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.components.WavyRing
 import app.fitfat.ui.theme.MacroColors
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -77,7 +78,6 @@ data class WeekDay(
     val cut: Double = 0.0, val cutFrom: List<LocalDate> = emptyList(), val over: Double = 0.0, val forgiven: Double = 0.0,
 )
 
-private val ru = Locale("ru")
 private val months = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
 private val dows = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
 private fun short(d: LocalDate) = "${d.dayOfMonth} ${months[d.monthValue - 1]}"
@@ -133,7 +133,7 @@ fun WeekScreen(days: List<WeekDay>, weights: List<Pair<LocalDate, Double>>, onBa
                     Text("Вес за неделю", fontSize = 12.sp, color = colors.onSurfaceVariant)
                     if (weights.size >= 2) {
                         val d = weights.last().second - weights.first().second
-                        Text((if (d < 0) "−" else "+") + "%.1f".format(ru, abs(d)) + " кг", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
+                        Text((if (d < 0) "−" else "+") + Fmt.f1(abs(d)) + " кг", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
                         Sparkline(weights.map { it.second }, Modifier.fillMaxWidth().height(26.dp))
                     } else {
                         Text("—", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = colors.primary)
@@ -194,7 +194,7 @@ private fun balanceNote(past: List<WeekDay>): String {
         if (forgiven >= 1) " Остаток ${fmt0(forgiven)} ккал списан, чтобы не урезать себя слишком сильно." else ""
 }
 
-private val fromDay = DateTimeFormatter.ofPattern("EEEE", ru)
+private val fromDay = DateTimeFormatter.ofPattern("EEEE")
 
 /** «Лимит снижен на 120 ккал за перебор (понедельник, вторник) — урезаны жиры и углеводы, белок прежний». */
 private fun cutText(d: WeekDay) =
@@ -294,7 +294,7 @@ private fun MacroLine(letter: String, c: Color, v: Double, lim: Double, ink: Col
     )
 }
 
-private val sheetDate = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
+private val sheetDate = DateTimeFormatter.ofPattern("EEEE, d MMMM")
 
 /** Шторка дня: заголовок с типом, 4 ячейки «съедено / лимит» (перебор ккал, жиров, углеводов > 3 % — `error`), записи, «Закрыть». */
 @Composable
@@ -334,7 +334,7 @@ private fun DaySheet(d: WeekDay, today: Boolean, onDismiss: () -> Unit) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                         Text(e.name, fontSize = 15.sp)
-                        Text("${fmt0(e.grams)} г · %02d:%02d".format(e.minute / 60, e.minute % 60), fontSize = 12.sp, color = colors.onSurfaceVariant)
+                        Text("${fmt0(e.grams)} г · ${Fmt.hhmm(e.minute)}", fontSize = 12.sp, color = colors.onSurfaceVariant)
                     }
                     Text(fmt0(e.kcal), fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }

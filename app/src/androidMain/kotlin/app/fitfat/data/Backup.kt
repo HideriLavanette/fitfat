@@ -1,10 +1,12 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.ContentValues
 import android.database.Cursor
 import org.json.JSONArray
 import org.json.JSONObject
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 
 /**
  * Экспорт и импорт данных (макет Settings, «Данные»). JSON — все таблицы целиком (вес, продукты, состав блюд,
@@ -40,11 +42,11 @@ object Backup {
     fun exportCsv(db: AppDatabase): String {
         val sb = StringBuilder("Дата;Время;Приём;Продукт;Граммы;Ккал;Белки;Жиры;Углеводы\n")
         fun q(s: String) = "\"" + s.replace("\"", "\"\"") + "\""
-        fun n(v: Double) = String.format(java.util.Locale.US, "%.1f", v).replace('.', ',')
+        fun n(v: Double) = Fmt.f1(v)
         db.openHelper.readableDatabase.query("SELECT epochDay, minute, meal, name, grams, kcal, protein, fat, carbs FROM food_entry ORDER BY epochDay, minute").use { c ->
             while (c.moveToNext()) {
                 val m = c.getInt(1)
-                sb.append(LocalDate.ofEpochDay(c.getLong(0))).append(';').append("%02d:%02d".format(m / 60, m % 60)).append(';')
+                sb.append(LocalDate.ofEpochDay(c.getLong(0))).append(';').append(Fmt.hhmm(m / 60, m % 60)).append(';')
                     .append(Meal.of(c.getString(2)).label).append(';').append(q(c.getString(3))).append(';')
                     .append(n(c.getDouble(4))).append(';').append(n(c.getDouble(5))).append(';').append(n(c.getDouble(6))).append(';')
                     .append(n(c.getDouble(7))).append(';').append(n(c.getDouble(8))).append('\n')

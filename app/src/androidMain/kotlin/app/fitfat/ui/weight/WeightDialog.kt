@@ -1,5 +1,7 @@
 package app.fitfat.ui.weight
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -49,14 +51,11 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.components.FfDialog
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.theme.MacroColors
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle as JTextStyle
-import java.util.Locale
+import kotlinx.datetime.LocalDate
+import app.fitfat.time.DateTimeFormatter
 
-private val ru = Locale("ru")
-private val dayFmt = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
-private val dateFmt = DateTimeFormatter.ofPattern("d MMMM", ru)
+private val dayFmt = DateTimeFormatter.ofPattern("EEEE, d MMMM")
+private val dateFmt = DateTimeFormatter.ofPattern("d MMMM")
 
 private fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 
@@ -132,7 +131,7 @@ private fun WeekCard(ui: WeightUi, today: LocalDate, current: Double) {
                 drawCircle(primary, 4.5f * k, Offset(sx(6), sy(current)))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                days.forEach { Text(cap(it.dayOfWeek.getDisplayName(JTextStyle.SHORT, ru)), fontSize = 10.5.sp, color = colors.onSurfaceVariant) }
+                days.forEach { Text(cap(RuDates.dayShort(it.dayOfWeek)), fontSize = 10.5.sp, color = colors.onSurfaceVariant) }
             }
         }
     }
@@ -176,7 +175,7 @@ fun WeightEditSheet(
     FfSheet(onDismiss = onDismiss, horizontalPadding = 24.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(cap(date.dayOfWeek.getDisplayName(JTextStyle.FULL, ru)), fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Text(cap(RuDates.dayFull(date.dayOfWeek)), fontSize = 13.sp, color = colors.onSurfaceVariant)
                 Text(date.format(dateFmt), fontSize = 24.sp, lineHeight = 32.sp, fontWeight = FontWeight.Medium)
             }
             if (entry != null) {

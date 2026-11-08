@@ -1,5 +1,6 @@
 package app.fitfat.ui.setup
 
+import kotlinx.datetime.LocalDate
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -114,7 +115,7 @@ data class SetupResult(val profile: Profile, val custom: Map<String, Macros>, va
  * Правка из «Тело и цель»: свои нормы и срезы, которые уже есть, и тренд веса для срока цели. В этом режиме на шаге
  * цели — целевой вес, на шаге норм — срез из-за застоя и белок на кг, последняя кнопка — «Сохранить».
  */
-class SetupEdit(val custom: Map<String, Macros>, val cuts: Int, val trend: List<Pair<java.time.LocalDate, Double>>)
+class SetupEdit(val custom: Map<String, Macros>, val cuts: Int, val trend: List<Pair<LocalDate, Double>>)
 
 /**
  * Первая настройка (макеты 6.1–6.5, интерактив Onboarding): о себе → процент жира → спорт (без вопроса об активности) →

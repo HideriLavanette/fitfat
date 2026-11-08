@@ -1,11 +1,13 @@
 package app.fitfat.data
 
+import app.fitfat.time.*
+import app.fitfat.time.Fmt
 import android.content.Context
 import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.time.LocalDate
+import kotlinx.datetime.LocalDate
 import kotlin.math.roundToInt
 
 /** Ответы первой настройки (макеты 6.1–6.4) и выбор на «Цель и нормы» (5.3). */

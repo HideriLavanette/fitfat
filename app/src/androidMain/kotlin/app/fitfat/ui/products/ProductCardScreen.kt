@@ -1,5 +1,8 @@
 package app.fitfat.ui.products
 
+import app.fitfat.time.*
+import kotlinx.datetime.LocalDateTime
+import app.fitfat.time.Fmt
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,9 +51,6 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.theme.MacroColors
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.math.roundToInt
 
 /** Встроенная база — первые строки таблицы (сид при создании БД). Всё, что новее, — продукты пользователя. */
@@ -176,7 +176,7 @@ private fun usage(p: Product): String {
     val n = p.useCount
     val times = if (n % 10 in 2..4 && n % 100 !in 12..14) "раза" else "раз"
     val when_ = usedAgo(p.lastUsed) ?: ""
-    val time = SimpleDateFormat("HH:mm", Locale("ru")).format(Date(p.lastUsed))
+    val time = LocalDateTime.ofEpochMilli(p.lastUsed).let { Fmt.hhmm(it.hour, it.minute) }
     return "Записывали $n $times · последний раз $when_ в $time"
 }
 
