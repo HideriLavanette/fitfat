@@ -1,9 +1,8 @@
 package app.fitfat.data
 
+import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
-import android.content.Context
-import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,7 +32,7 @@ data class Schedule(val on: Boolean, val days: Set<Int>, val minute: Int)
  * напоминание о весе и недельный отчёт. Хранятся в `settings` вместе с началом дня ([DayClock]).
  */
 object AppSettings {
-    private var prefs: android.content.SharedPreferences? = null
+    private var prefs: Prefs? = null
     private val _theme = MutableStateFlow(ThemeMode.Dark)
     private val _dynamic = MutableStateFlow(false)
     private val _palette = MutableStateFlow(AppPalette.Graphite)
@@ -47,8 +46,8 @@ object AppSettings {
     val remind: StateFlow<Schedule> = _remind.asStateFlow()
     val report: StateFlow<Schedule> = _report.asStateFlow()
 
-    fun init(context: Context) {
-        val p = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    fun init() {
+        val p = Prefs("settings")
         prefs = p
         _theme.value = ThemeMode.entries.firstOrNull { it.name == p.getString("theme", null) } ?: ThemeMode.Dark
         _dynamic.value = p.getBoolean("dynamic", false)
@@ -58,7 +57,7 @@ object AppSettings {
         _report.value = read(p, "report", _report.value)
     }
 
-    private fun read(p: android.content.SharedPreferences, key: String, def: Schedule) = Schedule(
+    private fun read(p: Prefs, key: String, def: Schedule) = Schedule(
         p.getBoolean("${key}_on", def.on),
         p.getString("${key}_days", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.toSet() ?: def.days,
         p.getInt("${key}_min", def.minute),

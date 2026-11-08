@@ -173,7 +173,7 @@ fun SettingsScreen(
             SwitchRow(MockIcons.Repeat, "Звук и вибрация колеса", "Щелчки при кручении барабанов и линеек", haptic) { AppSettings.setHaptic(it) }
             val hintsCtx = androidx.compose.ui.platform.LocalContext.current
             NavRow(MockIcons.Bulb, "Показать подсказки заново", "Палец на барабанах и подтягивание строк со свайпом") {
-                Hints.get(hintsCtx).reset(); message = "Подсказки снова появятся на своих экранах."
+                Hints.get().reset(); message = "Подсказки снова появятся на своих экранах."
             }
         }
 

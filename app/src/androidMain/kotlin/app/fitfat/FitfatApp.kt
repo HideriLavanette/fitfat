@@ -1,30 +1,31 @@
 package app.fitfat
 
 import android.app.Application
-import app.fitfat.data.AppDatabase
-import app.fitfat.data.FoodRepository
-import app.fitfat.data.NormsStore
-import app.fitfat.data.WeightRepository
-
-import app.fitfat.data.DayClock
+import app.fitfat.data.AppGraph
 import app.fitfat.data.Photos
+import app.fitfat.platform.AndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class FitfatApp : Application() {
-    val database by lazy { AppDatabase.create(this) }
-    val weights by lazy { WeightRepository(database.weightDao()) }
-    val food by lazy { FoodRepository(database.productDao(), database.foodDao(), database.dishDao()) }
-    val norms by lazy { NormsStore(this) }
-    val trainings by lazy { database.trainingDao() }
+    lateinit var graph: AppGraph
+        private set
+
+    val database get() = graph.database
+    val weights get() = graph.weights
+    val food get() = graph.food
+    val norms get() = graph.norms
+    val trainings get() = graph.trainings
+    val profile get() = graph.profile
 
     override fun onCreate() {
         super.onCreate()
-        DayClock.init(this)
-        app.fitfat.data.AppSettings.init(this)
-        app.fitfat.data.TrainingSchedule.init(this)
+        AndroidApp.context = this
+        graph = AppGraph.start()
         app.fitfat.notify.Reminders.schedule(this)
         // Фото, на которые больше не ссылается ни один продукт (заменили, убрали, отменили правку), — удаляем
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        CoroutineScope(Dispatchers.IO).launch {
             runCatching { Photos.cleanup(this@FitfatApp, database.productDao().photos().toSet()) }
         }
     }

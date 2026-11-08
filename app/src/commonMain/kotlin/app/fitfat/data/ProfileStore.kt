@@ -1,9 +1,8 @@
 package app.fitfat.data
 
+import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
-import android.content.Context
-import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -66,8 +65,8 @@ object NormsPlan {
 }
 
 /** Профиль хранится в `profile`; [done] — первая настройка пройдена. [version] растёт при каждом сохранении. */
-class ProfileStore(context: Context) {
-    private val prefs = context.getSharedPreferences("profile", Context.MODE_PRIVATE)
+class ProfileStore() {
+    private val prefs = Prefs("profile")
     private val _version = MutableStateFlow(0)
     val version: StateFlow<Int> = _version.asStateFlow()
 

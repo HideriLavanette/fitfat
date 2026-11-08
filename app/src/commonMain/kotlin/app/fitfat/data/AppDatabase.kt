@@ -1,22 +1,24 @@
 package app.fitfat.data
 
-import app.fitfat.time.*
-import app.fitfat.time.Fmt
-import android.content.Context
 import androidx.room.ColumnInfo
+import androidx.room.ConstructedBy
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.PrimaryKey
 import androidx.room.Query
-import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.RoomDatabaseConstructor
 import androidx.room.Transaction
 import androidx.room.Update
 import androidx.room.Upsert
 import androidx.room.migration.Migration
-import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
+import app.fitfat.time.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.LocalDate
 
@@ -254,7 +256,7 @@ private val DRY_ROWS = listOf(
 )
 
 /** Сухие и сырые продукты, которых ещё нет в базе (по названию). */
-private fun seedDry(db: SupportSQLiteDatabase) {
+private fun seedDry(db: SQLiteConnection) {
     val cols = "name, category, kcal, protein, fat, carbs, aliases, defaultGrams, weightState, perPiece, useCount, lastUsed, isDish, portions, source"
     DRY_ROWS.forEach { row ->
         val name = row.substringAfter("('").substringBefore("'")
@@ -263,101 +265,115 @@ private fun seedDry(db: SupportSQLiteDatabase) {
 }
 
 /** Отметить сухой / сырой / готовый вес у продуктов без отметки — по названию ([WeightState.guess]). */
-private fun markWeightStates(db: SupportSQLiteDatabase) {
+private fun markWeightStates(db: SQLiteConnection) {
     val found = mutableListOf<Pair<Long, String>>()
-    db.query("SELECT id, name FROM product WHERE weightState IS NULL").use { c ->
-        while (c.moveToNext()) WeightState.guess(c.getString(1))?.let { found += c.getLong(0) to it }
+    val sel = db.prepare("SELECT id, name FROM product WHERE weightState IS NULL")
+    try {
+        while (sel.step()) WeightState.guess(sel.getText(1))?.let { found += sel.getLong(0) to it }
+    } finally { sel.close() }
+    found.forEach { (id, state) ->
+        val upd = db.prepare("UPDATE product SET weightState = ? WHERE id = ?")
+        try { upd.bindText(1, state); upd.bindLong(2, id); upd.step() } finally { upd.close() }
     }
-    found.forEach { (id, st) -> db.execSQL("UPDATE product SET weightState = ? WHERE id = ?", arrayOf<Any>(st, id)) }
 }
 
-private fun seed(db: SupportSQLiteDatabase) {
+private fun seed(db: SQLiteConnection) {
     val cols = "name, category, kcal, protein, fat, carbs, perPiece, pieceGrams, aliases, defaultGrams, useCount, lastUsed"
     SEED_ROWS.forEach { db.execSQL("INSERT INTO product ($cols) VALUES $it") }
 }
 
 /** 0.2 → 0.3: добавились продукты и дневник. Таблица веса не трогается, записи сохраняются. */
 private val MIGRATION_1_2 = object : Migration(1, 2) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `product` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `kcal` REAL NOT NULL, `protein` REAL NOT NULL, `fat` REAL NOT NULL, `carbs` REAL NOT NULL, `perPiece` INTEGER NOT NULL, `pieceGrams` REAL, `aliases` TEXT NOT NULL, `defaultGrams` REAL NOT NULL, `useCount` INTEGER NOT NULL, `lastUsed` INTEGER NOT NULL)")
-        db.execSQL("CREATE TABLE IF NOT EXISTS `food_entry` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `epochDay` INTEGER NOT NULL, `minute` INTEGER NOT NULL, `meal` TEXT NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `grams` REAL NOT NULL, `pieces` REAL, `kcal` REAL NOT NULL, `protein` REAL NOT NULL, `fat` REAL NOT NULL, `carbs` REAL NOT NULL)")
-        seed(db)
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `product` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `kcal` REAL NOT NULL, `protein` REAL NOT NULL, `fat` REAL NOT NULL, `carbs` REAL NOT NULL, `perPiece` INTEGER NOT NULL, `pieceGrams` REAL, `aliases` TEXT NOT NULL, `defaultGrams` REAL NOT NULL, `useCount` INTEGER NOT NULL, `lastUsed` INTEGER NOT NULL)")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `food_entry` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `epochDay` INTEGER NOT NULL, `minute` INTEGER NOT NULL, `meal` TEXT NOT NULL, `productId` INTEGER NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `grams` REAL NOT NULL, `pieces` REAL, `kcal` REAL NOT NULL, `protein` REAL NOT NULL, `fat` REAL NOT NULL, `carbs` REAL NOT NULL)")
+        seed(connection)
     }
 }
 
 /** 0.3 → 0.4: блюда. Продукту добавлены признак блюда, вес готового и рецепт; новая таблица состава. Данные не трогаются. */
 private val MIGRATION_2_3 = object : Migration(2, 3) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `isDish` INTEGER NOT NULL DEFAULT 0")
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `cookedGrams` REAL")
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `recipe` TEXT")
-        db.execSQL("CREATE TABLE IF NOT EXISTS `dish_ingredient` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dishId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `grams` REAL NOT NULL)")
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `isDish` INTEGER NOT NULL DEFAULT 0")
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `cookedGrams` REAL")
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `recipe` TEXT")
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `dish_ingredient` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dishId` INTEGER NOT NULL, `productId` INTEGER NOT NULL, `grams` REAL NOT NULL)")
     }
 }
 
 /** 0.4: штрихкод и источник данных продукта. Встроенные продукты помечаются как встроенные, остальные — как введённые вручную. */
 private val MIGRATION_3_4 = object : Migration(3, 4) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `barcode` TEXT")
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `source` TEXT")
-        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED' WHERE `id` <= ${SEED_ROWS.size}")
-        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_MANUAL' WHERE `id` > ${SEED_ROWS.size}")
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `barcode` TEXT")
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `source` TEXT")
+        connection.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED' WHERE `id` <= ${SEED_ROWS.size}")
+        connection.execSQL("UPDATE `product` SET `source` = '$SOURCE_MANUAL' WHERE `id` > ${SEED_ROWS.size}")
     }
 }
 
 /** 0.4: фото продукта и блюда — только новая пустая колонка. */
 private val MIGRATION_4_5 = object : Migration(4, 5) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `photo` TEXT")
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `photo` TEXT")
     }
 }
 
 /** 0.4: именованные порции продукта — новая колонка, по умолчанию пустая. */
 private val MIGRATION_5_6 = object : Migration(5, 6) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `portions` TEXT NOT NULL DEFAULT ''")
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `portions` TEXT NOT NULL DEFAULT ''")
     }
 }
 
 /** 0.5: журнал тренировок — новая таблица, остальное не трогаем. */
 private val MIGRATION_6_7 = object : Migration(6, 7) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("CREATE TABLE IF NOT EXISTS `training` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `epochDay` INTEGER NOT NULL, `type` TEXT NOT NULL, `minutes` INTEGER NOT NULL)")
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("CREATE TABLE IF NOT EXISTS `training` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `epochDay` INTEGER NOT NULL, `type` TEXT NOT NULL, `minutes` INTEGER NOT NULL)")
     }
 }
 
 /** 0.6: сухой / сырой / готовый вес у продукта — новая колонка, отметки по названию; сухие крупы и сырое мясо во встроенную базу. */
 private val MIGRATION_7_8 = object : Migration(7, 8) {
-    override fun migrate(db: SupportSQLiteDatabase) {
-        db.execSQL("ALTER TABLE `product` ADD COLUMN `weightState` TEXT")
-        markWeightStates(db)
-        seedDry(db)
+    override fun migrate(connection: SQLiteConnection) {
+        connection.execSQL("ALTER TABLE `product` ADD COLUMN `weightState` TEXT")
+        markWeightStates(connection)
+        seedDry(connection)
     }
 }
 
 @Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 8, exportSchema = false)
+@ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
     abstract fun productDao(): ProductDao
     abstract fun foodDao(): FoodDao
     abstract fun dishDao(): DishDao
     abstract fun trainingDao(): TrainingDao
-
-    companion object {
-        fun create(context: Context): AppDatabase =
-            Room.databaseBuilder(context, AppDatabase::class.java, "fitfat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
-                .addCallback(object : Callback() {
-                    override fun onCreate(db: SupportSQLiteDatabase) {
-                        seed(db)
-                        db.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED'")
-                        markWeightStates(db)
-                        seedDry(db)
-                    }
-                })
-                .build()
-    }
 }
+
+/** Room сам генерирует `actual` для каждой платформы. */
+@Suppress("NO_ACTUAL_FOR_EXPECT", "EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
+expect object AppDatabaseConstructor : RoomDatabaseConstructor<AppDatabase> {
+    override fun initialize(): AppDatabase
+}
+
+/** Путь к файлу `fitfat.db` на платформе — тот же, что был у Android-версии, данные сохраняются. */
+expect fun databaseBuilder(): RoomDatabase.Builder<AppDatabase>
+
+/** Одна база на приложение: миграции без потери данных, встроенный SQLite на обеих платформах. */
+fun createDatabase(): AppDatabase = databaseBuilder()
+    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+    .addCallback(object : RoomDatabase.Callback() {
+        override fun onCreate(connection: SQLiteConnection) {
+            seed(connection)
+            connection.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED'")
+            markWeightStates(connection)
+            seedDry(connection)
+        }
+    })
+    .setDriver(BundledSQLiteDriver())
+    .setQueryCoroutineContext(Dispatchers.IO)
+    .build()
 
 class WeightRepository(private val dao: WeightDao) {
     val entries: Flow<List<WeightEntry>> = dao.observeAll()

@@ -564,7 +564,7 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
     val repeat by rememberUpdatedState(onRepeat)
     val delete by rememberUpdatedState(onDelete)
     val d = dx.value
-    val hints = remember { app.fitfat.data.Hints.get(view.context) }
+    val hints = remember { app.fitfat.data.Hints.get() }
     // Первая запись дня сама тянется в обе стороны, пока свайп не пробовали
     app.fitfat.ui.components.SwipeNudge(dx, app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_DIARY, first), both = true)
     Box(Modifier.fillMaxWidth().heightIn(min = 64.dp)) {

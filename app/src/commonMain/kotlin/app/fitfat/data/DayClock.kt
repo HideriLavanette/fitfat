@@ -1,9 +1,8 @@
 package app.fitfat.data
 
+import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
-import android.content.Context
-import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,14 +18,14 @@ import kotlinx.datetime.LocalTime
 object DayClock {
     const val DEFAULT_START = 7 * 60
     private const val KEY = "day_start_min"
-    private var prefs: android.content.SharedPreferences? = null
+    private var prefs: Prefs? = null
     private val _start = MutableStateFlow(DEFAULT_START)
     /** Начало дня, минуты от полуночи. */
     val start: StateFlow<Int> = _start.asStateFlow()
     val startMinute: Int get() = _start.value
 
-    fun init(context: Context) {
-        val p = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    fun init() {
+        val p = Prefs("settings")
         prefs = p
         _start.value = p.getInt(KEY, DEFAULT_START)
     }

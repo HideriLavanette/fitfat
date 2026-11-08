@@ -1,9 +1,8 @@
 package app.fitfat.data
 
+import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
-import android.content.Context
-import androidx.core.content.edit
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
@@ -88,14 +87,14 @@ data class TrainingPlan(
  * (только с [since] — дня, когда расписание сохранили: прошлые дни и их нормы не меняются).
  */
 object TrainingSchedule {
-    private var prefs: android.content.SharedPreferences? = null
+    private var prefs: Prefs? = null
     private val _plan = MutableStateFlow<TrainingPlan?>(null)
     val plan: StateFlow<TrainingPlan?> = _plan.asStateFlow()
     var since: LocalDate = LocalDate.MAX
         private set
 
-    fun init(context: Context) {
-        val p = context.getSharedPreferences("training", Context.MODE_PRIVATE)
+    fun init() {
+        val p = Prefs("training")
         prefs = p
         if (!p.contains("mode")) return
         _plan.value = TrainingPlan(

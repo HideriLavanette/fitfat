@@ -469,7 +469,7 @@ private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClic
     val dx = remember { Animatable(0f) }
     var released by remember { mutableStateOf(false) }
     val d = dx.value
-    val hints = remember { app.fitfat.data.Hints.get(view.context) }
+    val hints = remember { app.fitfat.data.Hints.get() }
     // Первая строка сама тянется в обе стороны, пока свайп не пробовали
     app.fitfat.ui.components.SwipeNudge(dx, app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_PRODUCTS, first) && !selecting, both = true)
     val tail = (if (p.perPiece && p.pieceGrams != null) " · 1 шт ≈ ${fmt0(p.pieceGrams)} г" else "") + (usedAgo(p.lastUsed)?.let { " · $it" } ?: "")

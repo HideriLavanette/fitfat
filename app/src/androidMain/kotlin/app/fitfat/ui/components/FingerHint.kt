@@ -56,7 +56,7 @@ private fun ease(x: Float) = if (x < 0.5f) 2 * x * x else 1 - (-2 * x + 2).pow(2
  */
 fun Modifier.fingerHint(key: String, gesture: FingerGesture, show: Boolean = false): Modifier = composed {
     val ctx = LocalContext.current
-    val hints = remember { Hints.get(ctx) }
+    val hints = remember { Hints.get() }
     val learned by hints.learned.collectAsState()
     val lastTouch by hints.lastTouch.collectAsState()
     val known = key in learned
@@ -119,7 +119,7 @@ fun Modifier.fingerHint(key: String, gesture: FingerGesture, show: Boolean = fal
 /** Любое касание в окне — для повторной подсказки «застрял». Ставится на корень экрана и окон-диалогов. */
 fun Modifier.trackTouches(): Modifier = composed {
     val ctx = LocalContext.current
-    val hints = remember { Hints.get(ctx) }
+    val hints = remember { Hints.get() }
     pointerInput(Unit) {
         awaitPointerEventScope {
             while (true) {
@@ -157,6 +157,6 @@ fun SwipeNudge(dx: Animatable<Float, androidx.compose.animation.core.AnimationVe
 fun nudgeWanted(key: String, first: Boolean): Boolean {
     if (!first) return false
     val ctx = LocalContext.current
-    val learned by remember { Hints.get(ctx) }.learned.collectAsState()
+    val learned by remember { Hints.get() }.learned.collectAsState()
     return key !in learned
 }

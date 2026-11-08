@@ -22,6 +22,13 @@ val googleWebClientId = (findProperty("googleWebClientId") as String?) ?: ""
 val assistantUrl = (findProperty("assistantUrl") as String?)?.trimEnd('/') ?: ""
 
 kotlin {
+    // expect/actual-классы (Prefs, Platform, конструктор Room) — убрать предупреждение «в бете»
+    targets.configureEach {
+        compilations.configureEach {
+            compileTaskProvider.configure { compilerOptions.freeCompilerArgs.add("-Xexpect-actual-classes") }
+        }
+    }
+
     androidTarget {
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }

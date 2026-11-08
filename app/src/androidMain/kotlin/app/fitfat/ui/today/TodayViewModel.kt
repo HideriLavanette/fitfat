@@ -6,6 +6,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.fitfat.FitfatApp
+import app.fitfat.data.AppGraph
 import app.fitfat.data.Compensation
 import app.fitfat.data.DayClock
 import app.fitfat.data.DayType
@@ -50,7 +51,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val fa = app as FitfatApp
     private val repo = fa.food
     private val normsStore = fa.norms
-    private val profiles = ProfileStore(app)
+    private val profiles = AppGraph.get().profile
 
     private val date = MutableStateFlow(DayClock.today())
     private val dayType = MutableStateFlow(normsStore.dayType(DayClock.today()))

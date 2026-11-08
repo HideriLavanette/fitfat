@@ -71,7 +71,7 @@ fun SwipeRemove(
     val dx = remember { Animatable(0f) }
     var released by remember { mutableStateOf(false) }
     val d = dx.value
-    val hints = remember { app.fitfat.data.Hints.get(view.context) }
+    val hints = remember { app.fitfat.data.Hints.get() }
     SwipeNudge(dx, nudge, both = false)
     Box(modifier.fillMaxWidth()) {
         Row(

@@ -132,7 +132,7 @@ fun AppRoot(
     val haze = remember { HazeState() }
     // Первая настройка: при первом запуске — сразу; потом — из «Профиля» («Пересчитать нормы»)
     val appCtx = androidx.compose.ui.platform.LocalContext.current.applicationContext
-    val profileStore = remember { app.fitfat.data.ProfileStore(appCtx) }
+    val profileStore = remember { (appCtx as app.fitfat.FitfatApp).profile }
     var setupOpen by remember { mutableStateOf(!profileStore.done) }
     // Настройку открыли «Изменить» из «Тело и цель»: правка с текущими значениями, а не расчёт с нуля
     var setupEdit by remember { mutableStateOf(false) }

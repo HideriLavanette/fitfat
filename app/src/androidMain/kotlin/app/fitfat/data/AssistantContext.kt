@@ -20,7 +20,7 @@ object AssistantContext {
 
     suspend fun build(app: FitfatApp): JSONObject {
         val today = DayClock.today()
-        val profile = ProfileStore(app).load()
+        val profile = app.profile.load()
         val norms = app.norms
         val goal = profile?.goal
         val entries = app.food.range(Compensation.weekStart(today.minusDays(7)), today).first()

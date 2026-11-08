@@ -1,9 +1,8 @@
 package app.fitfat.data
 
+import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
-import android.content.Context
-import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -54,8 +53,8 @@ fun Product.portion(grams: Double, pieces: Double?): Macros =
 fun Product.gramsFor(pieces: Double) = (pieceGrams ?: 0.0) * pieces
 
 /** Нормы на день. Калории считаются из БЖУ. По умолчанию: Б 180 · Ж 60 · У 140, в дни тренировок У 240. */
-class NormsStore(context: Context) {
-    private val prefs = context.getSharedPreferences("norms", Context.MODE_PRIVATE)
+class NormsStore() {
+    private val prefs = Prefs("norms")
 
     /**
      * Нормы типа дня. У дня тренировки и цикла могут быть свои Б и Ж (поправили в первой настройке),
@@ -154,7 +153,7 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
     }
 
     suspend fun add(date: LocalDate, time: LocalTime, meal: Meal, items: List<Pair<Product, Portion>>) {
-        val now = System.currentTimeMillis()
+        val now = nowMillis()
         food.insertAll(items.map { (p, por) ->
             val m = por.macros ?: p.portion(por.grams, por.pieces)
             FoodEntry(
