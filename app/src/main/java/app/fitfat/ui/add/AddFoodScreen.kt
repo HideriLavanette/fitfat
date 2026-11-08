@@ -146,6 +146,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
             }
         }
 
+        // Одна прокрутка на всё между шапкой и кнопкой «Добавить N»: «Что съели» растёт вместе со списком и не наезжает
+        // на итог и «Недавние». Колонка выходит в поля экрана, чтобы увеличенная в фокусе карточка и её тень не обрезались.
+        Column(
+            Modifier.weight(1f).bleed(16.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp),
+        ) {
         Composer(focused, hasItems, onTap = { focus.requestFocus() }) {
             vm.picked.forEach { item -> PickedRow(item) { editing = item } }
             RecognizeField(
@@ -203,7 +209,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
             }
         }
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp)) {
             unknown?.let { u -> UnknownBanner(u.fragment.query) { creating = u } }
 
             if (hasItems) {
@@ -261,6 +267,8 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                     }
                 }
             }
+        }
+
         }
 
         val n = vm.picked.size

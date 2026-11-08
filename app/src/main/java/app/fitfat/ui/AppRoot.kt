@@ -85,8 +85,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import app.fitfat.ui.screens.PlaceholderScreen
-import app.fitfat.ui.screens.ProfileScreen
+import app.fitfat.ui.profile.ProfileScreen
 import app.fitfat.ui.add.AddFoodScreen
 import app.fitfat.ui.add.AddFoodViewModel
 import app.fitfat.ui.dishes.DishCardScreen
@@ -128,7 +127,52 @@ fun AppRoot(
     LaunchedEffect(Unit) { updates.autoCheck() }
 
     val haze = remember { HazeState() }
+    // Первая настройка: при первом запуске — сразу; потом — из «Профиля» («Пересчитать нормы»)
+    val appCtx = androidx.compose.ui.platform.LocalContext.current.applicationContext
+    val profileStore = remember { app.fitfat.data.ProfileStore(appCtx) }
+    var setupOpen by remember { mutableStateOf(!profileStore.done) }
+    // Настройку открыли «Изменить» из «Тело и цель»: правка с текущими значениями, а не расчёт с нуля
+    var setupEdit by remember { mutableStateOf(false) }
+    var setupStep by remember { mutableStateOf(1) }
+    var setupFirstRun by remember { mutableStateOf(!profileStore.done) }
+    val profileVer by profileStore.version.collectAsStateWithLifecycle()
+    val profileNow = remember(profileVer) { profileStore.load() }
+    /** Записать нормы трёх типов дня из профиля (вес — последний из дневника веса), своих значений и срезов. */
+    fun applyNorms(p: app.fitfat.data.Profile, kg: Double? = null) {
+        val w = kg ?: weight.ui.value.last?.kg ?: p.weightKg
+        val plan = app.fitfat.data.NormsPlan.withCustom(app.fitfat.data.NormsPlan.calc(p, w, profileStore.cuts), profileStore.custom)
+        (appCtx as app.fitfat.FitfatApp).norms.setNorms(plan.normal, plan.training, plan.cycle, p.sex == app.fitfat.data.Sex.Female)
+    }
     val wuiTop by weight.ui.collectAsStateWithLifecycle()
+    // Правка профиля из «Тело и цель» (по шагам или шторкой): вес поменяли — сегодняшнее взвешивание;
+    // нормы поменялись — две недели до проверки застоя заново
+    fun saveEdit(p0: app.fitfat.data.Profile, w0: Double?, r: app.fitfat.ui.setup.SetupResult) {
+        val kg = r.profile.weightKg
+        if (w0 == null || kotlin.math.abs(kg - w0) >= 0.05) weight.save(LocalDate.now(), kg)
+        val before = app.fitfat.data.NormsPlan.withCustom(app.fitfat.data.NormsPlan.calc(p0, w0 ?: kg, profileStore.cuts), profileStore.custom)
+        val after = app.fitfat.data.NormsPlan.withCustom(app.fitfat.data.NormsPlan.calc(r.profile, kg, r.cuts), r.custom)
+        profileStore.save(r.profile)
+        profileStore.custom = r.custom
+        profileStore.cuts = r.cuts
+        if (before != after) profileStore.normsSince = app.fitfat.data.DayClock.today()
+        applyNorms(r.profile, kg)
+    }
+    val fitApp = appCtx as app.fitfat.FitfatApp
+    // Неделя (5.1): 7 дней по сегодня; лимит дня — норма его типа со срезом компенсации переборов.
+    // Записи грузим с понедельника недели первого дня — от него считается компенсация
+    val dayTypesVer by fitApp.norms.dayTypesVersion.collectAsStateWithLifecycle()
+    val todayTop = app.fitfat.data.DayClock.today()
+    val weekFood by remember(todayTop) { fitApp.food.range(app.fitfat.data.Compensation.weekStart(todayTop.minusDays(6)), todayTop) }.collectAsStateWithLifecycle(emptyList())
+    val weekDays = remember(weekFood, dayTypesVer, profileVer, todayTop) {
+        val comp = app.fitfat.data.Compensation.of(fitApp.norms, weekFood, todayTop.minusDays(6), todayTop, todayTop, profileStore.load()?.goal)
+        (0..6).map { i ->
+            val d = todayTop.minusDays(6L - i)
+            val es = weekFood.filter { it.epochDay == d.toEpochDay() }
+            val t = fitApp.norms.dayType(d)
+            app.fitfat.ui.week.WeekDay(d, t, es.fold(app.fitfat.data.Macros()) { a, e -> a + app.fitfat.data.Macros(e.kcal, e.protein, e.fat, e.carbs) }, app.fitfat.data.Compensation.apply(fitApp.norms.norms(t), comp.cut(d)), es.sortedBy { app.fitfat.data.DayClock.order(it.minute, app.fitfat.data.DayClock.start.value) },
+                comp.cut(d), comp.cuts[d]?.from.orEmpty(), comp.over[d] ?: 0.0, comp.forgiven[d] ?: 0.0)
+        }
+    }
     // Дата, для которой открыта шторка веса с главного экрана
     var weighing by remember { mutableStateOf<LocalDate?>(null) }
     fun goTab(tab: Tab) = nav.navigate(tab.route) {
@@ -160,7 +204,7 @@ fun AppRoot(
     fun addToDiary(id: Long) {
         val back = runCatching { nav.getBackStackEntry(ADD_ROUTE) }.getOrNull()
         if (back != null) { pendingProduct = id; nav.popBackStack(ADD_ROUTE, inclusive = false) }
-        else nav.navigate("add/${LocalDate.now().toEpochDay()}?product=$id")
+        else nav.navigate("add/${app.fitfat.data.DayClock.today().toEpochDay()}?product=$id")
     }
     /** Закрыть «Добавить» зеркально открытию: размытие нарастает, рамка сжимается обратно в кнопку «+». */
     fun closeAdd() {
@@ -200,11 +244,47 @@ fun AppRoot(
     val tabContent: @Composable (Tab) -> Unit = { t ->
         when (t) {
             Tab.Today -> {
+                // Вес стоит 2 недели — предложить срезать 150 ккал (похудение и рекомпозиция)
+                val plateau = remember(profileVer, wuiTop.all) {
+                    val pr = profileNow ?: return@remember null
+                    val day = app.fitfat.data.DayClock.today()
+                    if (!profileStore.done || (pr.goal != app.fitfat.data.Goal.Lose && pr.goal != app.fitfat.data.Goal.Recomp)) return@remember null
+                    if (profileStore.plateauSnooze?.let { !day.isAfter(it) } == true) return@remember null
+                    val tr = wuiTop.all.map { it.date to it.trend }
+                    if (!app.fitfat.data.NormsCalc.isPlateau(tr, profileStore.normsSince, day)) return@remember null
+                    val w = wuiTop.last?.kg ?: pr.weightKg
+                    // «До» — ровно те нормы, что сейчас на главном; «после» — они же минус срез
+                    val before = (appCtx as app.fitfat.FitfatApp).norms.norms(app.fitfat.data.DayType.Normal)
+                    val after = app.fitfat.data.NormsCalc.cut(before, app.fitfat.data.NormsCalc.lean(pr.body(w))) ?: return@remember null
+                    val from = tr.lastOrNull { !it.first.isAfter(day.minusDays(14)) }?.second ?: tr.first().second
+                    app.fitfat.ui.today.PlateauOffer(tr.last().second - from, before, after)
+                }
                 TodayScreen(
                     today, weightFor = { d -> wuiTop.byDay[d.toEpochDay()]?.kg },
+                    plateau = plateau,
+                    onPlateauCut = {
+                        val pr = profileNow
+                        if (pr != null && plateau != null) {
+                            // Тот же срез жиров и углеводов — во все типы дня (углеводы не ниже 50 г); свои нормы тоже срезаются
+                            val df = plateau.before.fat - plateau.after.fat
+                            val du = plateau.before.carbs - plateau.after.carbs
+                            fun cut(m: app.fitfat.data.Macros): app.fitfat.data.Macros {
+                                val f = m.fat - df; val u = (m.carbs - du).coerceAtLeast(minOf(m.carbs, app.fitfat.data.NormsCalc.CARBS_FLOOR))
+                                return app.fitfat.data.Macros(m.protein * 4 + f * 9 + u * 4, m.protein, f, u)
+                            }
+                            val ns = (appCtx as app.fitfat.FitfatApp).norms
+                            ns.setNorms(plateau.after, cut(ns.norms(app.fitfat.data.DayType.Training)), cut(ns.norms(app.fitfat.data.DayType.Cycle)), pr.sex == app.fitfat.data.Sex.Female)
+                            val own = profileStore.custom
+                            if (own.isNotEmpty()) profileStore.custom = own.mapValues { (_, m) -> cut(m) }
+                            profileStore.cuts = profileStore.cuts + 1
+                            profileStore.normsSince = app.fitfat.data.DayClock.today()
+                        }
+                    },
+                    onPlateauLater = { profileStore.plateauSnooze = app.fitfat.data.DayClock.today().plusDays(3) },
                     onWeight = { d -> weighing = d }, // чип веса — шторка с кругом для выбранного дня
                     onProduct = { id -> nav.navigate("product/$id") },
                     onBase = { nav.navigate("products") },
+                    onWeek = { nav.navigate("week") },
                     onAdd = { d, from ->
                         // Кнопка «+» разворачивается на весь экран, потом под ней открывается «Добавить»
                         // «Добавить» открывается сразу и проявляется внутри растущей из кнопки рамки
@@ -224,9 +304,22 @@ fun AppRoot(
                     },
                 )
             }
-            Tab.Weight -> WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) })
-            Tab.Assistant -> PlaceholderScreen("Ассистент", "Советы и недельный отчёт")
-            Tab.Profile -> ProfileScreen(updates, onProducts = { nav.navigate("products") }, onDishes = { nav.navigate("dishes") })
+            Tab.Weight -> WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) }) {
+                app.fitfat.ui.week.WeekCard(weekDays) { nav.navigate("week") }
+            }
+            Tab.Assistant -> app.fitfat.ui.week.AssistantScreen()
+            Tab.Profile -> {
+                // Без профиля «Тело и цель» не из чего показывать — сначала первая настройка
+                fun needSetup() = (profileNow == null).also { if (it) { setupFirstRun = false; setupEdit = false; setupOpen = true } }
+                val typesVer = dayTypesVer
+                ProfileScreen(
+                    profileNow, wuiTop.last?.kg, norms = { t -> typesVer.let { fitApp.norms.norms(t) } }, todayType = fitApp.norms.dayType(todayTop),
+                    onMe = { if (!needSetup()) nav.navigate("me") },
+                    onTraining = { nav.navigate("training") },
+                    onProducts = { nav.navigate("products") },
+                    onSettings = { nav.navigate("settings") },
+                )
+            }
         }
     }
     Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxSize()) {
@@ -312,7 +405,7 @@ fun AppRoot(
             // Вкладки живут в слое под навигацией (TabLayer) — здесь только места в стеке
             Tab.entries.forEach { t -> composable(t.route) { } }
             composable(ADD_ROUTE) { entry ->
-                val day = entry.arguments?.getString("day")?.toLongOrNull() ?: LocalDate.now().toEpochDay()
+                val day = entry.arguments?.getString("day")?.toLongOrNull() ?: app.fitfat.data.DayClock.today().toEpochDay()
                 val product = entry.arguments?.getString("product")?.toLongOrNull() ?: 0L
                 // Свой непрозрачный фон: под рамкой ещё виден главный экран, он не должен просвечивать
                 // Системное «назад» тоже сворачивает экран в кнопку
@@ -346,6 +439,75 @@ fun AppRoot(
                     onOpen = { id -> nav.navigate("product/$id") }, onNew = { productsVm.prefill = null; nav.navigate("productEdit/0") },
                     onNewFromScan = { nav.navigate("productEdit/0") },
                     onAddToDiary = { id -> addToDiary(id) },
+                    onNewDish = { productsVm.draft = emptyList(); nav.navigate("dish/0") },
+                )
+            }
+            // Неделя (0.5, макет 5.1)
+            composable("week") {
+                val from = todayTop.minusDays(6)
+                val ws = wuiTop.all.filter { !it.date.isBefore(from) && !it.date.isAfter(todayTop) }.map { it.date to it.kg }
+                app.fitfat.ui.week.WeekScreen(weekDays, ws, onBack = { nav.popBackStack() })
+            }
+            // Настройки приложения (0.5, макет 5.5)
+            composable("settings") {
+                val tui by today.ui.collectAsStateWithLifecycle()
+                app.fitfat.ui.profile.SettingsScreen(updates, tui.groupByTime, today::setGroupByTime, onBack = { nav.popBackStack() })
+            }
+            // Тело и цель (0.5): тело, спорт, цель и нормы только для чтения; «Изменить» — шаги настройки
+            composable("me") {
+                var sheet by remember { mutableStateOf<Int?>(null) }
+                val p0 = profileNow ?: app.fitfat.data.Profile()
+                val w = wuiTop.last?.kg ?: p0.weightKg
+                val typesVer = dayTypesVer
+                app.fitfat.ui.profile.MeScreen(
+                    p0, w, norms = { t -> typesVer.let { fitApp.norms.norms(t) } }, custom = profileStore.custom.keys, cuts = profileStore.cuts,
+                    eta = p0.targetKg?.let { app.fitfat.ui.setup.targetEta(it, w, wuiTop.all.map { e -> e.date to e.trend }) },
+                    onBack = { nav.popBackStack() },
+                    onEdit = { step -> setupFirstRun = false; setupEdit = true; setupStep = step; setupOpen = true },
+                    onSheet = { sheet = it },
+                )
+                sheet?.let { step ->
+                    app.fitfat.ui.setup.SetupSheet(
+                        step, p0.copy(weightKg = w),
+                        app.fitfat.ui.setup.SetupEdit(profileStore.custom, profileStore.cuts, wuiTop.all.map { it.date to it.trend }),
+                        onDismiss = { sheet = null },
+                    ) { r -> saveEdit(p0, w, r); sheet = null }
+                }
+            }
+            // Тренировки (0.5, макет 5.8)
+            composable("training") {
+                val log by remember { fitApp.trainings.observeAll() }.collectAsStateWithLifecycle(emptyList())
+                val plan by app.fitfat.data.TrainingSchedule.plan.collectAsStateWithLifecycle()
+                val pr = profileNow
+                val types = if (pr == null) emptySet() else (if (pr.gym) setOf("strength") else emptySet()) + pr.sports
+                app.fitfat.ui.setup.TrainingScreen(
+                    types = types,
+                    onTypes = { set ->
+                        // «Силовые» — это зал в профиле, остальное — виды спорта; от них зависят день тренировки и белок
+                        if (pr != null) {
+                            val np = pr.copy(gym = "strength" in set, sports = set - "strength")
+                            profileStore.save(np)
+                            applyNorms(np)
+                        }
+                    },
+                    plan = plan,
+                    onPlan = { p -> app.fitfat.data.TrainingSchedule.save(p, app.fitfat.data.DayClock.today()); fitApp.norms.touch() },
+                    log = log,
+                    onLog = { type, min ->
+                        val d = app.fitfat.data.DayClock.today()
+                        scope.launch { fitApp.trainings.insert(app.fitfat.data.TrainingLog(epochDay = d.toEpochDay(), type = type, minutes = min)) }
+                        // Интенсивная тренировка — сегодня день тренировки (цикл не перебиваем)
+                        val intensive = app.fitfat.data.TRAINING_TYPES.firstOrNull { it.first == type }?.third == true
+                        // Профиль «не тренируется», а записали интенсивную — значит тренируется: добавляем вид в профиль, у дня тренировки появится добавка углеводов
+                        if (intensive && pr != null && !pr.trains) {
+                            val np = if (type == "strength") pr.copy(gym = true) else pr.copy(sports = pr.sports + type)
+                            profileStore.save(np)
+                            applyNorms(np)
+                        }
+                        if (intensive && fitApp.norms.dayType(d) == app.fitfat.data.DayType.Normal) fitApp.norms.setDayType(d, app.fitfat.data.DayType.Training)
+                    },
+                    onDelete = { t -> scope.launch { fitApp.trainings.delete(t.id) } },
+                    onBack = { nav.popBackStack() },
                 )
             }
             // Блюда (0.4, шаг 2)
@@ -446,13 +608,64 @@ fun AppRoot(
     }
     }
 
+    // Первая настройка поверх всего приложения
+    androidx.compose.animation.AnimatedVisibility(
+        setupOpen,
+        enter = fadeIn(tween(260)) + androidx.compose.animation.slideInVertically(tween(320, easing = FastOutSlowInEasing)) { it / 12 },
+        exit = fadeOut(tween(200)),
+    ) {
+        val p0 = remember(setupOpen) { profileStore.load() }
+        val w0 = wuiTop.last?.kg ?: p0?.weightKg
+        val edit = setupEdit && p0 != null
+        app.fitfat.ui.setup.SetupScreen(
+            // При правке вес — последнее взвешивание
+            initial = if (edit && w0 != null) p0!!.copy(weightKg = w0) else p0,
+            onClose = if (setupFirstRun) null else ({ setupOpen = false }),
+            startStep = if (edit) setupStep else 1,
+            edit = if (edit) app.fitfat.ui.setup.SetupEdit(profileStore.custom, profileStore.cuts, wuiTop.all.map { it.date to it.trend }) else null,
+        ) { r ->
+            if (edit) {
+                saveEdit(p0!!, w0, r)
+                setupOpen = false
+                return@SetupScreen
+            }
+            // Новый расчёт с нуля: срезы обнуляются, две недели до проверки застоя — заново
+            profileStore.save(r.profile)
+            profileStore.custom = r.custom
+            profileStore.cuts = 0
+            profileStore.normsSince = app.fitfat.data.DayClock.today()
+            applyNorms(r.profile)
+            setupOpen = false
+        }
+    }
+
     UpdateDialog(updates)
 
     // Утренний вопрос о весе: один раз в день, пока не ответили или не пропустили
+    // Нажали на уведомление: взвешивание — шторка веса на сегодня, отчёт — «Неделя»
+    val openFromNotice by app.fitfat.notify.Reminders.open.collectAsStateWithLifecycle()
+    LaunchedEffect(openFromNotice, setupOpen) {
+        val o = openFromNotice ?: return@LaunchedEffect
+        if (setupOpen) return@LaunchedEffect
+        app.fitfat.notify.Reminders.open.value = null
+        when (o) {
+            app.fitfat.notify.Reminders.WEIGHT -> weighing = LocalDate.now()
+            app.fitfat.notify.Reminders.WEEK -> if (current != "week") nav.navigate("week")
+        }
+    }
+    // Разрешение на уведомления (Android 13+) — один раз, после первой настройки: напоминания включены по умолчанию
+    val askNotices = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(setupOpen) {
+        if (setupOpen || android.os.Build.VERSION.SDK_INT < 33 || app.fitfat.notify.Reminders.canPost(appCtx)) return@LaunchedEffect
+        val sp = appCtx.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+        if (sp.getBoolean("notices_asked", false)) return@LaunchedEffect
+        sp.edit().putBoolean("notices_asked", true).apply()
+        askNotices.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+    }
     val ask by weight.askToday.collectAsStateWithLifecycle()
     val wui by weight.ui.collectAsStateWithLifecycle()
     val dialHint by weight.hint.collectAsStateWithLifecycle()
-    if (ask) {
+    if (ask && !setupOpen) {
         val today = LocalDate.now()
         MorningWeightDialog(weight, wui, dialHint, onSave = { weight.save(today, it) }, onSkip = weight::skipToday)
     }

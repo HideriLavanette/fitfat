@@ -11,6 +11,8 @@ import java.time.LocalTime
 enum class Meal(val label: String) { Breakfast("Завтрак"), Lunch("Обед"), Dinner("Ужин");
     companion object {
         fun byTime(t: LocalTime): Meal = when {
+            // До начала дня — ночь предыдущего дня: это ужин, а не завтрак
+            DayClock.isNight(t) -> Dinner
             t.hour < 11 -> Breakfast
             t.hour < 17 -> Lunch
             else -> Dinner
@@ -28,6 +30,19 @@ data class Macros(val kcal: Double = 0.0, val protein: Double = 0.0, val fat: Do
 }
 
 val Product.base get() = Macros(kcal, protein, fat, carbs)
+
+/** Своя порция продукта: «тарелка» — 300 г, «1 штука» — 120 г. */
+data class NamedPortion(val name: String, val grams: Double)
+
+val Product.namedPortions: List<NamedPortion>
+    get() = portions.lines().mapNotNull { l ->
+        val i = l.lastIndexOf('\t')
+        if (i <= 0) null else l.substring(i + 1).toDoubleOrNull()?.takeIf { it > 0 }?.let { NamedPortion(l.substring(0, i).trim(), it) }
+    }
+
+fun encodePortions(list: List<NamedPortion>): String =
+    list.filter { it.name.isNotBlank() && it.grams > 0 }.joinToString("\n") { "${it.name.trim().replace('\t', ' ').replace('\n', ' ')}\t${it.grams}" }
+
 val FoodEntry.macros get() = Macros(kcal, protein, fat, carbs)
 
 /** КБЖУ порции: для штучных — на [pieces] штук, иначе на [grams] граммов. */
@@ -40,27 +55,51 @@ fun Product.gramsFor(pieces: Double) = (pieceGrams ?: 0.0) * pieces
 class NormsStore(context: Context) {
     private val prefs = context.getSharedPreferences("norms", Context.MODE_PRIVATE)
 
+    /**
+     * Нормы типа дня. У дня тренировки и цикла могут быть свои Б и Ж (поправили в первой настройке),
+     * иначе — как в обычный день; углеводы — свои или обычные + добавка (тренировка — 100 г по умолчанию, цикл +25 г).
+     */
     fun norms(type: DayType): Macros {
         val p = prefs.getFloat("p", 180f).toDouble()
         val f = prefs.getFloat("f", 60f).toDouble()
         val base = prefs.getFloat("u", 140f).toDouble()
-        val u = when (type) {
-            DayType.Training -> prefs.getFloat("u_train", 240f).toDouble()
-            DayType.Cycle -> base + CYCLE_EXTRA_CARBS // +25 г углеводов = +100 ккал
-            DayType.Normal -> base
+        val (pt, ft, u) = when (type) {
+            DayType.Training -> Triple(prefs.getFloat("p_train", p.toFloat()).toDouble(), prefs.getFloat("f_train", f.toFloat()).toDouble(), prefs.getFloat("u_train", 240f).toDouble())
+            DayType.Cycle -> Triple(prefs.getFloat("p_cycle", p.toFloat()).toDouble(), prefs.getFloat("f_cycle", f.toFloat()).toDouble(), prefs.getFloat("u_cycle", (base + CYCLE_EXTRA_CARBS).toFloat()).toDouble())
+            DayType.Normal -> Triple(p, f, base)
         }
-        return Macros(p * 4 + f * 9 + u * 4, p, f, u)
+        return Macros(pt * 4 + ft * 9 + u * 4, pt, ft, u)
     }
 
-    /** Женский пол в профиле. Профиля пока нет — «Цикл» не показывается. */
+    /** Нормы из первой настройки: обычный день, день тренировки и дни цикла (null — как обычный + добавка). */
+    fun setNorms(normal: Macros, training: Macros?, cycle: Macros?, female: Boolean) {
+        prefs.edit {
+            putFloat("p", normal.protein.toFloat()); putFloat("f", normal.fat.toFloat()); putFloat("u", normal.carbs.toFloat())
+            val t = training ?: normal.copy(carbs = normal.carbs + TRAINING_EXTRA_CARBS)
+            putFloat("p_train", t.protein.toFloat()); putFloat("f_train", t.fat.toFloat()); putFloat("u_train", t.carbs.toFloat())
+            val c = cycle ?: normal.copy(carbs = normal.carbs + CYCLE_EXTRA_CARBS)
+            putFloat("p_cycle", c.protein.toFloat()); putFloat("f_cycle", c.fat.toFloat()); putFloat("u_cycle", c.carbs.toFloat())
+            putString("sex", if (female) "f" else "m")
+        }
+        _dayTypesVersion.value++
+    }
+
+    /** Женский пол в профиле — тогда есть «Цикл». */
     val isFemale: Boolean get() = prefs.getString("sex", null) == "f"
 
-    fun dayType(date: LocalDate): DayType =
-        DayType.entries.getOrNull(prefs.getInt("day_${date.toEpochDay()}", 0)) ?: DayType.Normal
+    /** Своя отметка дня, иначе по расписанию тренировок «Тренировка», иначе «Обычный». */
+    fun dayType(date: LocalDate): DayType {
+        val key = "day_${date.toEpochDay()}"
+        if (prefs.contains(key)) return DayType.entries.getOrNull(prefs.getInt(key, 0)) ?: DayType.Normal
+        return if (TrainingSchedule.suggests(date)) DayType.Training else DayType.Normal
+    }
 
     private val _dayTypesVersion = MutableStateFlow(0)
     /** Растёт при каждой смене типа дня — экраны перечитывают отметки (главный, вес). */
     val dayTypesVersion: StateFlow<Int> = _dayTypesVersion.asStateFlow()
+
+    /** Расписание тренировок поменялось — экраны перечитывают типы дней. */
+    fun touch() { _dayTypesVersion.value++ }
 
     fun setDayType(date: LocalDate, t: DayType) {
         prefs.edit { putInt("day_${date.toEpochDay()}", t.ordinal) }
@@ -75,8 +114,13 @@ class NormsStore(context: Context) {
 class FoodRepository(private val products: ProductDao, private val food: FoodDao, private val dishes: DishDao) {
     val allProducts = products.observeAll()
     val recent = products.observeRecent(8)
-    fun day(date: LocalDate) = food.observeDay(date.toEpochDay())
+    /** Записи дня: новые сверху; ночные (до начала дня) — после вечерних, как самые поздние. */
+    fun day(date: LocalDate) = kotlinx.coroutines.flow.combine(food.observeDay(date.toEpochDay()), DayClock.start) { list, start ->
+        list.sortedWith(compareByDescending<FoodEntry> { DayClock.order(it.minute, start) }.thenByDescending { it.id })
+    }
     fun frequent(meal: Meal, limit: Int = 4) = food.observeFrequent(meal.name, limit)
+    /** Записи за дни с [from] по [to] включительно (недельный отчёт). */
+    fun range(from: LocalDate, to: LocalDate) = food.observeRange(from.toEpochDay(), to.toEpochDay())
     fun daysWithEntries(from: LocalDate, to: LocalDate) = food.observeDaysWithEntries(from.toEpochDay(), to.toEpochDay())
 
     suspend fun createProduct(p: Product): Product = p.copy(id = products.insert(p))

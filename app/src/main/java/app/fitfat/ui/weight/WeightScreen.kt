@@ -80,7 +80,7 @@ private val rangeFmt = DateTimeFormatter.ofPattern("d MMMM", ru)
  * Тап по дню — сводка дня (вес, КБЖУ, тип, еда), из неё — правка веса (1.3) или главный экран на эту дату.
  */
 @Composable
-fun WeightScreen(vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit) {
+fun WeightScreen(vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit, week: @Composable () -> Unit = {}) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val hint by vm.hint.collectAsStateWithLifecycle()
     var viewing by remember { mutableStateOf<LocalDate?>(null) } // сводка дня
@@ -111,6 +111,8 @@ fun WeightScreen(vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit) {
                 )
             }
         }
+        // Недельный отчёт (0.5): баланс, вес, средние БЖУ — под текущим весом
+        week()
         PillToggle(Period.entries.map { it.label }, ui.period.ordinal, onSelect = { vm.setPeriod(Period.entries[it]) }, modifier = Modifier.fillMaxWidth())
         WeightChart(ui) { vm.setPeriod(it) }
         Text(

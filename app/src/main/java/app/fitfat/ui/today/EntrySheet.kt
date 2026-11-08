@@ -69,7 +69,7 @@ fun EntrySheet(
     val time = "%02d:%02d".format(entry.minute / 60, entry.minute % 60)
     val sub = when {
         !repeatMode -> "${Meal.of(entry.meal).label} · $time · запись в дневнике"
-        date == LocalDate.now() -> LocalTime.now().let { "Повтор · запишется сейчас, %02d:%02d".format(it.hour, it.minute) }
+        date == app.fitfat.data.DayClock.today() -> LocalTime.now().let { "Повтор · запишется сейчас, %02d:%02d".format(it.hour, it.minute) }
         else -> "Повтор · запишется на $time"
     }
 

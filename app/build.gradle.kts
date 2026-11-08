@@ -12,6 +12,9 @@ val appVersionName = (findProperty("versionName") as String?) ?: "0.0.0-dev"
 val appVersionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
 val updateRepo = (findProperty("updateRepo") as String?) ?: "HideriLavanette/FitFat"
 val keystorePath: String? = System.getenv("KEYSTORE_FILE")
+// Вход через Google: идентификатор веб-клиента OAuth из Google Cloud (не секрет, виден в любом APK).
+// Пусто — кнопка «Подключить» объясняет, что вход ещё не настроен.
+val googleWebClientId = (findProperty("googleWebClientId") as String?) ?: ""
 
 android {
     namespace = "app.fitfat"
@@ -24,6 +27,7 @@ android {
         versionCode = appVersionCode
         versionName = appVersionName
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -83,6 +87,9 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.haze)
     implementation(libs.code.scanner)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play)
+    implementation(libs.googleid)
     ksp(libs.androidx.room.compiler)
     debugImplementation(libs.androidx.ui.tooling)
     testImplementation(libs.junit)

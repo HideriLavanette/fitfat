@@ -83,7 +83,7 @@ private const val SIDE = 96     // место под бабл с каждой с
  * Чип значения с всплывающим барабаном (макет Goals, чипы Б / Ж / У нормы).
  * Барабан — это сам чип, выросший в высоту до 232 (тот же цвет и ширина). Тап — остаётся открытым, внизу «✓ Готово»; удержание 300 мс — барабан на время
  * удержания: ведите вверх-вниз, отпустили — закрылся. Сбоку бабл с выбранным значением.
- * [value] — что показывает чип; [onTarget] получает число с барабана (шаг [step]).
+ * [value] — что показывает чип; [onTarget] получает число с барабана (шаг [step]) в пределах [min]..[max].
  */
 @Composable
 fun RowScope.PopDrumChip(
@@ -98,6 +98,8 @@ fun RowScope.PopDrumChip(
     stepFor: (Double) -> Double = { if (it < 10) 0.5 else 1.0 },
     /** Как показывать значение в закрытом чипе. */
     display: (Double) -> String = { String.format(Locale("ru"), "%.1f", it) },
+    min: Double = 0.0,
+    max: Double = Double.MAX_VALUE,
 ) {
     val view = LocalView.current
     val density = LocalDensity.current.density
@@ -107,9 +109,9 @@ fun RowScope.PopDrumChip(
     var step by remember { mutableDoubleStateOf(1.0) }
     val target by rememberUpdatedState(onTarget)
     val current by rememberUpdatedState(value)
-    val drag = rememberStepDrag(ROW, atLimit = { dir -> ((drumVal + dir * step) / step).roundToInt() * step < -1e-9 }) { dir ->
+    val drag = rememberStepDrag(ROW, atLimit = { dir -> (((drumVal + dir * step) / step).roundToInt() * step).let { it < min - 1e-9 || it > max + 1e-9 } }) { dir ->
         val nv = ((drumVal + dir * step) / step).roundToInt() * step
-        if (nv < 0) false else { drumVal = nv; target(nv); true }
+        if (nv < min - 1e-9 || nv > max + 1e-9) false else { drumVal = nv; target(nv); true }
     }
     // Раскрытие из чипа: 0 — барабан размером и цветом чипа, 1 — полный барабан
     val expand = remember { Animatable(0f) }
@@ -191,7 +193,7 @@ fun RowScope.PopDrumChip(
                                 Box(Modifier.padding(horizontal = 6.dp).fillMaxWidth().height(40.dp).clip(RoundedCornerShape(20.dp)).background(ink.copy(alpha = 0.14f * tc)))
                                 for (k in -4..4) {
                                     val v = drumVal + k * step
-                                    if (v < -1e-9) continue
+                                    if (v < min - 1e-9 || v > max + 1e-9) continue
                                     val y = k * ROW + drag.offset
                                     val th = y / R
                                     if (abs(th) > 1.3f) continue

@@ -96,6 +96,7 @@ object Feedback {
 
     /** Шаг значения. */
     fun tick(ctx: Context) {
+        if (!app.fitfat.data.AppSettings.haptic.value) return // «Звук и вибрация колеса» выключены
         init(ctx)
         play(tickTrack)
         buzz(
@@ -106,6 +107,7 @@ object Feedback {
 
     /** Шаг барабана, линейки, круга веса: тот же щелчок, вибрация вполсилы — на частых шагах полная сила утомляет. */
     fun step(ctx: Context) {
+        if (!app.fitfat.data.AppSettings.haptic.value) return // «Звук и вибрация колеса» выключены
         init(ctx)
         play(tickTrack)
         val v = vibrator ?: return
@@ -127,6 +129,7 @@ object Feedback {
 
     /** Шаг без звука — только короткая вибрация (навбар). */
     fun tickSilent(ctx: Context) {
+        if (!app.fitfat.data.AppSettings.haptic.value) return // «Звук и вибрация колеса» выключены
         init(ctx)
         buzz(
             if (Build.VERSION.SDK_INT >= 29) VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
@@ -136,6 +139,7 @@ object Feedback {
 
     /** Упор в край, срыв свайпа и прочие «сильные» моменты. */
     fun bump(ctx: Context) {
+        if (!app.fitfat.data.AppSettings.haptic.value) return // «Звук и вибрация колеса» выключены
         init(ctx)
         play(bumpTrack)
         buzz(
@@ -146,6 +150,7 @@ object Feedback {
 
     /** Лёгкий отклик без звука — касание, открытие. */
     fun light(ctx: Context) {
+        if (!app.fitfat.data.AppSettings.haptic.value) return // «Звук и вибрация колеса» выключены
         init(ctx)
         buzz(if (Build.VERSION.SDK_INT >= 29) VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK) else VibrationEffect.createOneShot(12, 160))
     }

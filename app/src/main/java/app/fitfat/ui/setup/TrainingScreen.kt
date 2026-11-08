@@ -1,0 +1,346 @@
+package app.fitfat.ui.setup
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
+import app.fitfat.ui.components.PopDrumChip
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import app.fitfat.data.DayClock
+import app.fitfat.data.PlanMode
+import app.fitfat.data.ShiftInner
+import app.fitfat.data.TRAINING_TYPES
+import app.fitfat.data.TrainingLog
+import app.fitfat.data.TrainingPlan
+import app.fitfat.data.trainingLabel
+import app.fitfat.ui.common.MockIcons
+import app.fitfat.ui.components.FfSheet
+import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.PillToggle
+import app.fitfat.ui.components.tick
+import app.fitfat.ui.theme.MacroColors
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private val ru = Locale("ru")
+private val dayLong = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
+private val dateShort = DateTimeFormatter.ofPattern("d MMMM yyyy", ru)
+private val dn = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+private val months = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
+
+private fun word(n: Int, a: String, b: String, c: String) =
+    if (n % 10 == 1 && n % 100 != 11) a else if (n % 10 in 2..4 && n % 100 !in 12..14) b else c
+
+/**
+ * «Тренировки» (макет Training, 5.8): чем занимаетесь (чипы), расписание — «Дни недели / Через N дней / Вахта»,
+ * дата начала, предпросмотр ближайших 4 недель и «≈ N тренировок в месяц»; история и «Записать тренировку».
+ * Виды занятий — те же, что в первой настройке (силовые = зал). Расписание и виды сохраняются сразу.
+ * В дни по расписанию главный экран сам ставит тип дня «Тренировка» (своя отметка дня главнее).
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun TrainingScreen(
+    types: Set<String>, onTypes: (Set<String>) -> Unit,
+    plan: TrainingPlan?, onPlan: (TrainingPlan) -> Unit,
+    log: List<TrainingLog>, onLog: (String, Int) -> Unit, onDelete: (TrainingLog) -> Unit,
+    onBack: () -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val today = DayClock.today()
+    // Расписания ещё нет — дни не выбраны: превью и кружки совпадают, первый тап создаёт расписание
+    val p = plan ?: TrainingPlan(days = emptySet(), start = today)
+    var logging by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf<TrainingLog?>(null) }
+    var picking by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxSize().background(colors.surface)) {
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+        ) {
+            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Surface(onClick = onBack, shape = RoundedCornerShape(24.dp), color = Color.Transparent, modifier = Modifier.size(48.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronLeft, "Назад", Modifier.size(24.dp), tint = colors.onSurface) }
+                }
+                Text("Тренировки", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            }
+            // Чем занимаетесь
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Чем занимаетесь", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TRAINING_TYPES.forEach { (id, label, _) ->
+                        val sel = id in types
+                        val bg by animateColorAsState(if (sel) colors.secondaryContainer else Color.Transparent, label = "tt")
+                        Surface(
+                            onClick = { onTypes(if (sel) types - id else types + id) }, shape = RoundedCornerShape(8.dp), color = bg,
+                            border = BorderStroke(1.dp, if (sel) colors.secondaryContainer else colors.outlineVariant), modifier = Modifier.height(32.dp),
+                        ) {
+                            Row(Modifier.padding(start = if (sel) 8.dp else 16.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                if (sel) Icon(MockIcons.Check, null, Modifier.size(16.dp), tint = colors.onPrimaryContainer)
+                                Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (sel) colors.onPrimaryContainer else colors.onSurface)
+                            }
+                        }
+                    }
+                }
+            }
+            // Расписание
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainer).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+                val cells = (0 until 28).map { monday.plusDays(it.toLong()) }
+                val count = cells.count { plan != null && p.kind(it) == TrainingPlan.Kind.Train }
+                val perMonth = Math.round(count / 28.0 * 30).toInt()
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text("Расписание", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                    Text(if (plan == null) "не задано" else "≈ $perMonth ${word(perMonth, "тренировка", "тренировки", "тренировок")} в месяц", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                }
+                PillToggle(PlanMode.entries.map { it.label }, p.mode.ordinal, onSelect = { onPlan(p.copy(mode = PlanMode.entries[it])) }, modifier = Modifier.fillMaxWidth(), height = 40.dp, fontSize = 13.sp)
+                AnimatedVisibility(p.mode == PlanMode.Interval, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Stepper("Дней тренировок подряд", null, p.trainDays, 1, 6) { onPlan(p.copy(trainDays = it)) }
+                        Stepper("Затем дней отдыха", null, p.restDays, 1, 7) { onPlan(p.copy(restDays = it)) }
+                        Text("${p.trainDays} ${word(p.trainDays, "день", "дня", "дней")} тренировок, ${p.restDays} ${word(p.restDays, "день", "дня", "дней")} отдыха — и по кругу", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                    }
+                }
+                AnimatedVisibility(p.mode == PlanMode.Shift, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Stepper("Активный период", "дней, когда тренируетесь", p.onDays, 1, 60) { onPlan(p.copy(onDays = it)) }
+                        Stepper("Без тренировок", "вахта, отпуск, перерыв", p.offDays, 1, 60) { onPlan(p.copy(offDays = it)) }
+                        Text("В активный период тренируюсь", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        PillToggle(ShiftInner.entries.map { it.label }, p.inner.ordinal, onSelect = { onPlan(p.copy(inner = ShiftInner.entries[it])) }, modifier = Modifier.fillMaxWidth(), height = 36.dp, fontSize = 12.sp)
+                    }
+                }
+                AnimatedVisibility(p.mode == PlanMode.Week || (p.mode == PlanMode.Shift && p.inner == ShiftInner.Week), enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Дни недели", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            dn.forEachIndexed { i, label ->
+                                val sel = i in p.days
+                                val bg by animateColorAsState(if (sel) MacroColors.trainingContainer else colors.surfaceContainerHigh, label = "dw")
+                                Box(
+                                    Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(20.dp)).background(bg)
+                                        .clickable { onPlan(p.copy(days = if (sel) p.days - i else p.days + i)) }
+                                        .semantics { contentDescription = label + if (sel) ", тренировка" else "" },
+                                    contentAlignment = Alignment.Center,
+                                ) { Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = if (sel) MacroColors.training else colors.onSurfaceVariant) }
+                            }
+                        }
+                    }
+                }
+                AnimatedVisibility(p.mode != PlanMode.Week) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(if (p.mode == PlanMode.Shift) "Активный период начинается" else "Первая тренировка", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Surface(onClick = { picking = true }, shape = RoundedCornerShape(12.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(44.dp)) {
+                            Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Text(p.start.format(dateShort), fontSize = 15.sp) }
+                        }
+                    }
+                }
+                // Ближайшие 4 недели
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Ближайшие 4 недели", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                    cells.chunked(7).forEach { week ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            week.forEach { d ->
+                                val k = if (plan == null) TrainingPlan.Kind.Rest else p.kind(d)
+                                val isToday = d == today
+                                val shape = RoundedCornerShape(10.dp)
+                                val m = Modifier.weight(1f).height(34.dp).clip(shape)
+                                Box(
+                                    when (k) {
+                                        TrainingPlan.Kind.Train -> m.background(MacroColors.trainingContainer).border(1.dp, MacroColors.training, shape)
+                                        TrainingPlan.Kind.Off -> m.border(1.dp, colors.outline.copy(alpha = 0.6f), shape)
+                                        TrainingPlan.Kind.Rest -> m.background(colors.surfaceContainerHigh).border(1.dp, if (isToday) colors.primary else Color.Transparent, shape)
+                                    },
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        if (d.dayOfMonth == 1) "1 ${months[d.monthValue - 1]}" else d.dayOfMonth.toString(), fontSize = 12.sp, maxLines = 1,
+                                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium,
+                                        color = when (k) { TrainingPlan.Kind.Train -> MacroColors.training; TrainingPlan.Kind.Off -> colors.outline; else -> colors.onSurfaceVariant },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Legend(Modifier.background(MacroColors.trainingContainer).border(1.dp, MacroColors.training, RoundedCornerShape(4.dp)), "тренировка")
+                        Legend(Modifier.background(colors.surfaceContainerHigh), "отдых")
+                        Legend(Modifier.border(1.dp, colors.outline, RoundedCornerShape(4.dp)), "перерыв")
+                    }
+                }
+                Text("В дни тренировок главный экран сам предложит тип дня «Тренировка» с повышенной нормой углеводов.", fontSize = 12.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant)
+            }
+            // История
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("История", fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 8.dp))
+                if (log.isEmpty()) {
+                    Text("Пока пусто — записывайте тренировки кнопкой ниже.", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
+                } else Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerLow)) {
+                    log.take(20).forEach { l ->
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 60.dp).clickable { deleting = l }.padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(MacroColors.trainingContainer), contentAlignment = Alignment.Center) {
+                                Icon(MockIcons.Dumbbell, null, Modifier.size(18.dp), tint = MacroColors.training)
+                            }
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                Text(trainingLabel(l.type), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                                Text(LocalDate.ofEpochDay(l.epochDay).format(dayLong), fontSize = 12.sp, color = colors.onSurfaceVariant)
+                            }
+                            Text("${l.minutes} мин", fontSize = 14.sp, color = colors.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+        Surface(
+            onClick = { logging = true }, shape = RoundedCornerShape(28.dp), color = colors.primary,
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 24.dp).fillMaxWidth().height(56.dp),
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                Icon(MockIcons.Plus, null, Modifier.size(20.dp), tint = colors.onPrimary)
+                Text("Записать тренировку", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = colors.onPrimary)
+            }
+        }
+    }
+    if (logging) LogSheet(types, onDismiss = { logging = false }) { t, m -> onLog(t, m); logging = false }
+    deleting?.let { l ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text("Удалить запись?") },
+            text = { Text("${trainingLabel(l.type)}, ${LocalDate.ofEpochDay(l.epochDay).format(dayLong)} · ${l.minutes} мин") },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Отмена") } },
+            confirmButton = { TextButton(onClick = { onDelete(l); deleting = null }) { Text("Удалить", color = colors.error) } },
+        )
+    }
+    if (picking) {
+        val state = rememberDatePickerState(initialSelectedDateMillis = p.start.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli())
+        DatePickerDialog(
+            onDismissRequest = { picking = false },
+            dismissButton = { TextButton(onClick = { picking = false }) { Text("Отмена") } },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { onPlan(p.copy(start = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate())) }
+                    picking = false
+                }) { Text("Готово") }
+            },
+        ) { DatePicker(state) }
+    }
+}
+
+@Composable
+private fun Legend(box: Modifier, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).then(box))
+        Text(label, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * Число дней — чип с всплывающим барабаном (как чипы Б / Ж / У нормы, решение автора 08.11.2026 вместо «− / +»):
+ * тап — барабан открыт до «Готово», удержание — крутите, пока держите; сбоку бабл со значением. Шаг 1, от [min] до [max].
+ */
+@Composable
+private fun Stepper(label: String, sub: String?, value: Int, min: Int, max: Int, onChange: (Int) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, fontSize = 15.sp)
+            if (sub != null) Text(sub, fontSize = 12.sp, color = colors.onSurfaceVariant)
+        }
+        Row(Modifier.width(96.dp)) {
+            PopDrumChip(
+                value.toDouble(), { onChange(it.toInt().coerceIn(min, max)) }, "дн", colors.onSecondaryContainer, colors.secondaryContainer, label,
+                stepFor = { 1.0 }, display = { it.toInt().toString() }, min = min.toDouble(), max = max.toDouble(),
+            )
+        }
+    }
+}
+
+/** «Записать тренировку»: вид (из своих, иначе все), минуты линейкой. Пишется на сегодня. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun LogSheet(types: Set<String>, onDismiss: () -> Unit, onSave: (String, Int) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val list = TRAINING_TYPES.filter { types.isEmpty() || it.first in types }
+    var type by remember { mutableStateOf(list.first().first) }
+    var minutes by remember { mutableStateOf(60) }
+    FfSheet(onDismiss = onDismiss) {
+        Text("Тренировка сегодня", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            list.forEach { (id, label, _) ->
+                val sel = id == type
+                Surface(onClick = { type = id }, shape = RoundedCornerShape(if (sel) 16.dp else 8.dp), color = if (sel) MacroColors.trainingContainer else colors.surfaceContainerHigh, modifier = Modifier.height(36.dp)) {
+                    Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text(label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (sel) MacroColors.training else colors.onSurface) }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+            Text("$minutes", fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(" мин", fontSize = 15.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        GramRuler(minutes, { minutes = it.coerceAtLeast(5) }, max = 300)
+        Text("День отметится как тренировка — с повышенной нормой углеводов.", fontSize = 12.sp, color = colors.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(onClick = onDismiss, shape = RoundedCornerShape(24.dp), color = colors.surfaceContainerHighest, modifier = Modifier.weight(1f).height(48.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("Отмена", fontSize = 15.sp, fontWeight = FontWeight.Medium) }
+            }
+            Surface(onClick = { onSave(type, minutes) }, shape = RoundedCornerShape(24.dp), color = colors.primary, modifier = Modifier.weight(1f).height(48.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("Записать", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = colors.onPrimary) }
+            }
+        }
+    }
+}

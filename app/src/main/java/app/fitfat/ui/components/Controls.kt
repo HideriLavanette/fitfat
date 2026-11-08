@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -130,7 +131,8 @@ fun FfSheet(
                     .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)),
             )
         },
-        modifier = modifier,
+        // Высокая шторка останавливается под строкой состояния, а не заезжает под неё
+        modifier = modifier.statusBarsPadding(),
     ) {
         Column(
             Modifier.fillMaxWidth().navigationBarsPadding().padding(start = horizontalPadding, end = horizontalPadding, top = gap, bottom = 24.dp),

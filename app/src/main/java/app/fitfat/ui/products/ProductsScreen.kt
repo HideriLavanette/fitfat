@@ -54,7 +54,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -104,6 +104,17 @@ private fun Tag.icon(): ImageVector = when (this) {
     Tag.Piece -> MockIcons.Pieces
 }
 
+/** Цвет тега — фон его категории (как у плашек продуктов); у «Штучных» своего цвета нет. */
+private fun Tag.bg(): Color? = when (this) {
+    Tag.Meat -> category("meat").bg
+    Tag.Dairy -> category("dairy").bg
+    Tag.Grain -> category("grain").bg
+    Tag.Plant -> category("veg").bg
+    Tag.Sweet -> category("sauce").bg
+    Tag.Drink -> category("drink").bg
+    Tag.Piece -> null
+}
+
 private fun Tag.matches(p: Product) = when (this) {
     Tag.Meat -> p.category == "meat" || p.category == "egg"
     Tag.Dairy -> p.category == "dairy"
@@ -131,7 +142,7 @@ fun usedAgo(lastUsed: Long): String? = daysAgo(lastUsed)?.let { d ->
  * «Все / Продукты / Блюда» — тип; сканер появится вместе со штрихкодами.
  */
 @Composable
-fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit, onNewFromScan: () -> Unit = onNew, onAddToDiary: (Long) -> Unit = {}) {
+fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> Unit, onNew: () -> Unit, onNewFromScan: () -> Unit = onNew, onAddToDiary: (Long) -> Unit = {}, onNewDish: () -> Unit = {}) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val all by vm.products.collectAsStateWithLifecycle()
     var q by rememberSaveable { mutableStateOf("") }
@@ -256,20 +267,26 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                 }
                 Tag.entries.forEach { t ->
                     val sel = t in tags
-                    val bg by animateColorAsState(if (sel) colors.secondaryContainer else colors.surfaceContainerHigh, label = "tbg")
+                    // Теги категорий — в цвете своей категории (палитра плашек); выбранный — рамка `onSurface` и скругление 16
+                    val catBg = t.bg() ?: colors.surfaceContainerHigh
+                    val bg by animateColorAsState(if (t.bg() == null && sel) colors.secondaryContainer else catBg, label = "tbg")
+                    val border by animateColorAsState(if (sel) colors.onSurface else Color.Transparent, label = "tbr")
+                    val r by androidx.compose.animation.core.animateDpAsState(if (sel) 16.dp else 8.dp, label = "trad")
                     Surface(
-                        onClick = { tags = if (sel) tags - t else tags + t }, shape = RoundedCornerShape(8.dp), color = bg,
-                        modifier = Modifier.height(32.dp),
+                        onClick = { tags = if (sel) tags - t else tags + t }, shape = RoundedCornerShape(r), color = bg,
+                        border = androidx.compose.foundation.BorderStroke(2.dp, border),
+                        modifier = Modifier.height(32.dp).semantics { contentDescription = t.label + if (sel) ", выбран" else "" },
                     ) {
                         Row(Modifier.padding(start = 8.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(t.icon(), null, Modifier.size(16.dp), tint = if (sel) colors.onSecondaryContainer else colors.onSurfaceVariant)
-                            Text(t.label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (sel) colors.onSecondaryContainer else colors.onSurface, maxLines = 1)
+                            Icon(if (sel) MockIcons.Check else t.icon(), null, Modifier.size(16.dp), tint = colors.onSurface)
+                            Text(t.label, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.onSurface, maxLines = 1)
                         }
                     }
                 }
             }
             // Список
-            Box(Modifier.weight(1f).padding(horizontal = 16.dp).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)).background(colors.surfaceContainerLow)) {
+            // Фон — у самих строк (первая скруглена сверху, последняя снизу): контейнер кончается вместе со списком
+            Box(Modifier.weight(1f).padding(horizontal = 16.dp).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))) {
                 if (items.isEmpty()) {
                     Text(
                         if (all.isEmpty()) "База пуста" else "Ничего не нашлось — попробуйте убрать фильтры",
@@ -277,8 +294,13 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                     )
                 }
                 LazyColumn(contentPadding = PaddingValues(bottom = 96.dp)) {
-                    items(items, key = { it.id }) { p ->
+                    itemsIndexed(items, key = { _, it -> it.id }) { i, p ->
                         val sel = p.id in selected
+                        val shape = RoundedCornerShape(
+                            topStart = if (i == 0) 24.dp else 0.dp, topEnd = if (i == 0) 24.dp else 0.dp,
+                            bottomStart = if (i == items.lastIndex) 24.dp else 0.dp, bottomEnd = if (i == items.lastIndex) 24.dp else 0.dp,
+                        )
+                        Box(Modifier.clip(shape).background(colors.surfaceContainerLow)) {
                         ProductRow(
                             p, selecting, sel,
                             onClick = { if (selecting) selected = if (sel) selected - p.id else selected + p.id else onOpen(p.id) },
@@ -286,19 +308,21 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                             onAdd = { onAddToDiary(p.id) },
                             onDelete = { confirmDelete = setOf(p.id) },
                         )
+                        }
                     }
                 }
             }
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
-        // «+ Продукт»
-        if (!selecting) Surface(
-            onClick = onNew, shape = RoundedCornerShape(16.dp), color = colors.primaryContainer, shadowElevation = 6.dp,
-            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 24.dp).height(56.dp),
+        // Связанная пара кнопок «+ Блюдо | + Продукт»: снаружи скругление 16, на стыке 4, зазор 2 (группа кнопок M3)
+        androidx.compose.animation.AnimatedVisibility(
+            !selecting, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 24.dp),
+            enter = fadeIn(tween(200)) + androidx.compose.animation.scaleIn(tween(200), initialScale = 0.9f),
+            exit = fadeOut(tween(150)) + androidx.compose.animation.scaleOut(tween(150), targetScale = 0.9f),
         ) {
-            Row(Modifier.padding(start = 16.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(MockIcons.Plus, null, Modifier.size(24.dp), tint = colors.onPrimaryContainer)
-                Text("Продукт", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimaryContainer)
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                AddButton("Блюдо", RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp, topEnd = 4.dp, bottomEnd = 4.dp), onNewDish)
+                AddButton("Продукт", RoundedCornerShape(topStart = 4.dp, bottomStart = 4.dp, topEnd = 16.dp, bottomEnd = 16.dp), onNew)
             }
         }
     }
@@ -324,10 +348,11 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                     Text("ккал · считается из БЖУ", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (p % 1.0 != 0.0) 1 else 0)
-                    VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (f % 1.0 != 0.0) 1 else 0)
-                    VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (u % 1.0 != 0.0) 1 else 0)
+                    VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                 }
+                Text("Нажмите на число, чтобы ввести точно — например 25,3", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
                 ApplyButton(sel.count { !it.isDish }) { bulk = Bulk.None; vm.setMacrosMany(selected, p, f, u) { old -> undoable("БЖУ изменены: ${productsWord(old.size)}", old) } }
             }
         }
@@ -362,6 +387,18 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
 }
 
 private enum class Bulk { None, Category, Macros, Portion }
+
+/** Половинка пары «+ Блюдо | + Продукт»: высота 56, `primaryContainer`, тень 6. */
+@Composable
+private fun AddButton(label: String, shape: RoundedCornerShape, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, shape = shape, color = colors.primaryContainer, shadowElevation = 6.dp, modifier = Modifier.height(56.dp)) {
+        Row(Modifier.padding(start = 14.dp, end = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(MockIcons.Plus, null, Modifier.size(22.dp), tint = colors.onPrimaryContainer)
+            Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimaryContainer)
+        }
+    }
+}
 
 /** «1 продукт», «3 продукта», «5 продуктов». */
 fun productsWord(n: Int) = "$n " + when {

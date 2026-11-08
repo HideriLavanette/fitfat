@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.fitfat.FitfatApp
+import app.fitfat.data.Compensation
+import app.fitfat.data.DayClock
 import app.fitfat.data.DayType
 import app.fitfat.data.FoodEntry
 import app.fitfat.data.Macros
+import app.fitfat.data.ProfileStore
 import app.fitfat.data.macros
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +26,7 @@ import java.time.LocalTime
 import java.time.YearMonth
 
 data class TodayUi(
-    val date: LocalDate = LocalDate.now(),
+    val date: LocalDate = DayClock.today(),
     val dayType: DayType = DayType.Normal,
     val norms: Macros = Macros(),
     val eaten: Macros = Macros(),
@@ -33,6 +36,11 @@ data class TodayUi(
     val baseNorms: Macros = Macros(),
     /** Показывать ли «Цикл» (женский пол в профиле). */
     val showCycle: Boolean = false,
+    /** Компенсация переборов этой недели: на сколько ккал снижена норма дня и за какие дни. */
+    val cut: Double = 0.0,
+    val cutFrom: List<LocalDate> = emptyList(),
+    /** Норма типа дня без компенсации — от неё считается прибавка тренировки / цикла. */
+    val typeNorms: Macros = Macros(),
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,9 +48,10 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val fa = app as FitfatApp
     private val repo = fa.food
     private val normsStore = fa.norms
+    private val profiles = ProfileStore(app)
 
-    private val date = MutableStateFlow(LocalDate.now())
-    private val dayType = MutableStateFlow(normsStore.dayType(LocalDate.now()))
+    private val date = MutableStateFlow(DayClock.today())
+    private val dayType = MutableStateFlow(normsStore.dayType(DayClock.today()))
     private val groupByTime = MutableStateFlow(normsStore.groupByTime)
 
     private val _lastDeleted = MutableStateFlow<FoodEntry?>(null)
@@ -50,18 +59,23 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     val ui: StateFlow<TodayUi> = combine(
         // Дата едет вместе со своими записями — без промежуточного кадра «новый день, старые записи»
-        date.flatMapLatest { d -> repo.day(d).map { d to it } }, dayType, groupByTime, normsStore.dayTypesVersion,
-    ) { (d, entries), _, g, _ ->
+        // Вместе с днём — записи его недели с понедельника: из них считается компенсация переборов
+        date.flatMapLatest { d -> combine(repo.day(d), repo.range(Compensation.weekStart(d), d)) { day, week -> Triple(d, day, week) } },
+        dayType, groupByTime, normsStore.dayTypesVersion,
+    ) { (d, entries, week), _, g, _ ->
         // Тип дня могли поменять в правке веса — читаем из хранилища
         val t = normsStore.dayType(d)
+        val typeNorms = normsStore.norms(t)
+        val comp = Compensation.of(normsStore, week, d, d, DayClock.today(), profiles.load()?.goal).cuts[d]
         TodayUi(
-            d, t, normsStore.norms(t), entries.fold(Macros()) { a, e -> a + e.macros }, entries, g,
+            d, t, Compensation.apply(typeNorms, comp?.kcal ?: 0.0), entries.fold(Macros()) { a, e -> a + e.macros }, entries, g,
             baseNorms = normsStore.norms(DayType.Normal), showCycle = normsStore.isFemale,
+            cut = comp?.kcal ?: 0.0, cutFrom = comp?.from.orEmpty(), typeNorms = typeNorms,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TodayUi())
 
     fun setDate(d: LocalDate) {
-        val clamped = if (d.isAfter(LocalDate.now())) LocalDate.now() else d
+        val clamped = if (d.isAfter(DayClock.today())) DayClock.today() else d
         date.value = clamped
         dayType.value = normsStore.dayType(clamped)
     }
@@ -78,7 +92,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     fun changePortion(e: FoodEntry, grams: Double, pieces: Double?) = viewModelScope.launch { repo.changePortion(e, grams, pieces) }
     fun repeat(e: FoodEntry, grams: Double, pieces: Double?) = viewModelScope.launch {
         val d = date.value
-        val t = if (d == LocalDate.now()) LocalTime.now() else LocalTime.of(e.minute / 60, e.minute % 60)
+        val t = if (d == DayClock.today()) LocalTime.now() else LocalTime.of(e.minute / 60, e.minute % 60)
         repo.repeat(e, d, t, grams, pieces)
     }
 }

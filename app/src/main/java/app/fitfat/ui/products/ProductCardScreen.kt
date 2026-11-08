@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fitfat.data.Product
+import app.fitfat.data.namedPortions
 import app.fitfat.ui.common.CategoryIcon
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
@@ -94,6 +95,11 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
                     } else "${fmt0(prod.defaultGrams)} г · ${fmt0(prod.kcal * prod.defaultGrams / 100)} ккал"
                     PortionRow("Обычная порция", portion)
                     if (prod.perPiece && prod.pieceGrams != null) PortionRow("1 шт", "${fmt0(prod.pieceGrams)} г · ${fmt0(prod.kcal)} ккал")
+                    // Свои порции: «1 штука» — 120 г · 198 ккал (у штучных ккал — по весу штуки)
+                    prod.namedPortions.forEach { np ->
+                        val k = if (prod.perPiece) prod.pieceGrams?.takeIf { it > 0 }?.let { prod.kcal * np.grams / it } else prod.kcal * np.grams / 100
+                        PortionRow(np.name, "${fmt0(np.grams)} г" + (k?.let { " · ${fmt0(it)} ккал" } ?: ""))
+                    }
                 }
             }
             Section("Распознаётся по словам") {

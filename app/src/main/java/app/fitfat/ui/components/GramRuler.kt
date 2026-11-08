@@ -44,7 +44,8 @@ private const val R = 120f   // радиус «цилиндра» линейки
 /**
  * Горизонтальная линейка граммов (макет: «pot», высота 64, скругление 20).
  * Риски на цилиндре: каждая пятая длиннее, к краям ниже и бледнее; по центру — розовая черта.
- * Палец влево — больше граммов.
+ * Палец влево — больше граммов. Для других величин (целевой вес по 0,5 кг) задаются [next] — следующее значение,
+ * [stepOf] — шаг у значения, [major] — каждая какая риска длиннее, [state] — что прочитает TalkBack, [bg] — фон.
  */
 @Composable
 fun GramRuler(
@@ -54,14 +55,19 @@ fun GramRuler(
     min: Int = 0,
     max: Int = 2000,
     label: String = "Вес порции, граммы",
+    next: (Int, Int) -> Int = ::gramNext,
+    stepOf: (Int) -> Int = { gramStep(it, 1) },
+    major: Int = 5,
+    state: (Int) -> String = { "$it г" },
+    bg: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.surfaceContainer,
 ) {
     val value by rememberUpdatedState(grams)
     val change by rememberUpdatedState(onGramsChange)
     // Значение, уже отданное наружу: за кадр может пройти несколько шагов подряд
     val latest = remember { intArrayOf(grams) }
     latest[0] = value
-    val drag = rememberStepDrag(SP, atLimit = { dir -> gramNext(latest[0], dir).let { it > max || it < min } }) { dir ->
-        val nv = gramNext(latest[0], dir)
+    val drag = rememberStepDrag(SP, atLimit = { dir -> next(latest[0], dir).let { it > max || it < min } }) { dir ->
+        val nv = next(latest[0], dir)
         if (nv > max || nv < min) false else { latest[0] = nv; change(nv); true }
     }
     val colors = MaterialTheme.colorScheme
@@ -70,20 +76,20 @@ fun GramRuler(
             .fillMaxWidth()
             .height(64.dp)
             .clip(RoundedCornerShape(20.dp))
-            .semantics { contentDescription = label; stateDescription = "$grams г" }
+            .semantics { contentDescription = label; stateDescription = state(grams) }
             .stepDrag(drag, horizontal = true),
     ) {
-        drawRect(colors.surfaceContainer)
+        drawRect(bg)
         val cx = size.width / 2f
         val cy = size.height / 2f
-        val s = gramStep(grams, 1)
+        val s = stepOf(grams)
         val idx = (grams.toDouble() / s).roundToInt()
         for (k in -14..14) {
             val th = (k * SP + drag.offset) / R
             if (abs(th) > 1.45f) continue
             val c = cos(th)
             val x = cx + (R * sin(th)).dp.toPx()
-            val major = ((idx + k) % 5 + 5) % 5 == 0
+            val major = ((idx + k) % major + major) % major == 0
             val h = ((if (major) 30f else 18f) * (0.45f + 0.55f * c)).dp.toPx()
             val w = (if (major) 2.5f else 2f).dp.toPx()
             val a = c.toDouble().pow(2.2).toFloat() * (if (major) 0.95f else 0.6f)

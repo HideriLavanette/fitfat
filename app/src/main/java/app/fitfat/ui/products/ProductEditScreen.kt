@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.fitfat.data.Product
+import app.fitfat.data.namedPortions
 import app.fitfat.ui.common.Categories
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
@@ -93,6 +94,9 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
     var confirmDelete by remember { mutableStateOf(false) }
     var barcode by remember { mutableStateOf(start?.barcode ?: "") }
     var photo by remember { mutableStateOf(existing?.photo) }
+    // Свои порции (макет 4.3: чипы «1 шт = 60 г» и «+ Порция»); -1 — новая
+    var portions by remember { mutableStateOf(existing?.namedPortions ?: emptyList()) }
+    var editingPortion by remember { mutableStateOf<Int?>(null) }
     var photoSheet by remember { mutableStateOf(false) }
     val picker = app.fitfat.ui.components.rememberPhotoPicker { photo = it }
     // Источник: данные из Open Food Facts, пока их не меняли руками
@@ -193,10 +197,11 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                 }
                 val mx = if (piece) 150.0 else 100.0
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VerticalDrum(p, { p = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (p % 1.0 != 0.0) 1 else 0)
-                    VerticalDrum(f, { f = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (f % 1.0 != 0.0) 1 else 0)
-                    VerticalDrum(u, { u = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (u % 1.0 != 0.0) 1 else 0)
+                    VerticalDrum(p, { p = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(f, { f = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(u, { u = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                 }
+                Text("Нажмите на число, чтобы ввести точно — например 25,3", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Caption("Обычная порция")
@@ -207,6 +212,25 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                         Text(" г · ${fmt0(kcal * portion / 100)} ккал", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
                     }
                     GramRuler(portion.roundToInt(), { portion = it.toDouble() })
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Caption("Порции")
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    portions.forEachIndexed { i, np ->
+                        Surface(onClick = { editingPortion = i }, shape = RoundedCornerShape(8.dp), color = colors.surfaceContainerHighest, modifier = Modifier.heightIn(min = 32.dp)) {
+                            Box(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
+                                Text("${np.name} = ${fmt0(np.grams)} г", fontSize = 14.sp)
+                            }
+                        }
+                    }
+                    Surface(onClick = { editingPortion = -1 }, shape = RoundedCornerShape(10.dp), color = colors.surfaceContainerHigh, modifier = Modifier.height(36.dp)) {
+                        Row(Modifier.padding(start = 8.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(MockIcons.Plus, null, Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+                            Text("Порция", fontSize = 14.sp)
+                        }
+                    }
                 }
             }
             Field("Другие названия") {
@@ -222,7 +246,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                     (existing ?: Product(name = n, category = cat, kcal = 0.0, protein = 0.0, fat = 0.0, carbs = 0.0)).copy(
                         name = n, category = cat, kcal = kcal, protein = p, fat = f, carbs = u,
                         perPiece = piece, pieceGrams = if (piece) pg else null, aliases = list.joinToString(","), defaultGrams = portion,
-                        barcode = barcode.ifBlank { null }, photo = photo,
+                        barcode = barcode.ifBlank { null }, photo = photo, portions = app.fitfat.data.encodePortions(portions),
                         // Встроенный остаётся встроенным, пока его КБЖУ не правили; данные Open Food Facts — пока совпадают
                         source = when {
                             fromOff -> app.fitfat.data.SOURCE_OFF
@@ -242,6 +266,14 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
         }
     }
 
+    editingPortion?.let { i ->
+        PortionSheet(
+            initial = portions.getOrNull(i), unitKcal = if (piece) null else kcal,
+            onDismiss = { editingPortion = null },
+            onDelete = if (i >= 0) ({ portions = portions.filterIndexed { j, _ -> j != i }; editingPortion = null }) else null,
+            onSave = { np -> portions = if (i >= 0) portions.mapIndexed { j, x -> if (j == i) np else x } else portions + np; editingPortion = null },
+        )
+    }
     if (photoSheet) app.fitfat.ui.components.PhotoSheet(picker, photo != null, onDismiss = { photoSheet = false }, onRemove = { photo = null })
     if (confirmDelete && existing != null) {
         AlertDialog(
@@ -303,6 +335,44 @@ fun CategoryGrid(selected: String?, onSelect: (String) -> Unit) {
                     }
                 }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * Своя порция: название («тарелка», «1 штука») и вес линейкой. Слева «Удалить» (у существующей) или «Отмена»,
+ * справа «Сохранить». [unitKcal] — ккал на 100 г, чтобы показать калорийность порции.
+ */
+@Composable
+private fun PortionSheet(initial: app.fitfat.data.NamedPortion?, unitKcal: Double?, onDismiss: () -> Unit, onDelete: (() -> Unit)?, onSave: (app.fitfat.data.NamedPortion) -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    var name by remember { mutableStateOf(initial?.name ?: "") }
+    var grams by remember { mutableDoubleStateOf(initial?.grams ?: 100.0) }
+    val ok = name.isNotBlank() && grams > 0
+    app.fitfat.ui.components.FfSheet(onDismiss = onDismiss) {
+        Text(if (initial == null) "Новая порция" else "Порция", fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        TextInput(name, { name = it }, "Например: тарелка, 1 штука, стакан", 56.dp, "Название порции")
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.Bottom) {
+            Text(fmt0(grams), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(" г" + (unitKcal?.let { " · ${fmt0(it * grams / 100)} ккал" } ?: ""), fontSize = 15.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        GramRuler(grams.roundToInt(), { grams = it.toDouble() }, max = 2000)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (onDelete != null) {
+                Surface(onClick = onDelete, shape = RoundedCornerShape(24.dp), color = colors.errorContainer, modifier = Modifier.weight(1f).height(48.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Text("Удалить", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = colors.onErrorContainer) }
+                }
+            } else {
+                Surface(onClick = onDismiss, shape = RoundedCornerShape(24.dp), color = colors.surfaceContainerHighest, modifier = Modifier.weight(1f).height(48.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Text("Отмена", fontSize = 15.sp, fontWeight = FontWeight.Medium) }
+                }
+            }
+            Surface(
+                onClick = { onSave(app.fitfat.data.NamedPortion(name.trim(), grams)) }, enabled = ok, shape = RoundedCornerShape(24.dp),
+                color = if (ok) colors.primary else colors.surfaceContainerHighest, modifier = Modifier.weight(1f).height(48.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) { Text("Сохранить", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = if (ok) colors.onPrimary else colors.outline) }
             }
         }
     }

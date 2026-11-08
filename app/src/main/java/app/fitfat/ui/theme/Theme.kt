@@ -18,8 +18,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Схемы сгенерированы алгоритмом Material You (tonal spot) от seed #E8749F
-private val LightScheme = lightColorScheme(
+// «Розовый»: схемы сгенерированы алгоритмом Material You (tonal spot) от seed #E8749F
+internal val PinkLight = lightColorScheme(
     primary = Color(0xFF8B4A61),
     onPrimary = Color(0xFFFFFFFF),
     primaryContainer = Color(0xFFFFD9E3),
@@ -58,7 +58,7 @@ private val LightScheme = lightColorScheme(
     surfaceContainerLowest = Color(0xFFFFFFFF)
 )
 
-private val DarkScheme = darkColorScheme(
+internal val PinkDark = darkColorScheme(
     primary = Color(0xFFFFB0C9),
     onPrimary = Color(0xFF541D33),
     primaryContainer = Color(0xFF6F3349),
@@ -164,17 +164,16 @@ object MacroColors {
 
 @Composable
 fun FitfatTheme(
-    // Всегда тёмная; выбор темы появится в настройках позже
     darkTheme: Boolean = true,
     dynamicColor: Boolean = false,
+    palette: app.fitfat.data.AppPalette = app.fitfat.data.AppPalette.Graphite,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
     val scheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        darkTheme -> DarkScheme
-        else -> LightScheme
+        else -> schemeFor(palette, darkTheme)
     }
     // Значки строки состояния и навигации — по теме приложения, а не телефона (иначе тёмные на тёмном)
     val view = LocalView.current

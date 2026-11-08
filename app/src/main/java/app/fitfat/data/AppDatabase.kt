@@ -60,6 +60,8 @@ data class Product(
     val source: String? = null,
     /** Фото — имя файла в `files/photos` (см. [Photos]), 0.4. */
     val photo: String? = null,
+    /** Свои порции: строки «название ⇥ граммы» (через табуляцию), см. [namedPortions], 0.4. */
+    @ColumnInfo(defaultValue = "") val portions: String = "",
 )
 
 const val SOURCE_SEED = "seed"
@@ -178,6 +180,9 @@ interface FoodDao {
     @Query("SELECT * FROM food_entry WHERE epochDay = :day ORDER BY minute DESC, id DESC")
     fun observeDay(day: Long): Flow<List<FoodEntry>>
 
+    @Query("SELECT * FROM food_entry WHERE epochDay BETWEEN :from AND :to ORDER BY epochDay, minute")
+    fun observeRange(from: Long, to: Long): Flow<List<FoodEntry>>
+
     @Insert
     suspend fun insert(e: FoodEntry): Long
 
@@ -270,17 +275,32 @@ private val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
-@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class], version = 5, exportSchema = false)
+/** 0.4: именованные порции продукта — новая колонка, по умолчанию пустая. */
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `portions` TEXT NOT NULL DEFAULT ''")
+    }
+}
+
+/** 0.5: журнал тренировок — новая таблица, остальное не трогаем. */
+private val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `training` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `epochDay` INTEGER NOT NULL, `type` TEXT NOT NULL, `minutes` INTEGER NOT NULL)")
+    }
+}
+
+@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 7, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
     abstract fun productDao(): ProductDao
     abstract fun foodDao(): FoodDao
     abstract fun dishDao(): DishDao
+    abstract fun trainingDao(): TrainingDao
 
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "fitfat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         seed(db)

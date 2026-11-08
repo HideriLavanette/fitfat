@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import app.fitfat.data.namedPortions
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -137,6 +138,7 @@ fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> U
     FfDialog(onDismiss, top = 210.dp, width = 342.dp) {
         DialogCard(16.dp) {
             DialogHeader(p, perLine(p))
+            PortionChips(p, gramsNow) { pg -> if (p.perPiece) n = piecesFor(p, pg) else g = pg }
             if (p.perPiece) {
                 PieceStepper(n, { n = it }, p.pieceGrams ?: 0.0)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.Bottom) { KcalText(m.kcal) }
@@ -161,6 +163,39 @@ fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> U
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogButtons("Отмена", colors.primary, onDismiss, "Добавить", { onAdd(gramsNow, if (p.perPiece) n else null) })
+            }
+        }
+    }
+}
+
+/** Штуки под вес порции: до 0,5 шт, не меньше 0,5. */
+private fun piecesFor(p: Product, grams: Double): Double {
+    val pg = p.pieceGrams?.takeIf { it > 0 } ?: return 1.0
+    return ((grams / pg) * 2).roundToInt().coerceAtLeast(1) / 2.0
+}
+
+/**
+ * Свои порции продукта чипами над линейкой: «Обычная · 200 г», «тарелка · 300 г». Тап — вес порции;
+ * чип, совпадающий с текущим весом, выделен. Нет своих порций — ряда нет.
+ */
+@Composable
+private fun PortionChips(p: Product, gramsNow: Double, onPick: (Double) -> Unit) {
+    val named = p.namedPortions
+    if (named.isEmpty()) return
+    val colors = MaterialTheme.colorScheme
+    val all = (if (p.perPiece) emptyList() else listOf(app.fitfat.data.NamedPortion("Обычная", p.defaultGrams))) + named
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        all.forEach { np ->
+            val sel = kotlin.math.abs(np.grams - gramsNow) < 0.5
+            val bg by androidx.compose.animation.animateColorAsState(if (sel) colors.secondaryContainer else colors.surfaceContainerHighest, label = "pc")
+            Surface(onClick = { onPick(np.grams) }, shape = RoundedCornerShape(if (sel) 16.dp else 8.dp), color = bg, modifier = Modifier.heightIn(min = 32.dp)) {
+                Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), contentAlignment = Alignment.Center) {
+                    Text("${np.name} · ${fmt0(np.grams)} г", fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                        color = if (sel) colors.onSecondaryContainer else colors.onSurface)
+                }
             }
         }
     }
@@ -208,6 +243,7 @@ fun EditPickedDialog(
     FfDialog(onDismiss, top = 170.dp, width = 350.dp) {
         DialogCard(14.dp) {
             DialogHeader(p, perLine(p))
+            PortionChips(p, gramsNow) { pg -> if (p.perPiece) n = piecesFor(p, pg) else g = pg }
             if (p.perPiece) {
                 PieceStepper(n, { n = it }, p.pieceGrams ?: 0.0)
             } else {
@@ -240,7 +276,7 @@ private val shortMonths = listOf("янв", "фев", "мар", "апр", "мая
 
 /** Подпись чипа времени: «Сейчас · Обед», «Вчера, 13:40 · Обед», «4 нояб, 13:40 · Ужин». */
 fun whenLabel(date: LocalDate, time: LocalTime, meal: Meal, touched: Boolean): String {
-    val today = LocalDate.now()
+    val today = app.fitfat.data.DayClock.today()
     if (!touched && date == today) return "Сейчас · ${meal.label}"
     val day = when (date) {
         today -> ""
@@ -259,7 +295,7 @@ fun whenLabel(date: LocalDate, time: LocalTime, meal: Meal, touched: Boolean): S
 @Composable
 fun WhenSheet(vm: AddFoodViewModel, onDismiss: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val today = LocalDate.now()
+    val today = app.fitfat.data.DayClock.today()
     var other by remember { mutableStateOf(vm.date != today && vm.date != today.minusDays(1)) }
     var calendar by remember { mutableStateOf(false) }
     var clock by remember { mutableStateOf(false) }
@@ -463,10 +499,11 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
             PillToggle(listOf("100 г", "1 шт"), if (piece) 1 else 0, onSelect = { piece = it == 1 }, height = 36.dp, fontSize = 13.sp, fill = false)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer)
-            VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer)
-            VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer)
+            VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+            VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+            VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
         }
+        Text("Нажмите на число, чтобы ввести точно — например 25,3", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
         if (piece) {
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Вес одной штуки", fontSize = 14.sp, modifier = Modifier.weight(1f))

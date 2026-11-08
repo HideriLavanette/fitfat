@@ -60,7 +60,7 @@ fun MonthCalendar(
     onPick: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val today = remember { LocalDate.now() }
+    val today = remember { app.fitfat.data.DayClock.today() }
     var month by remember { mutableStateOf(YearMonth.from(selected)) }
     val marked by remember(month) { daysWithEntries(month) }.collectAsState(initial = emptyList())
     val colors = MaterialTheme.colorScheme

@@ -8,6 +8,12 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -96,7 +102,10 @@ import kotlin.math.exp
 import kotlin.math.min
 
 private val ru = Locale("ru")
-private val longDate = DateTimeFormatter.ofPattern("EEEE, d MMMM", ru)
+private val weekday = DateTimeFormatter.ofPattern("EEEE", ru)
+private val monthShort = listOf("янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "нояб", "дек")
+/** «суббота, 7 нояб» — месяц коротко, чтобы « · тренировка» влезала целиком. */
+private fun subtitleDate(d: LocalDate) = "${d.format(weekday)}, ${d.dayOfMonth} ${monthShort[d.monthValue - 1]}"
 /** Свайп строки: предел сдвига под сопротивлением, мягкость, порог срыва (dp). */
 private const val SWIPE_RESIST = 56f
 private const val SWIPE_SOFT = 70f
@@ -115,7 +124,7 @@ private fun timeBlocks(entries: List<FoodEntry>): List<List<FoodEntry>> {
     val blocks = mutableListOf<MutableList<FoodEntry>>()
     entries.forEach { e ->
         val cur = blocks.lastOrNull()
-        if (cur != null && cur.last().minute - e.minute <= BLOCK_GAP_MIN) cur += e else blocks += mutableListOf(e)
+        if (cur != null && app.fitfat.data.DayClock.order(cur.last().minute) - app.fitfat.data.DayClock.order(e.minute) <= BLOCK_GAP_MIN) cur += e else blocks += mutableListOf(e)
     }
     return blocks
 }
@@ -125,7 +134,8 @@ private fun timeBlocks(entries: List<FoodEntry>): List<List<FoodEntry>> {
  * отрицательные отступы макета (−4, −8, −6) учтены в верхних отступах элементов.
  */
 @Composable
-fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight: (LocalDate) -> Unit, onAdd: (LocalDate, androidx.compose.ui.geometry.Rect?) -> Unit, onProduct: (Long) -> Unit = {}, onBase: () -> Unit = {}) {
+fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight: (LocalDate) -> Unit, onAdd: (LocalDate, androidx.compose.ui.geometry.Rect?) -> Unit, onProduct: (Long) -> Unit = {}, onBase: () -> Unit = {},
+    plateau: PlateauOffer? = null, onPlateauCut: () -> Unit = {}, onPlateauLater: () -> Unit = {}, onWeek: () -> Unit = {}) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val deleted by vm.lastDeleted.collectAsStateWithLifecycle()
     val snack = remember { SnackbarHostState() }
@@ -147,7 +157,11 @@ fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight:
             item(key = "types") {
                 DayTypes(ui, onPick = vm::setDayType, modifier = Modifier.padding(top = 12.dp))
             }
-            item(key = "card") { ProgressCard(ui, Modifier.padding(top = 16.dp)) }
+            item(key = "card") { ProgressCard(ui, Modifier.padding(top = 16.dp), onWeek) }
+            // Карточка застоя — только на сегодня
+            if (plateau != null && ui.date == app.fitfat.data.DayClock.today()) item(key = "plateau") {
+                PlateauCard(plateau, onPlateauCut, onPlateauLater, Modifier.padding(top = 16.dp).animateItem())
+            }
             item(key = "diary") {
                 Row(Modifier.padding(top = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Дневник", fontSize = 20.sp, fontWeight = FontWeight(650), modifier = Modifier.weight(1f).padding(start = 8.dp))
@@ -274,7 +288,7 @@ private fun typeColor(t: DayType, secondary: Color, training: Color, cycle: Colo
  */
 @Composable
 private fun DateCapsule(date: LocalDate, dayType: DayType, onSelect: (LocalDate) -> Unit, onPick: () -> Unit, modifier: Modifier) {
-    val today = remember { LocalDate.now() }
+    val today = remember { app.fitfat.data.DayClock.today() }
     fun pageOf(d: LocalDate) = (DAY_PAGES - 1 - ChronoUnit.DAYS.between(d, today)).toInt().coerceIn(0, DAY_PAGES - 1)
     fun dateOf(page: Int) = today.minusDays((DAY_PAGES - 1 - page).toLong())
     val pager = rememberPagerState(initialPage = pageOf(date)) { DAY_PAGES }
@@ -303,7 +317,9 @@ private fun DateCapsule(date: LocalDate, dayType: DayType, onSelect: (LocalDate)
                 val typed = d == date && dayType != DayType.Normal
                 Column(Modifier.fillMaxSize().padding(horizontal = 38.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text(title, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight(650), maxLines = 1)
-                    DateSubtitle(d.format(longDate), typed, if (d == date) dayType else DayType.Normal)
+                    // Дата уже в заголовке («4 ноября») — в подписи только день недели, без повтора
+                    val relative = d == today || d == today.minusDays(1) || d == today.minusDays(2)
+                    DateSubtitle(if (relative) subtitleDate(d) else d.format(weekday), typed, if (d == date) dayType else DayType.Normal)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -317,38 +333,42 @@ private fun DateCapsule(date: LocalDate, dayType: DayType, onSelect: (LocalDate)
 }
 
 /**
- * Подпись даты в капсуле: «суббота, 7 ноября» и « · тренировка» в цвете типа дня. При смене типа
- * цвет перетекает, а хвост « · тренировка» выезжает и уезжает, сдвигая дату по центру. Размер шрифта
- * подбирается под самую длинную строку, чтобы при крупном шрифте ничего не прыгало.
+ * Подпись даты в капсуле: «суббота, 7 нояб» и справа чип типа дня — закруглённый контейнер цвета типа со значком
+ * (гантель — тренировка, капля — цикл; решение 08.11.2026 вместо слова). Чип выезжает и уезжает, сдвигая дату по центру.
+ * Размер шрифта подбирается под строку с чипом, чтобы при крупном шрифте ничего не прыгало.
  */
 @Composable
 private fun DateSubtitle(base: String, typed: Boolean, type: DayType) {
     val colors = MaterialTheme.colorScheme
-    // Хвост помнит последний особый тип — уезжает со своим словом и цветом
+    // Чип помнит последний особый тип — уезжает со своим значком и цветом
     var last by remember { mutableStateOf(DayType.Training) }
     if (type != DayType.Normal) last = type
-    val tail = " · " + last.label.lowercase()
-    val tailColor = typeColor(last, colors.secondary, MacroColors.training, MacroColors.cycle)
-    val t by animateFloatAsState(if (typed) 1f else 0f, tween(260), label = "typed")
-    val ink by animateColorAsState(if (typed) tailColor else colors.onSurfaceVariant, tween(260), label = "ink")
+    val ink = if (last == DayType.Cycle) MacroColors.cycle else MacroColors.training
+    val box = if (last == DayType.Cycle) MacroColors.cycleContainer else MacroColors.trainingContainer
+    val icon = if (last == DayType.Cycle) MockIcons.Drop else MockIcons.Dumbbell
     val measurer = androidx.compose.ui.text.rememberTextMeasurer()
-    val style = androidx.compose.material3.LocalTextStyle.current.merge(androidx.compose.ui.text.TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold))
+    val style = androidx.compose.material3.LocalTextStyle.current.merge(androidx.compose.ui.text.TextStyle(fontSize = 13.sp))
+    val chipPx = with(LocalDensity.current) { 34.dp.toPx() }
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         val maxW = constraints.maxWidth
-        val scale = remember(base, tail, maxW, style) {
-            val w = measurer.measure(base + tail, style, maxLines = 1, softWrap = false).size.width
+        val scale = remember(base, maxW, style) {
+            val w = measurer.measure(base, style, maxLines = 1, softWrap = false).size.width + chipPx
             if (w <= maxW) 1f else (maxW * 0.98f / w).coerceAtLeast(0.7f)
         }
         val size = 13.sp * scale
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(base, fontSize = size, lineHeight = (size.value * 1.3f).sp, maxLines = 1, softWrap = false, color = ink,
-                fontWeight = if (t > 0.5f) FontWeight.SemiBold else FontWeight.Normal)
+            Text(base, fontSize = size, lineHeight = (size.value * 1.3f).sp, maxLines = 1, softWrap = false, color = colors.onSurfaceVariant)
             androidx.compose.animation.AnimatedVisibility(
                 visible = typed,
                 enter = androidx.compose.animation.expandHorizontally(tween(260), expandFrom = Alignment.Start) + androidx.compose.animation.fadeIn(tween(260)),
                 exit = androidx.compose.animation.shrinkHorizontally(tween(260), shrinkTowards = Alignment.Start) + androidx.compose.animation.fadeOut(tween(200)),
             ) {
-                Text(tail, fontSize = size, lineHeight = (size.value * 1.3f).sp, maxLines = 1, softWrap = false, color = tailColor, fontWeight = FontWeight.SemiBold)
+                val boxC by animateColorAsState(box, tween(260), label = "chipBg")
+                val inkC by animateColorAsState(ink, tween(260), label = "chipInk")
+                Box(Modifier.padding(start = 6.dp).height(18.dp).clip(RoundedCornerShape(9.dp)).background(boxC).padding(horizontal = 7.dp)
+                    .semantics { contentDescription = if (last == DayType.Cycle) "Цикл" else "Тренировка" }, contentAlignment = Alignment.Center) {
+                    Icon(icon, null, Modifier.size(13.dp), tint = inkC)
+                }
             }
         }
     }
@@ -380,9 +400,29 @@ private fun DayTypes(ui: TodayUi, onPick: (DayType) -> Unit, modifier: Modifier)
     )
 }
 
+private val cutDays = java.time.format.DateTimeFormatter.ofPattern("EEEE", java.util.Locale("ru"))
+
+/** Плашка компенсации: скругление 14, `surfaceContainerHigh`, текст 12 `onSurfaceVariant`, шеврон; тап — «Неделя». */
+@Composable
+private fun CompensationNote(cut: Double, from: List<LocalDate>, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val days = from.distinct().joinToString(", ") { if (it == app.fitfat.data.DayClock.today().minusDays(1)) "вчера" else it.format(cutDays) }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(colors.surfaceContainerHigh).clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text(
+            "Норма снижена на ${fmt0(cut)} ккал — компенсация переборов этой недели" + (if (days.isNotEmpty()) " ($days)" else "") + ". Белок не урезается.",
+            fontSize = 12.sp, lineHeight = 16.sp, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f),
+        )
+        Icon(MockIcons.ChevronRight, "Открыть неделю", Modifier.size(16.dp), tint = colors.onSurfaceVariant)
+    }
+}
+
 /** Карточка прогресса: скругление 32, `surfaceContainer`, поля 20, промежуток 20; кольцо 256. */
 @Composable
-private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
+private fun ProgressCard(ui: TodayUi, modifier: Modifier, onWeek: () -> Unit = {}) {
     val e = ui.eaten
     val colors = MaterialTheme.colorScheme
     // Нормы и цвета меняются плавно: пружина подхватывает движение с текущего значения,
@@ -392,7 +432,7 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
     val nP by animateFloatAsState(ui.norms.protein.toFloat(), sp, label = "np")
     val nF by animateFloatAsState(ui.norms.fat.toFloat(), sp, label = "nf")
     val nU by animateFloatAsState(ui.norms.carbs.toFloat(), sp, label = "nu")
-    val extraT = (ui.norms.carbs - ui.baseNorms.carbs).coerceAtLeast(0.0).toFloat()
+    val extraT = (ui.typeNorms.carbs - ui.baseNorms.carbs).coerceAtLeast(0.0).toFloat()
     val extra by animateFloatAsState(extraT, sp, label = "ex")
     val fraction by animateFloatAsState(if (ui.norms.kcal > 0) (e.kcal / ui.norms.kcal).toFloat() else 0f, sp, label = "fr")
     // Съеденное тоже перетекает: при смене дня числа досчитываются, полосы доезжают
@@ -425,8 +465,9 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
                         fontSize = 52.sp, lineHeight = 52.sp, fontWeight = FontWeight(750), letterSpacing = (-1.5).sp,
                         color = kcalInk,
                     )
-                    Text(if (over) "ккал сверх нормы" else "ккал осталось", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-                    Text("${fmt0(eK.toDouble())} из ${fmt0(nK.toDouble())}", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+                    Text(if (over) "ккал сверх нормы" else "ккал осталось", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.offset(y = (-4).dp))
+                    // «ккал осталось» относится к числу — к нему ближе, чем к «0 из 1 829»
+                    Text("${fmt0(eK.toDouble())} из ${fmt0(nK.toDouble())}", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
                 }
             }
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -434,6 +475,10 @@ private fun ProgressCard(ui: TodayUi, modifier: Modifier) {
                 MacroBar("Жиры", eF.toDouble(), nF.toDouble(), MacroColors.fat, MacroColors.fatContainer)
                 // Прибавка углеводов в день тренировки / цикла — отдельной частью полосы своим цветом
                 MacroBar("Углеводы", eU.toDouble(), nU.toDouble(), MacroColors.carbs, MacroColors.carbsContainer, extra.toDouble(), xc, xt)
+            }
+            // Компенсация переборов (макет Today: плашка под полосками, ведёт в «Неделю»)
+            AnimatedVisibility(ui.cut >= 1, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                CompensationNote(ui.cut, ui.cutFrom, onWeek)
             }
         }
     }
@@ -591,6 +636,46 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
                     Text(fmt0(e.kcal), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                     Text(amount, fontSize = 13.sp, color = colors.onSurfaceVariant)
                 }
+            }
+        }
+    }
+}
+
+/** Предложение среза при застое: изменение тренда за 14 дней, нормы обычного дня до и после. */
+data class PlateauOffer(val dropKg: Double, val before: app.fitfat.data.Macros, val after: app.fitfat.data.Macros)
+
+/**
+ * «Вес стоит 2 недели»: карточка 24 `surfaceContainerHigh` под кольцом. Что меняется — жиры и углеводы до → после,
+ * белок не трогаем. «Позже» (слева, на 3 дня) и «Срезать 150 ккал» (справа, `primary`).
+ */
+@Composable
+private fun PlateauCard(o: PlateauOffer, onCut: () -> Unit, onLater: () -> Unit, modifier: Modifier) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainerHigh).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.secondaryContainer), contentAlignment = Alignment.Center) {
+                Icon(MockIcons.NavWeight, null, Modifier.size(18.dp), tint = colors.onSecondaryContainer)
+            }
+            Text("Вес стоит 2 недели", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        }
+        val drop = "%.1f".format(java.util.Locale("ru"), kotlin.math.abs(o.dropKg))
+        val parts = listOfNotNull(
+            if (o.after.fat != o.before.fat) "жиры ${fmt0(o.before.fat)} → ${fmt0(o.after.fat)} г" else null,
+            if (o.after.carbs != o.before.carbs) "углеводы ${fmt0(o.before.carbs)} → ${fmt0(o.after.carbs)} г" else null,
+        ).joinToString(", ")
+        Text(
+            "Тренд за 14 дней: ${if (o.dropKg > 0) "+" else "−"}$drop кг. Предлагаю срезать ${fmt0(o.before.kcal - o.after.kcal)} ккал: $parts. Белок не трогаем.",
+            fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant,
+        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Surface(onClick = onLater, shape = RoundedCornerShape(20.dp), color = Color.Transparent, modifier = Modifier.weight(1f).height(40.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("Позже", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colors.primary) }
+            }
+            Surface(onClick = onCut, shape = RoundedCornerShape(20.dp), color = colors.primary, modifier = Modifier.weight(1.4f).height(40.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("Срезать ${fmt0(o.before.kcal - o.after.kcal)} ккал", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onPrimary) }
             }
         }
     }

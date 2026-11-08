@@ -1,5 +1,6 @@
 package app.fitfat.ui.add
 
+import app.fitfat.data.DayClock
 import android.app.Application
 import android.content.Context
 import androidx.compose.runtime.getValue
@@ -53,7 +54,7 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     var text by mutableStateOf("")
         private set
     val picked = mutableStateListOf<Picked>()
-    var date by mutableStateOf(LocalDate.now())
+    var date by mutableStateOf(DayClock.today())
         private set
     var time by mutableStateOf(LocalTime.now())
         private set
@@ -92,7 +93,7 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
         setDay(d)
         text = ""; picked.clear()
         time = LocalTime.now(); meal = Meal.byTime(time); mealFlow.value = meal
-        mealTouched = false; timeTouched = d != LocalDate.now()
+        mealTouched = false; timeTouched = d != DayClock.today()
     }
 
     fun onText(t: String) { text = t }
@@ -108,7 +109,7 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
 
     /** «Сейчас»: сегодня, текущее время, приём по времени. */
     fun now() {
-        setDay(LocalDate.now())
+        setDay(DayClock.today())
         time = LocalTime.now(); meal = Meal.byTime(time); mealFlow.value = meal
         mealTouched = false; timeTouched = false
     }
