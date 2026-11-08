@@ -15,6 +15,8 @@ val keystorePath: String? = System.getenv("KEYSTORE_FILE")
 // Вход через Google: идентификатор веб-клиента OAuth из Google Cloud (не секрет, виден в любом APK).
 // Пусто — кнопка «Подключить» объясняет, что вход ещё не настроен.
 val googleWebClientId = (findProperty("googleWebClientId") as String?) ?: ""
+// Ассистент: адрес Worker'а из server/assistant (DESIGN.md, «Ассистент»). Пусто — кнопки ассистента нет.
+val assistantUrl = (findProperty("assistantUrl") as String?)?.trimEnd('/') ?: ""
 
 android {
     namespace = "app.fitfat"
@@ -28,6 +30,7 @@ android {
         versionName = appVersionName
         buildConfigField("String", "UPDATE_REPO", "\"$updateRepo\"")
         buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
+        buildConfigField("String", "ASSISTANT_URL", "\"$assistantUrl\"")
         vectorDrawables { useSupportLibrary = true }
     }
 

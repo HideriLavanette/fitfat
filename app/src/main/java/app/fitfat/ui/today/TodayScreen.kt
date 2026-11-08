@@ -198,7 +198,7 @@ fun TodayScreen(vm: TodayViewModel, weightFor: (LocalDate) -> Double?, onWeight:
                                 MealSection(
                                     title = title,
                                     sub = if (byMeal) "" else "  ·  " + Meal.of(list.first().meal).label,
-                                    list = list, showTime = byMeal,
+                                    list = list, showTime = byMeal, nudgeId = if (gi == 0) list.first().id else -1,
                                     onTap = { editing = it to false },
                                     onRepeat = { editing = it to true },
                                     onDelete = vm::delete,
@@ -526,6 +526,8 @@ private fun MealSection(
     title: String, sub: String, list: List<FoodEntry>, showTime: Boolean,
     onTap: (FoodEntry) -> Unit, onRepeat: (FoodEntry) -> Unit, onDelete: (FoodEntry) -> Unit,
     modifier: Modifier,
+    /** Запись, которая подсказывает свайп подтягиванием (первая в дне), или -1. */
+    nudgeId: Long = -1,
 ) {
     val colors = MaterialTheme.colorScheme
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -539,7 +541,7 @@ private fun MealSection(
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainerLow)) {
             list.forEach { e ->
                 androidx.compose.runtime.key(e.id) {
-                    EntryRow(e, showTime, onTap = { onTap(e) }, onRepeat = { onRepeat(e) }, onDelete = { onDelete(e) })
+                    EntryRow(e, showTime, onTap = { onTap(e) }, onRepeat = { onRepeat(e) }, onDelete = { onDelete(e) }, first = e.id == nudgeId)
                 }
             }
         }
@@ -552,7 +554,7 @@ private fun MealSection(
  * «Повторить», слева — `errorContainer` «Удалить», подпись проявляется к 90 dp.
  */
 @Composable
-private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepeat: () -> Unit, onDelete: () -> Unit) {
+private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepeat: () -> Unit, onDelete: () -> Unit, first: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -562,6 +564,9 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
     val repeat by rememberUpdatedState(onRepeat)
     val delete by rememberUpdatedState(onDelete)
     val d = dx.value
+    val hints = remember { app.fitfat.data.Hints.get(view.context) }
+    // Первая запись дня сама тянется в обе стороны, пока свайп не пробовали
+    app.fitfat.ui.components.SwipeNudge(dx, app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_DIARY, first), both = true)
     Box(Modifier.fillMaxWidth().heightIn(min = 64.dp)) {
         // Подложка
         Row(
@@ -595,7 +600,7 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
                     // дальше строка догоняет палец и идёт за ним один в один. Вернули палец — снова прилипает.
                     var raw = 0f
                     detectHorizontalDragGestures(
-                        onDragStart = { raw = dx.value; released = false },
+                        onDragStart = { raw = dx.value; released = false; hints.used(app.fitfat.data.Hints.SWIPE_DIARY) },
                         onDragEnd = {
                             val v = dx.value
                             val wasReleased = released

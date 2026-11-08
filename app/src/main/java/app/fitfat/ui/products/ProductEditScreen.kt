@@ -84,6 +84,10 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
     var name by remember { mutableStateOf(start?.name ?: "") }
     var cat by remember { mutableStateOf(start?.category ?: "grain") }
     var piece by remember { mutableStateOf(existing?.perPiece ?: false) }
+    // Сухой / сырой / готовый вес: у нового — догадка по названию, пока не выбрали руками
+    var weightState by remember { mutableStateOf(start?.weightState ?: start?.name?.let(app.fitfat.data.WeightState::guess)) }
+    var weightTouched by remember { mutableStateOf(existing != null) }
+    LaunchedEffect(name) { if (!weightTouched) weightState = app.fitfat.data.WeightState.guess(name) }
     var pieceG by remember { mutableStateOf(existing?.pieceGrams?.let { fmt0(it) } ?: "") }
     var p by remember { mutableDoubleStateOf(start?.protein ?: 0.0) }
     var f by remember { mutableDoubleStateOf(start?.fat ?: 0.0) }
@@ -171,6 +175,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                 Caption("Категория")
                 CategoryGrid(cat) { cat = it }
             }
+            WeightStatePicker(weightState) { weightState = it; weightTouched = true }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(if (piece) "КБЖУ на 1 шт" else "КБЖУ на 100 г", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -197,7 +202,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                 }
                 val mx = if (piece) 150.0 else 100.0
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VerticalDrum(p, { p = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(p, { p = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true, hint = true)
                     VerticalDrum(f, { f = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                     VerticalDrum(u, { u = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                 }
@@ -247,10 +252,12 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                         name = n, category = cat, kcal = kcal, protein = p, fat = f, carbs = u,
                         perPiece = piece, pieceGrams = if (piece) pg else null, aliases = list.joinToString(","), defaultGrams = portion,
                         barcode = barcode.ifBlank { null }, photo = photo, portions = app.fitfat.data.encodePortions(portions),
+                        weightState = weightState,
                         // Встроенный остаётся встроенным, пока его КБЖУ не правили; данные Open Food Facts — пока совпадают
                         source = when {
                             fromOff -> app.fitfat.data.SOURCE_OFF
                             existing?.source == app.fitfat.data.SOURCE_SEED && !touched -> app.fitfat.data.SOURCE_SEED
+                            existing?.source == app.fitfat.data.SOURCE_AI && !touched -> app.fitfat.data.SOURCE_AI
                             else -> app.fitfat.data.SOURCE_MANUAL
                         },
                     ),

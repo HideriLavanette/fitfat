@@ -1,5 +1,6 @@
 package app.fitfat.ui.profile
 
+import app.fitfat.data.Hints
 import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -168,6 +169,10 @@ fun SettingsScreen(
 
         Group("Ввод") {
             SwitchRow(MockIcons.Repeat, "Звук и вибрация колеса", "Щелчки при кручении барабанов и линеек", haptic) { AppSettings.setHaptic(it) }
+            val hintsCtx = androidx.compose.ui.platform.LocalContext.current
+            NavRow(MockIcons.Bulb, "Показать подсказки заново", "Палец на барабанах и подтягивание строк со свайпом") {
+                Hints.get(hintsCtx).reset(); message = "Подсказки снова появятся на своих экранах."
+            }
         }
 
         Group("Дневник") {
@@ -339,7 +344,7 @@ private fun ScheduleSheet(title: String, initial: Schedule, single: Boolean, pre
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            VerticalDrum(h, { h = it }, 0.0, 23.0, 1.0, Modifier.weight(1f), label = "Часы", height = 150)
+            VerticalDrum(h, { h = it }, 0.0, 23.0, 1.0, Modifier.weight(1f), label = "Часы", height = 150, hint = true)
             VerticalDrum(m, { m = it }, 0.0, 55.0, 5.0, Modifier.weight(1f), label = "Минуты", height = 150)
         }
         Text(

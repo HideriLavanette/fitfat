@@ -97,7 +97,7 @@ fun EntrySheet(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Tile(MockIcons.Delete, "Удалить", colors.error, colors.error, onDelete)
                 Tile(MockIcons.Repeat, "Повторить", colors.onSurface, colors.onSurfaceVariant, onSwitchToRepeat)
-                if (onCard != null) Tile(MockIcons.Edit, "Карточка", colors.onSurface, colors.onSurfaceVariant, onCard)
+                if (onCard != null) Tile(MockIcons.Card, "Карточка", colors.onSurface, colors.onSurfaceVariant, onCard)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

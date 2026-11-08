@@ -221,7 +221,7 @@ internal fun AboutStep(p: Profile, onChange: (Profile) -> Unit) {
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Пол" }, height = 52.dp, fontSize = 16.sp,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            VerticalDrum(p.age.toDouble(), { onChange(p.copy(age = it.toInt())) }, 14.0, 90.0, 1.0, Modifier.weight(1f), label = "Возраст", height = 220)
+            VerticalDrum(p.age.toDouble(), { onChange(p.copy(age = it.toInt())) }, 14.0, 90.0, 1.0, Modifier.weight(1f), label = "Возраст", height = 220, hint = true)
             VerticalDrum(p.heightCm.toDouble(), { onChange(p.copy(heightCm = it.toInt())) }, 120.0, 230.0, 1.0, Modifier.weight(1f), label = "Рост, см", height = 220)
             VerticalDrum(p.weightKg, { onChange(p.copy(weightKg = it)) }, 35.0, 250.0, 0.5, Modifier.weight(1f), label = "Вес, кг", decimals = 1, height = 220)
         }

@@ -1,0 +1,15 @@
+# Посредник ассистента FitFat (DESIGN.md, «Ассистент»). Как развернуть — README.md рядом.
+name = "fitfat-assistant"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+# Web Client ID из Google Cloud Console — тот же, что googleWebClientId в gradle.properties
+GOOGLE_CLIENT_ID = "708835430684-gcd4jakjonpkrepbjkqihc8bagpo5bqr.apps.googleusercontent.com"
+# Почты, которым можно пользоваться ассистентом, через запятую. Пусто — никому.
+ALLOWED_EMAILS = "eldiderry@gmail.com"
+# Модель Claude. Не дороже Sonnet: Opus для оценки блюд избыточен (решение 08.11.2026)
+MODEL = "claude-sonnet-5-5"
+
+# Ключ Anthropic — НЕ здесь. Он задаётся секретом: npx wrangler secret put ANTHROPIC_API_KEY

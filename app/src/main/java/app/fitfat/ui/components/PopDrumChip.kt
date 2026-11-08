@@ -100,6 +100,8 @@ fun RowScope.PopDrumChip(
     display: (Double) -> String = { String.format(Locale("ru"), "%.1f", it) },
     min: Double = 0.0,
     max: Double = Double.MAX_VALUE,
+    /** Палец-подсказка «нажмите или удерживайте и ведите» (первый чип в группе; DESIGN.md, «Подсказки и жесты»). */
+    hint: Boolean = false,
 ) {
     val view = LocalView.current
     val density = LocalDensity.current.density
@@ -130,7 +132,9 @@ fun RowScope.PopDrumChip(
 
     Box(Modifier.weight(weight)) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp).onSizeChanged { chipW = it.width / density }.clip(RoundedCornerShape(12.dp)).background(bg)
+            Modifier.fillMaxWidth().heightIn(min = 44.dp)
+                .fingerHint(app.fitfat.data.Hints.DRUM_CHIP, FingerGesture.TapHold, hint)
+                .onSizeChanged { chipW = it.width / density }.clip(RoundedCornerShape(12.dp)).background(bg)
                 .semantics(mergeDescendants = true) { contentDescription = "$label: ${display(value)} $unit. Нажмите, чтобы изменить" }
                 .pointerInput(Unit) {
                     awaitEachGesture {

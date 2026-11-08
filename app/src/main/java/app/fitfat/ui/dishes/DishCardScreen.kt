@@ -2,6 +2,7 @@ package app.fitfat.ui.dishes
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -163,11 +165,25 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                     // Фото 84 × 84 (скругление 22), как в макете 4.4
                     app.fitfat.ui.components.PhotoTile(photo, 84.dp, 22.dp, picker.busy) { focus.clearFocus(); photoSheet = true }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // Название — в рамке (видно, что это поле); пустое — серая подсказка и карандаш
                         BasicTextField(
                             name, { name = it }, singleLine = true,
-                            textStyle = TextStyle(color = colors.onSurface, fontSize = 24.sp, fontWeight = FontWeight.SemiBold), cursorBrush = SolidColor(colors.primary),
+                            textStyle = TextStyle(color = colors.onSurface, fontSize = 22.sp, fontWeight = FontWeight.SemiBold), cursorBrush = SolidColor(colors.primary),
                             modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Название блюда" },
-                            decorationBox = { inner -> Box { if (name.isEmpty()) Text("Название блюда", fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant); inner() } },
+                            decorationBox = { inner ->
+                                Row(
+                                    Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                                        .border(1.dp, colors.outlineVariant, RoundedCornerShape(14.dp))
+                                        .padding(start = 12.dp, end = 10.dp, top = 6.dp, bottom = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Box(Modifier.weight(1f)) {
+                                        if (name.isEmpty()) Text("Название блюда", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = colors.onSurfaceVariant, maxLines = 1)
+                                        inner()
+                                    }
+                                    if (name.isEmpty()) Icon(MockIcons.Edit, null, Modifier.size(20.dp), tint = colors.onSurfaceVariant)
+                                }
+                            },
                         )
                         Text("Блюдо · ${ingredientsWord(items.size)} · готовый вес ${fmt0(cookedNow)} г", fontSize = 13.sp, color = colors.onSurfaceVariant)
                     }
@@ -200,6 +216,12 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                     MiniChip(fmt1(total.fat * k100), "г", MacroColors.fat, MacroColors.fatContainer)
                     MiniChip(fmt1(total.carbs * k100), "г", MacroColors.carbs, MacroColors.carbsContainer)
                 }
+                // Блюдо считается на готовый вес, ингредиенты — до готовки (DESIGN.md, «Сухой и готовый вес»)
+                app.fitfat.ui.products.WeightNote(
+                    "Готовое блюдо · ингредиенты до готовки",
+                    "КБЖУ блюда — на 100 г готового. Ингредиенты вписывайте в сухом или сыром весе, до готовки: у варёного и жареного цифры сильно различаются, а по сухой массе расчёт точнее всего.",
+                    warn = false,
+                )
                 // Состав
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.Bottom) {
@@ -209,7 +231,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerLow)) {
                         items.forEachIndexed { i, x ->
                             androidx.compose.runtime.key(x.productId, i) {
-                                IngredientRow(x, all.firstOrNull { it.id == x.productId },
+                                IngredientRow(x, all.firstOrNull { it.id == x.productId }, first = i == 0,
                                     onGrams = { g -> items[i] = x.copy(grams = g) },
                                     onDelete = {
                                         val removed = items.removeAt(i)
@@ -220,7 +242,6 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                                 )
                             }
                         }
-                        if (items.isNotEmpty()) Text("Нажмите на вес или удерживайте его и ведите вверх-вниз. Смахните влево, чтобы убрать.", fontSize = 12.sp, lineHeight = 16.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 10.dp))
                         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { focus.clearFocus(); picking = true }.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(MockIcons.Plus, null, Modifier.size(20.dp), tint = colors.onSurfaceVariant)
                             Text("Ингредиент", fontSize = 15.sp, fontWeight = FontWeight.Medium)
@@ -294,21 +315,13 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
     }
 }
 
-/** Ингредиент: плашка 36, название и его КБЖУ, вес — чип с барабаном. Смахнуть влево — убрать. */
-@OptIn(ExperimentalMaterial3Api::class)
+/** Ингредиент: плашка 36, название и его КБЖУ, вес — чип с барабаном. Смахнуть влево — убрать (с сопротивлением, как дневник). */
 @Composable
-private fun IngredientRow(x: DishIngredient, p: Product?, onGrams: (Double) -> Unit, onDelete: () -> Unit) {
+private fun IngredientRow(x: DishIngredient, p: Product?, first: Boolean, onGrams: (Double) -> Unit, onDelete: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val state = rememberSwipeToDismissBoxState(confirmValueChange = { if (it == SwipeToDismissBoxValue.EndToStart) { onDelete(); true } else false })
-    SwipeToDismissBox(
-        state, enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Row(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(colors.errorContainer).padding(horizontal = 20.dp), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                Text("Удалить", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onErrorContainer)
-                Spacer(Modifier.width(8.dp))
-                Icon(MockIcons.Delete, null, Modifier.size(20.dp), tint = colors.onErrorContainer)
-            }
-        },
+    app.fitfat.ui.components.SwipeRemove(
+        onRemove = onDelete, label = "Удалить", hintKey = app.fitfat.data.Hints.SWIPE_DISH,
+        nudge = app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_DISH, first),
     ) {
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.surfaceContainerLow).heightIn(min = 60.dp).padding(start = 14.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
@@ -316,7 +329,15 @@ private fun IngredientRow(x: DishIngredient, p: Product?, onGrams: (Double) -> U
         ) {
             CategoryIcon(p?.category ?: "grain", 36.dp, radius = 12.dp, iconSize = 18.dp, photo = p?.photo)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(p?.name ?: "Удалённый продукт", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(p?.name ?: "Удалённый продукт", fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f, fill = false))
+                    // В каком виде взвешен ингредиент; готовый в рецепте — подсвечен: обычно его надо взвешивать до готовки
+                    app.fitfat.data.WeightState.word(p?.weightState)?.let { w ->
+                        val cooked = p?.weightState == app.fitfat.data.WEIGHT_COOKED
+                        Text(w, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (cooked) colors.onTertiaryContainer else colors.onSurfaceVariant,
+                            modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(if (cooked) colors.tertiaryContainer else colors.surfaceContainerHigh).padding(horizontal = 6.dp, vertical = 1.dp))
+                    }
+                }
                 if (p != null) {
                     val pcs = if (p.perPiece) p.pieceGrams?.takeIf { it > 0 }?.let { x.grams / it } ?: 0.0 else null
                     val m = p.portion(x.grams, pcs)
@@ -328,8 +349,9 @@ private fun IngredientRow(x: DishIngredient, p: Product?, onGrams: (Double) -> U
                     }
                 }
             }
-            Row(Modifier.width(92.dp)) {
-                PopDrumChip(x.grams, onGrams, "г", colors.onSurface, colors.surfaceContainerHighest, p?.name ?: "Вес", stepFor = { if (it < 100) 5.0 else 10.0 }, display = { fmt0(it) })
+            // Чип веса — по ширине числа (не уже 60), без пустого места слева
+            Row(Modifier.width(androidx.compose.foundation.layout.IntrinsicSize.Max).widthIn(min = 60.dp)) {
+                PopDrumChip(x.grams, onGrams, "г", colors.onSurface, colors.surfaceContainerHighest, p?.name ?: "Вес", stepFor = { if (it < 100) 5.0 else 10.0 }, display = { fmt0(it) }, hint = first)
             }
         }
     }
@@ -412,7 +434,7 @@ private fun IngredientPicker(products: List<Product>, onDismiss: () -> Unit, onP
                     CategoryIcon(p.category, 40.dp, radius = 12.dp, iconSize = 20.dp, photo = p.photo)
                     Column(Modifier.weight(1f)) {
                         Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        Text("${fmt0(p.kcal)} ккал " + if (p.perPiece) "на 1 шт" else "на 100 г", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                        Text("${fmt0(p.kcal)} ккал " + (if (p.perPiece) "на 1 шт" else "на 100 г") + (app.fitfat.data.WeightState.word(p.weightState)?.let { " · $it вес" } ?: ""), fontSize = 12.sp, color = colors.onSurfaceVariant)
                     }
                 }
             }

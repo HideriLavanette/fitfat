@@ -87,6 +87,7 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
                 }
             }
             Nutrition(prod)
+            WeightNote(prod.weightState)
             Section("Порции") {
                 Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerLow)) {
                     val portion = if (prod.perPiece) {
@@ -163,6 +164,7 @@ fun ProductCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onEdi
 fun sourceLabel(p: Product) = when (p.source ?: if (p.id <= SEED_COUNT) app.fitfat.data.SOURCE_SEED else app.fitfat.data.SOURCE_MANUAL) {
     app.fitfat.data.SOURCE_SEED -> "Из встроенной базы"
     app.fitfat.data.SOURCE_OFF -> "Из Open Food Facts"
+    app.fitfat.data.SOURCE_AI -> "Примерная оценка ассистента — уточните по рецепту или этикетке"
     else -> "Введён вручную"
 } + (p.barcode?.let { " · штрихкод $it" } ?: "")
 

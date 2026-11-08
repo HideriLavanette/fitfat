@@ -307,6 +307,7 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                             onLongClick = { selected = selected + p.id },
                             onAdd = { onAddToDiary(p.id) },
                             onDelete = { confirmDelete = setOf(p.id) },
+                            first = i == 0,
                         )
                         }
                     }
@@ -348,7 +349,7 @@ fun ProductsScreen(vm: ProductsViewModel, onBack: () -> Unit, onOpen: (Long) -> 
                     Text("ккал · считается из БЖУ", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+                    VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true, hint = true)
                     VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                     VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                 }
@@ -459,7 +460,7 @@ private const val SWIPE_SNAP = 110f  // dp пальца: порог срабат
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onAdd: () -> Unit, onDelete: () -> Unit) {
+private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClick: () -> Unit, onLongClick: () -> Unit, onAdd: () -> Unit, onDelete: () -> Unit, first: Boolean = false) {
     val colors = MaterialTheme.colorScheme
     val density = LocalDensity.current
     val view = LocalView.current
@@ -467,6 +468,9 @@ private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClic
     val dx = remember { Animatable(0f) }
     var released by remember { mutableStateOf(false) }
     val d = dx.value
+    val hints = remember { app.fitfat.data.Hints.get(view.context) }
+    // Первая строка сама тянется в обе стороны, пока свайп не пробовали
+    app.fitfat.ui.components.SwipeNudge(dx, app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_PRODUCTS, first) && !selecting, both = true)
     val tail = (if (p.perPiece && p.pieceGrams != null) " · 1 шт ≈ ${fmt0(p.pieceGrams)} г" else "") + (usedAgo(p.lastUsed)?.let { " · $it" } ?: "")
     val bg by animateColorAsState(if (selected) colors.secondaryContainer else colors.surfaceContainerLow, label = "rowbg")
     Box(Modifier.fillMaxWidth().heightIn(min = 62.dp)) {
@@ -496,7 +500,7 @@ private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClic
                     if (selecting) return@pointerInput
                     var raw = 0f
                     detectHorizontalDragGestures(
-                        onDragStart = { raw = dx.value; released = false },
+                        onDragStart = { raw = dx.value; released = false; hints.used(app.fitfat.data.Hints.SWIPE_PRODUCTS) },
                         onDragEnd = {
                             val v = dx.value
                             val was = released

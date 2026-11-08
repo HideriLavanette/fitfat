@@ -82,6 +82,8 @@ fun VerticalDrum(
     keepFraction: Boolean = false,
     /** Тап по барабану — ввести точное число с клавиатуры (до 0,1). */
     typeable: Boolean = false,
+    /** Палец-подсказка «проведите вверх» (первый барабан в группе; DESIGN.md, «Подсказки и жесты»). */
+    hint: Boolean = false,
 ) {
     val v by rememberUpdatedState(value)
     val change by rememberUpdatedState(onValueChange)
@@ -104,6 +106,7 @@ fun VerticalDrum(
             Modifier
                 .fillMaxWidth()
                 .height(height.dp)
+                .fingerHint(app.fitfat.data.Hints.DRUM_COLUMN, FingerGesture.Vertical, hint)
                 .clip(RoundedCornerShape(22.dp))
                 .background(colors.surfaceContainer)
                 .semantics { contentDescription = label ?: "Барабан"; stateDescription = fmt(value) }

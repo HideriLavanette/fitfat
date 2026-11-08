@@ -62,7 +62,7 @@ internal fun DayStartSheet(start: Int, onDismiss: () -> Unit, onSave: (Int) -> U
             fontSize = 14.sp, lineHeight = 20.sp, color = colors.onSurfaceVariant,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            app.fitfat.ui.components.VerticalDrum(h, { h = it; if (it >= 12.0) m = 0.0 }, 0.0, 12.0, 1.0, Modifier.weight(1f), label = "Часы")
+            app.fitfat.ui.components.VerticalDrum(h, { h = it; if (it >= 12.0) m = 0.0 }, 0.0, 12.0, 1.0, Modifier.weight(1f), label = "Часы", hint = true)
             app.fitfat.ui.components.VerticalDrum(m, { m = if (h >= 12.0) 0.0 else it }, 0.0, 45.0, 15.0, Modifier.weight(1f), label = "Минуты")
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

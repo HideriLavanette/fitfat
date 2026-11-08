@@ -157,7 +157,7 @@ fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> U
                     if (p.perPiece) n = ((target / perUnit) * 2).roundToInt().coerceAtLeast(1) / 2.0
                     else g = (target / perUnit).roundToInt().coerceIn(0, 2000).toDouble()
                 }
-                PopDrumChip(m.protein, { aim(it, p.protein * per) }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки", bubbleRight = true)
+                PopDrumChip(m.protein, { aim(it, p.protein * per) }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки", bubbleRight = true, hint = true)
                 PopDrumChip(m.fat, { aim(it, p.fat * per) }, "г", MacroColors.fat, MacroColors.fatContainer, "Жиры")
                 PopDrumChip(m.carbs, { aim(it, p.carbs * per) }, "г", MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
             }
@@ -257,12 +257,11 @@ fun EditPickedDialog(
             }
             // Тап или удержание — барабан: крутите нутриент, порция подстроится под выбранное число
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PopDrumChip(calc.kcal, { aim(it, p.kcal * per) }, "ккал", colors.onSurface, colors.surfaceContainerHighest, "Калории", bubbleRight = true, stepFor = { 10.0 }, display = { fmt0(it) })
+                PopDrumChip(calc.kcal, { aim(it, p.kcal * per) }, "ккал", colors.onSurface, colors.surfaceContainerHighest, "Калории", bubbleRight = true, stepFor = { 10.0 }, display = { fmt0(it) }, hint = true)
                 PopDrumChip(calc.protein, { aim(it, p.protein * per) }, "г", MacroColors.protein, MacroColors.proteinContainer, "Белки")
                 PopDrumChip(calc.fat, { aim(it, p.fat * per) }, "г", MacroColors.fat, MacroColors.fatContainer, "Жиры")
                 PopDrumChip(calc.carbs, { aim(it, p.carbs * per) }, "г", MacroColors.carbs, MacroColors.carbsContainer, "Углеводы")
             }
-            Text("Нажмите на калории или БЖУ и покрутите — порция подстроится", fontSize = 12.sp, color = colors.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DialogButtons(if (adding) "Отмена" else "Убрать", if (adding) colors.primary else colors.error, onRemove, if (adding) "Добавить" else "Сохранить", {
                     onSave(gramsNow, if (p.perPiece) n else null, null)
@@ -499,7 +498,7 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
             PillToggle(listOf("100 г", "1 шт"), if (piece) 1 else 0, onSelect = { piece = it == 1 }, height = 36.dp, fontSize = 13.sp, fill = false)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
+            VerticalDrum(p, { p = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Белки, г", labelColor = MacroColors.protein, band = MacroColors.proteinContainer, decimals = if (kotlin.math.abs(p - Math.round(p)) > 0.01) 1 else 0, keepFraction = true, typeable = true, hint = true)
             VerticalDrum(f, { f = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
             VerticalDrum(u, { u = it }, 0.0, 100.0, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
         }

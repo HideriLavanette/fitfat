@@ -56,17 +56,21 @@ data class Product(
     val recipe: String? = null,
     /** Штрихкод (EAN/UPC), 0.4. */
     val barcode: String? = null,
-    /** Откуда данные: [SOURCE_SEED] встроенная база, [SOURCE_OFF] Open Food Facts, [SOURCE_MANUAL] введены вручную. */
+    /** Откуда данные: [SOURCE_SEED] встроенная база, [SOURCE_OFF] Open Food Facts, [SOURCE_MANUAL] введены вручную, [SOURCE_AI] оценка ассистента. */
     val source: String? = null,
     /** Фото — имя файла в `files/photos` (см. [Photos]), 0.4. */
     val photo: String? = null,
     /** Свои порции: строки «название ⇥ граммы» (через табуляцию), см. [namedPortions], 0.4. */
     @ColumnInfo(defaultValue = "") val portions: String = "",
+    /** КБЖУ указаны на сухой, сырой или готовый вес ([WEIGHT_DRY] и т. д., см. [WeightState]); null — не важно. 0.6. */
+    val weightState: String? = null,
 )
 
 const val SOURCE_SEED = "seed"
 const val SOURCE_OFF = "off"
 const val SOURCE_MANUAL = "manual"
+/** Примерная оценка ассистента (0.6) — значения неточные, их стоит уточнить. */
+const val SOURCE_AI = "ai"
 
 /** Ингредиент блюда: продукт и его сырой вес в рецепте. */
 @Entity(tableName = "dish_ingredient")
@@ -234,6 +238,37 @@ private val SEED_ROWS = listOf(
         "('Сникерс', 'sweet', 248, 4.3, 12, 30.5, 1, 50, 'сникерс,snickers', 1, 0, 0)"
 )
 
+/**
+ * Сухие и сырые продукты (0.6): КБЖУ по весу до готовки — так считать точнее, чем по варёному.
+ * Отдельно от [SEED_ROWS]: по их числу старые миграции отличают встроенные продукты от своих.
+ */
+private val DRY_ROWS = listOf(
+    "('Гречка сухая', 'grain', 313, 12.6, 3.3, 62.1, 'гречка сухая,сухая гречка,гречневая крупа', 70, '$WEIGHT_DRY')",
+    "('Рис сухой', 'grain', 344, 6.7, 0.7, 78.9, 'рис сухой,сухой рис,рисовая крупа', 70, '$WEIGHT_DRY')",
+    "('Овсяные хлопья', 'grain', 366, 11.9, 7.2, 69.3, 'овсяные хлопья,хлопья овсяные', 50, '$WEIGHT_DRY')",
+    "('Макароны сухие', 'grain', 344, 10.4, 1.1, 71.5, 'макароны сухие,сухие макароны', 80, '$WEIGHT_DRY')",
+    "('Куриная грудка сырая', 'meat', 113, 23.6, 1.9, 0.4, 'грудка сырая,куриное филе сырое', 150, '$WEIGHT_RAW')",
+    "('Говядина сырая', 'meat', 187, 18.9, 12.4, 0, 'говядина сырая,сырая говядина', 150, '$WEIGHT_RAW')",
+)
+
+/** Сухие и сырые продукты, которых ещё нет в базе (по названию). */
+private fun seedDry(db: SupportSQLiteDatabase) {
+    val cols = "name, category, kcal, protein, fat, carbs, aliases, defaultGrams, weightState, perPiece, useCount, lastUsed, isDish, portions, source"
+    DRY_ROWS.forEach { row ->
+        val name = row.substringAfter("('").substringBefore("'")
+        db.execSQL("INSERT INTO product ($cols) SELECT ${row.removePrefix("(").removeSuffix(")")}, 0, 0, 0, 0, '', '$SOURCE_SEED' WHERE NOT EXISTS (SELECT 1 FROM product WHERE name = '$name')")
+    }
+}
+
+/** Отметить сухой / сырой / готовый вес у продуктов без отметки — по названию ([WeightState.guess]). */
+private fun markWeightStates(db: SupportSQLiteDatabase) {
+    val found = mutableListOf<Pair<Long, String>>()
+    db.query("SELECT id, name FROM product WHERE weightState IS NULL").use { c ->
+        while (c.moveToNext()) WeightState.guess(c.getString(1))?.let { found += c.getLong(0) to it }
+    }
+    found.forEach { (id, st) -> db.execSQL("UPDATE product SET weightState = ? WHERE id = ?", arrayOf<Any>(st, id)) }
+}
+
 private fun seed(db: SupportSQLiteDatabase) {
     val cols = "name, category, kcal, protein, fat, carbs, perPiece, pieceGrams, aliases, defaultGrams, useCount, lastUsed"
     SEED_ROWS.forEach { db.execSQL("INSERT INTO product ($cols) VALUES $it") }
@@ -289,7 +324,16 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
     }
 }
 
-@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 7, exportSchema = false)
+/** 0.6: сухой / сырой / готовый вес у продукта — новая колонка, отметки по названию; сухие крупы и сырое мясо во встроенную базу. */
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `product` ADD COLUMN `weightState` TEXT")
+        markWeightStates(db)
+        seedDry(db)
+    }
+}
+
+@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 8, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
     abstract fun productDao(): ProductDao
@@ -300,11 +344,13 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "fitfat.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                 .addCallback(object : Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         seed(db)
                         db.execSQL("UPDATE `product` SET `source` = '$SOURCE_SEED'")
+                        markWeightStates(db)
+                        seedDry(db)
                     }
                 })
                 .build()

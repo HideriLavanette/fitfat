@@ -11,6 +11,7 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.fitfat.FitfatApp
+import app.fitfat.data.Assistant
 import app.fitfat.data.Candidate
 import app.fitfat.data.Fragment
 import app.fitfat.data.Macros
@@ -18,11 +19,14 @@ import app.fitfat.data.Meal
 import app.fitfat.data.Portion
 import app.fitfat.data.Product
 import app.fitfat.data.Recognizer
+import app.fitfat.data.SOURCE_AI
 import app.fitfat.data.portion
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -76,11 +80,21 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
         repo.day(d).map { list -> norms.norms(norms.dayType(d)).kcal - list.sumOf { it.kcal } }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
-    val frequent = combine(mealFlow.flatMapLatest { repo.frequent(it) }, products) { rows, all ->
-        rows.mapNotNull { r -> all.firstOrNull { it.id == r.productId }?.let { FrequentItem(it, r.grams, r.pieces) } }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
-
     private var session: String? = null
+
+    // Черновик: всё, что набрано, переживает уход в другое приложение и выгрузку процесса (см. [AddDraft])
+    private val draft = AddDraft.get(app)
+    /** Идёт восстановление — пустое промежуточное состояние не должно затереть черновик. */
+    private var restoring = false
+
+    init {
+        @OptIn(kotlinx.coroutines.FlowPreview::class)
+        viewModelScope.launch {
+            androidx.compose.runtime.snapshotFlow {
+                AddDraft.State(text, picked.map { AddDraft.Item(it.product.id, it.grams, it.pieces, it.override) }, date, time, meal, mealTouched, timeTouched)
+            }.debounce(300).collect { if (session != null && !restoring) draft.save(it) }
+        }
+    }
 
     /** Новое открытие экрана ([key] — запись навигации). Возврат на тот же экран с «Мои блюда» и т. п. ничего не сбрасывает. */
     fun start(d: LocalDate, key: String) {
@@ -90,13 +104,75 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun start(d: LocalDate) {
-        setDay(d)
-        text = ""; picked.clear()
-        time = LocalTime.now(); meal = Meal.byTime(time); mealFlow.value = meal
-        mealTouched = false; timeTouched = d != DayClock.today()
+        assistant = null; asked = ""
+        val saved = draft.load()
+        if (saved == null) {
+            setDay(d)
+            text = ""; picked.clear()
+            time = LocalTime.now(); meal = Meal.byTime(time); mealFlow.value = meal
+            mealTouched = false; timeTouched = d != DayClock.today()
+            return
+        }
+        // Есть черновик — продолжаем с того места: строка, день, время и приём сразу, продукты — когда база прочитана
+        restoring = true
+        setDay(saved.date)
+        text = saved.text; picked.clear()
+        time = saved.time; meal = saved.meal; mealFlow.value = meal
+        mealTouched = saved.mealTouched; timeTouched = saved.timeTouched
+        viewModelScope.launch {
+            val all = repo.allProducts.first()
+            saved.items.forEach { i -> all.firstOrNull { it.id == i.productId }?.let { p -> picked += Picked(nextKey++, p, i.grams, i.pieces, i.override) } }
+            restoring = false
+        }
     }
 
     fun onText(t: String) { text = t }
+
+    /** Ответ ассистента на строку [asked]; null — карточки нет. */
+    var assistant by mutableStateOf<Assistant.Reply?>(null)
+        private set
+    var assistantBusy by mutableStateOf(false)
+        private set
+    private var asked = ""
+
+    /**
+     * Спросить ассистента о текущей строке ([answer] — ответ на его уточняющий вопрос: вариант-кнопка или свои слова).
+     * [activity] — контекст активити (тихое обновление входа Google).
+     */
+    fun askAssistant(activity: Context, answer: String? = null) {
+        if (assistantBusy) return
+        // Ответы на уточняющие вопросы копятся под строкой: «манты ⏎ Уточнение: тесто, фарш, лук; 5 шт»
+        val q = if (answer != null) "$asked\nУточнение: $answer" else text.trim()
+        if (q.isBlank()) return
+        asked = q
+        assistantBusy = true; assistant = null
+        viewModelScope.launch {
+            val reply = Assistant.ask(activity, q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value))
+            assistant = reply; assistantBusy = false
+        }
+    }
+
+    fun dismissAssistant() { assistant = null }
+
+    /**
+     * «Добавить» в карточке ассистента: продукт из базы — как есть, новое блюдо сохраняется продуктом с пометкой
+     * «оценка ассистента» (в следующий раз найдётся без сети). Строка, которую разобрал ассистент, стирается.
+     */
+    fun acceptAssistant(items: List<Assistant.Item>) = viewModelScope.launch {
+        for (it in items) {
+            val byName = products.value.firstOrNull { p -> p.name.equals(it.existing ?: it.name, ignoreCase = true) }
+            val p = byName ?: repo.createProduct(
+                Product(
+                    name = it.name, category = it.category,
+                    kcal = it.per100.kcal, protein = it.per100.protein, fat = it.per100.fat, carbs = it.per100.carbs,
+                    defaultGrams = Math.round(it.grams / (it.pieces ?: 1.0)).toDouble().coerceAtLeast(1.0),
+                    aliases = Recognizer.normalize(it.name), source = SOURCE_AI,
+                )
+            )
+            if (p.perPiece) add(p, it.grams, it.pieces) else picked += Picked(nextKey++, p, it.grams, it.pieces)
+        }
+        text = ""; assistant = null; asked = ""
+    }
 
     fun selectMeal(m: Meal) { meal = m; mealFlow.value = m; mealTouched = true }
 
@@ -159,7 +235,8 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
     fun save(onDone: () -> Unit) = viewModelScope.launch {
         if (picked.isEmpty()) return@launch
         repo.add(date, time, meal, picked.map { it.product to Portion(it.grams, it.pieces, it.override) })
-        picked.clear(); text = ""
+        picked.clear(); text = ""; assistant = null; asked = ""
+        draft.clear()
         onDone()
     }
 

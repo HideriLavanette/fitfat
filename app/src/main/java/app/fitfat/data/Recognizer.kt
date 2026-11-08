@@ -97,6 +97,17 @@ object Recognizer {
         }.sortedByDescending { it.score }.take(limit)
     }
 
+    private val STOP = setOf("с", "со", "в", "во", "на", "и", "без", "из", "под", "по", "для", "шт", "гр", "г", "мл")
+
+    /**
+     * Слова запроса, которых нет в названии и синонимах продукта: «манты с говядиной» → «Говядина варёная» не покрывает
+     * «манты». Значит, совпадение случайное — тут предлагаем ассистента (DESIGN.md, «Ассистент в „Добавить“»).
+     */
+    fun uncovered(f: Fragment, p: Product): List<String> {
+        val names = (listOf(p.name) + p.aliases.split(',')).map(::normalize).flatMap { it.split(' ') }.filter { it.isNotBlank() }.map(::stem).toSet()
+        return f.query.split(' ').filter { it.length >= 3 && it !in STOP && it.all(Char::isLetter) }.filter { stem(it) !in names }
+    }
+
     /**
      * Порция продукта по фрагменту: граммы или штуки как написано, а для «14 у» — сколько съесть,
      * чтобы вышло 14 г углеводов (граммы до 1 г, штуки до 0,5). null, null — посчитать нельзя (в продукте 0 этого нутриента).

@@ -10,6 +10,7 @@ import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import app.fitfat.BuildConfig
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,13 +22,40 @@ data class Account(val email: String, val name: String?)
 
 /**
  * Вход через Google (Credential Manager, «Sign in with Google»). Приложение получает только имя и почту —
- * ни пароля, ни доступа к Gmail, Диску или платежам. Токен входа не храним: своего сервера пока нет, проверять его
- * некому; запоминаем лишь почту и имя для карточки профиля. Синхронизация — позже (DESIGN.md).
+ * ни пароля, ни доступа к Gmail, Диску или платежам. На диске — только почта и имя для карточки профиля.
+ * Токен входа (живёт час) держим в памяти: им ассистент подтверждает серверу, кто спрашивает (DESIGN.md, «Ассистент»).
  */
 class GoogleAccount private constructor(context: Context) {
     private val prefs = context.getSharedPreferences("account", Context.MODE_PRIVATE)
     private val _account = MutableStateFlow(load())
     val account: StateFlow<Account?> = _account.asStateFlow()
+
+    @Volatile private var token: String? = null
+    @Volatile private var tokenExp = 0L
+
+    private fun keep(g: GoogleIdTokenCredential) {
+        token = g.idToken
+        tokenExp = runCatching {
+            val payload = g.idToken.split('.')[1]
+            org.json.JSONObject(String(android.util.Base64.decode(payload, android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING))).getLong("exp") * 1000
+        }.getOrDefault(System.currentTimeMillis() + 50 * 60_000L)
+    }
+
+    /**
+     * Свежий токен входа для сервера ассистента или null (не вошли, нет сети, Google отказал).
+     * Просроченный обновляется без окна выбора — тем же аккаунтом, что уже подключён. [activity] — контекст активити.
+     */
+    suspend fun idToken(activity: Context): String? {
+        if (_account.value == null) return null
+        token?.let { if (tokenExp - System.currentTimeMillis() > 5 * 60_000L) return it }
+        val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID.takeIf { it.isNotBlank() } ?: return null
+        val option = GetGoogleIdOption.Builder().setServerClientId(clientId).setFilterByAuthorizedAccounts(true).setAutoSelectEnabled(true).build()
+        return runCatching {
+            val cred = CredentialManager.create(activity).getCredential(activity, GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
+            if (cred !is CustomCredential || cred.type != GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) return null
+            GoogleIdTokenCredential.createFrom(cred.data).also(::keep).idToken
+        }.getOrNull()
+    }
 
     private fun load(): Account? = prefs.getString("email", null)?.let { Account(it, prefs.getString("name", null)) }
 
@@ -51,6 +79,7 @@ class GoogleAccount private constructor(context: Context) {
             val g = GoogleIdTokenCredential.createFrom(cred.data)
             val acc = Account(g.id, g.displayName?.takeIf { it.isNotBlank() })
             prefs.edit { putString("email", acc.email); putString("name", acc.name) }
+            keep(g)
             _account.value = acc
             Result.Ok(acc)
         } catch (e: GetCredentialCancellationException) {
@@ -68,6 +97,7 @@ class GoogleAccount private constructor(context: Context) {
     suspend fun signOut(context: Context) {
         prefs.edit { clear() }
         _account.value = null
+        token = null; tokenExp = 0
         runCatching { CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest()) }
     }
 

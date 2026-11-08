@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -156,13 +157,11 @@ fun WeekScreen(days: List<WeekDay>, weights: List<Pair<LocalDate, Double>>, onBa
                     if (high) notes += "${if (k == 1) "жиров" else "углеводов"} больше нормы на ~${fmt0(avg - norm)} г"
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c, modifier = Modifier.width(72.dp))
-                        BoxWithConstraints(Modifier.weight(1f).height(14.dp), contentAlignment = Alignment.CenterStart) {
-                            val r = if (norm > 0) avg / norm else 0.0
-                            Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.surfaceContainerHighest))
-                            Box(Modifier.width(maxWidth * min(1.0, r * 0.75).toFloat()).height(8.dp).clip(RoundedCornerShape(4.dp)).background(if (lowP || high) colors.error else c))
-                            // Отметка нормы — на 75 % полосы
-                            Box(Modifier.padding(start = maxWidth * 0.75f).width(2.dp).fillMaxHeight().clip(RoundedCornerShape(1.dp)).background(colors.onSurface.copy(alpha = 0.6f)))
-                        }
+                        // Волна, как на главном: заполняется от нуля при открытии, перебор — поверх цветом перебора
+                        val grow = remember { androidx.compose.animation.core.Animatable(0f) }
+                        LaunchedEffect(avg) { grow.animateTo(avg.toFloat(), androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+                        val track = when (k) { 0 -> MacroColors.proteinContainer; 1 -> MacroColors.fatContainer; else -> MacroColors.carbsContainer }
+                        app.fitfat.ui.components.WavyBar(grow.value.toDouble(), norm, if (lowP) colors.error else c, track, Modifier.weight(1f))
                         Text("${fmt0(avg)} / ${fmt0(norm)} г", fontSize = 13.sp, color = if (lowP || high) colors.error else colors.onSurface, modifier = Modifier.width(80.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                 }

@@ -135,7 +135,7 @@ fun FfSheet(
         modifier = modifier.statusBarsPadding(),
     ) {
         Column(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(start = horizontalPadding, end = horizontalPadding, top = gap, bottom = 24.dp),
+            Modifier.fillMaxWidth().trackTouches().navigationBarsPadding().padding(start = horizontalPadding, end = horizontalPadding, top = gap, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(gap),
             content = content,
         )

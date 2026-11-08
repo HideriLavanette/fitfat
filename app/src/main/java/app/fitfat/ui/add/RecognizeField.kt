@@ -90,6 +90,13 @@ fun RecognizeField(
     modifier: Modifier = Modifier,
     popupsEnabled: Boolean = true,
     placeholder: Boolean = true,
+    /** Ассистент: null — его нет в сборке. Получает фрагмент, над которым нажали. */
+    onAssistant: ((Recognized) -> Unit)? = null,
+    assistantBusy: Boolean = false,
+    /** Предлагать ли ассистента для фрагмента (нет в базе, совпадение по части слов, вопрос). */
+    wantsAssistant: (Recognized) -> Boolean = { false },
+    /** Растёт, когда подсказку надо спрятать (листают экран). */
+    dismissKey: Int = 0,
 ) {
     var value by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
     // Текст поменяли снаружи (подтверждённый фрагмент стёрт) — курсор в конец
@@ -101,11 +108,18 @@ fun RecognizeField(
 
     val synced = value.text == text
     val cursor = value.selection.end
-    val known = recognized.filter { it.candidates.isNotEmpty() }
-    val active = when {
-        !synced -> null
-        else -> known.firstOrNull { focused && cursor in it.fragment.start..it.fragment.end } ?: known.firstOrNull()
+    // Подсказка — только над фрагментом под курсором и только пока с ним работают: печатают, двигают курсор, нажимают
+    // на текст. Ушёл фокус или листают экран — прячется, нажали на текст снова — появляется.
+    var shown by remember { mutableStateOf(true) }
+    LaunchedEffect(dismissKey) { if (dismissKey > 0) shown = false }
+    val taps = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    LaunchedEffect(taps) {
+        taps.interactions.collect { if (it is androidx.compose.foundation.interaction.PressInteraction.Release) shown = true }
     }
+    val under = if (!synced || !focused || !shown) null
+        else recognized.firstOrNull { it.fragment.query.isNotBlank() && cursor in it.fragment.start..it.fragment.end }
+    val offerAi = under != null && onAssistant != null && wantsAssistant(under)
+    val active = under?.takeIf { it.candidates.isNotEmpty() || offerAi }
     val unknown = recognized.filter { it.candidates.isEmpty() && it.fragment.query.isNotBlank() }
 
     val colors = MaterialTheme.colorScheme
@@ -119,15 +133,19 @@ fun RecognizeField(
         }
         BasicTextField(
             value = value,
-            onValueChange = { value = it; if (it.text != text) onText(it.text) },
+            onValueChange = {
+                if (it.text != value.text || it.selection != value.selection) shown = true
+                value = it; if (it.text != text) onText(it.text)
+            },
+            interactionSource = taps,
             modifier = Modifier.fillMaxWidth().heightIn(min = 26.dp)
-                .onFocusChanged { focused = it.isFocused; onFocus(it.isFocused) }
+                .onFocusChanged { focused = it.isFocused; if (!it.isFocused) shown = false; onFocus(it.isFocused) }
                 .onGloballyPositioned { origin = it.positionInWindow() }
                 .drawBehind {
                     val l = layout ?: return@drawBehind
                     if (!synced) return@drawBehind
                     val pad = with(density) { 3.dp.toPx() }
-                    active?.let { a ->
+                    active?.takeIf { it.candidates.isNotEmpty() }?.let { a ->
                         wordRects(l, a.fragment.start, a.fragment.end).forEach { r ->
                             drawRoundRect(highlight, Offset(r.left - pad, r.top), Size(r.width + 2 * pad, r.height), CornerRadius(with(density) { 6.dp.toPx() }))
                         }
@@ -156,7 +174,10 @@ fun RecognizeField(
             popupPositionProvider = AboveWord(word.translate(origin), gap),
             properties = PopupProperties(focusable = false), // клавиатура остаётся открытой
         ) {
-            SuggestionMenu(active, onAccept = { onAccept(active, it) }, onVariants = { onVariants(active) })
+            SuggestionMenu(
+                active, onAccept = { onAccept(active, it) }, onVariants = { onVariants(active) },
+                onAssistant = if (offerAi) ({ shown = false; onAssistant?.invoke(active) }) else null, assistantBusy = assistantBusy,
+            )
         }
     }
 }
@@ -177,28 +198,56 @@ private fun wordRects(l: TextLayoutResult, start: Int, end: Int): List<Rect> {
 
 private val menuShape = RoundedCornerShape(18.dp)
 
-/** Меню над словом: плашка 32 + название 14 / 650 + КБЖУ на 100 г 11 sp; разделитель; стрелка 51 dp. */
+/**
+ * Меню над словом (08.11.2026 — короче меню макета Add-food): слева «Ассистент», если он к месту, справа продукт
+ * из базы — плашка 28, название 13 / 650 и Б/Ж/У в цветных плашках (без ккал и «на 100 г»); стрелка — другие варианты.
+ */
 @Composable
-private fun SuggestionMenu(r: Recognized, onAccept: (Product) -> Unit, onVariants: () -> Unit) {
-    val best = r.candidates.first().product
+private fun SuggestionMenu(r: Recognized, onAccept: (Product) -> Unit, onVariants: () -> Unit, onAssistant: (() -> Unit)?, assistantBusy: Boolean) {
+    val best = r.candidates.firstOrNull()?.product
     val colors = MaterialTheme.colorScheme
     Row(
-        Modifier.shadow(12.dp, menuShape).clip(menuShape).background(colors.surfaceContainerHighest).heightIn(min = 52.dp).widthIn(max = 358.dp),
+        // Высота по содержимому (не меньше 48): при крупном шрифте название и Б/Ж/У не обрезаются
+        Modifier.shadow(12.dp, menuShape).clip(menuShape).background(colors.surfaceContainerHighest)
+            .height(androidx.compose.foundation.layout.IntrinsicSize.Min).heightIn(min = 48.dp).widthIn(max = 358.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(onClick = { onAccept(best) }, color = Color.Transparent, modifier = Modifier.weight(1f, fill = false).heightIn(min = 52.dp)) {
-            Row(Modifier.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                CategoryIcon(best.category, 32.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                    Text(best.name, fontSize = 14.sp, fontWeight = FontWeight(650), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(perLine(best), fontSize = 11.sp, color = colors.onSurfaceVariant)
+        if (onAssistant != null) {
+            Surface(onClick = onAssistant, enabled = !assistantBusy, color = colors.secondaryContainer, modifier = Modifier.fillMaxHeight()) {
+                Row(Modifier.padding(start = 12.dp, end = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (assistantBusy) androidx.compose.material3.CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.onSecondaryContainer)
+                    else Icon(MockIcons.NavAssistant, null, Modifier.size(18.dp), tint = colors.onSecondaryContainer)
+                    Text(if (assistantBusy) "Думаю…" else "Ассистент", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = colors.onSecondaryContainer, maxLines = 1)
                 }
             }
         }
-        Box(Modifier.width(1.dp).height(36.dp).background(colors.outlineVariant))
-        Surface(onClick = onVariants, color = Color.Transparent, modifier = Modifier.width(51.dp).height(52.dp)) {
-            Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronRight, "Другой вариант", Modifier.size(20.dp), tint = colors.onSurface) }
+        if (best != null) {
+            Surface(onClick = { onAccept(best) }, color = Color.Transparent, modifier = Modifier.weight(1f, fill = false).fillMaxHeight()) {
+                Row(Modifier.padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CategoryIcon(best.category, 28.dp, radius = 9.dp, iconSize = 15.dp, photo = best.photo)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(best.name, fontSize = 13.sp, fontWeight = FontWeight(650), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            MacroPill(best.protein, MacroColors.protein, MacroColors.proteinContainer)
+                            MacroPill(best.fat, MacroColors.fat, MacroColors.fatContainer)
+                            MacroPill(best.carbs, MacroColors.carbs, MacroColors.carbsContainer)
+                        }
+                    }
+                }
+            }
+            Box(Modifier.width(1.dp).height(28.dp).background(colors.outlineVariant))
+            Surface(onClick = onVariants, color = Color.Transparent, modifier = Modifier.width(40.dp).fillMaxHeight()) {
+                Box(contentAlignment = Alignment.Center) { Icon(MockIcons.ChevronRight, "Другой вариант", Modifier.size(18.dp), tint = colors.onSurface) }
+            }
         }
+    }
+}
+
+/** Б, Ж или У в своей цветной плашке: высота 16, число 11 sp. */
+@Composable
+private fun MacroPill(v: Double, ink: Color, bg: Color) {
+    Box(Modifier.heightIn(min = 16.dp).clip(RoundedCornerShape(5.dp)).background(bg).padding(horizontal = 5.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
+        Text(fmt1(v), fontSize = 11.sp, lineHeight = 11.sp, fontWeight = FontWeight.SemiBold, color = ink, maxLines = 1)
     }
 }
 

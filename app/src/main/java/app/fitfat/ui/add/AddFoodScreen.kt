@@ -24,6 +24,10 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -64,10 +68,10 @@ import java.time.LocalDate
 
 /**
  * Добавление еды (макеты Add-empty 3.1 и Add-food 3.2). Поля 12 / 16 / 20.
- * Пусто — «Часто в <приём>» и «Недавние» с переходом к порции; есть продукты — итог «+N ккал / останется»
+ * Пусто — «Недавние» с переходом к порции; есть продукты — итог «+N ккал / останется»
  * и короткие «Недавние» с «+». Кнопки «штрихкод», «блюдо», «Посмотреть все» ведут на экраны 0.4 и появятся с ними.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, onAllProducts: () -> Unit = {}, productId: Long = 0,
     pendingProduct: Long = 0, onPendingTaken: () -> Unit = {},
@@ -80,9 +84,16 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     LaunchedEffect(date, session) { vm.start(date, session) }
     val products by vm.products.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
-    val frequent by vm.frequent.collectAsStateWithLifecycle()
     val left by vm.leftKcal.collectAsStateWithLifecycle()
     val focus = remember { FocusRequester() }
+    // Клавиатуру убрали или нажали мимо поля — курсор пропадает, «Что съели» выходит из фокуса
+    val clearFocus = androidx.compose.ui.platform.LocalFocusManager.current
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeWasVisible && !imeVisible) clearFocus.clearFocus()
+        imeWasVisible = imeVisible
+    }
     // Клавиатура — после разворота кнопки «+», иначе раскладка прыгает прямо во время анимации
     // Клавиатура — почти сразу: её въезд прячется под размытием разворота
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(120); focus.requestFocus() }
@@ -96,6 +107,18 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     var variants by remember { mutableStateOf<Recognized?>(null) }
     var creating by remember { mutableStateOf<Recognized?>(null) }
     var whenOpen by remember { mutableStateOf(false) }
+    var consent by remember { mutableStateOf(false) }
+    // Пришёл ответ ассистента — клавиатуру прячем и докручиваем до карточки, иначе её не видно
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val bringCard = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(vm.assistant) {
+        if (vm.assistant != null) {
+            focusManager.clearFocus(); keyboard?.hide()
+            kotlinx.coroutines.delay(400) // клавиатура уехала, карточка развернулась
+            bringCard.bringIntoView()
+        }
+    }
     // Фрагмент, для которого выбирали порцию, исчез из текста — закрываем выбор
 
     // Открыли из карточки продукта — сразу окно порции этого продукта
@@ -125,10 +148,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     val colors = MaterialTheme.colorScheme
     val hasItems = vm.picked.isNotEmpty()
     val unknown = recognized.firstOrNull { it.candidates.isEmpty() && it.fragment.query.isNotBlank() }
-    val modal = pending != null || editing != null || portion != null || variants != null || creating != null || whenOpen
+    val modal = pending != null || editing != null || portion != null || variants != null || creating != null || whenOpen || consent
 
     Column(
-        Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()
+        Modifier.fillMaxSize()
+            .pointerInput(Unit) { detectTapGestures(onTap = { clearFocus.clearFocus() }) }
+            .statusBarsPadding().navigationBarsPadding().imePadding()
             .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp),
     ) {
@@ -148,12 +173,27 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
 
         // Одна прокрутка на всё между шапкой и кнопкой «Добавить N»: «Что съели» растёт вместе со списком и не наезжает
         // на итог и «Недавние». Колонка выходит в поля экрана, чтобы увеличенная в фокусе карточка и её тень не обрезались.
+        // Экран начали листать пальцем — подсказка над словом прячется до следующего нажатия на текст
+        val scroll = rememberScrollState()
+        var dismissKey by remember { mutableStateOf(0) }
+        LaunchedEffect(scroll) {
+            scroll.interactionSource.interactions.collect { if (it is androidx.compose.foundation.interaction.DragInteraction.Start) dismissKey++ }
+        }
+        val actx = androidx.compose.ui.platform.LocalContext.current
         Column(
-            Modifier.weight(1f).bleed(16.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+            Modifier.weight(1f).bleed(16.dp).verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp),
         ) {
         Composer(focused, hasItems, onTap = { focus.requestFocus() }) {
-            vm.picked.forEach { item -> PickedRow(item) { editing = item } }
+            // Смахнуть влево — убрать из «Что съели»
+            vm.picked.forEachIndexed { i, item ->
+                androidx.compose.runtime.key(item.key) {
+                    app.fitfat.ui.components.SwipeRemove(
+                        onRemove = { vm.remove(item) }, hintKey = app.fitfat.data.Hints.SWIPE_ADD,
+                        nudge = app.fitfat.ui.components.nudgeWanted(app.fitfat.data.Hints.SWIPE_ADD, i == 0),
+                    ) { PickedRow(item) { editing = item } }
+                }
+            }
             RecognizeField(
                 text = vm.text, onText = vm::onText, recognized = recognized,
                 onAccept = ::accept,
@@ -161,6 +201,13 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                 onFocus = { focused = it },
                 popupsEnabled = !modal,
                 placeholder = !hasItems,
+                // Ассистент — кнопкой в той же подсказке над словом, слева от продукта из базы
+                onAssistant = if (app.fitfat.data.Assistant.available) ({ _ ->
+                    if (app.fitfat.data.Assistant.consented(actx)) vm.askAssistant(actx) else consent = true
+                }) else null,
+                assistantBusy = vm.assistantBusy,
+                wantsAssistant = { r -> wantsAssistant(r, vm.text) },
+                dismissKey = dismissKey,
                 modifier = Modifier.fillMaxWidth().focusRequester(focus)
                     .then(if (hasItems) Modifier.padding(start = 2.dp, end = 2.dp, top = 6.dp, bottom = 2.dp) else Modifier)
                     .heightIn(min = if (hasItems) 28.dp else 72.dp),
@@ -212,6 +259,23 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 12.dp else 14.dp)) {
             unknown?.let { u -> UnknownBanner(u.fragment.query) { creating = u } }
 
+            // Ассистент (0.6): спрашивают кнопкой над словом; здесь — «думает…» и ответ карточкой, без «Добавить» ничего не пишется
+            if (app.fitfat.data.Assistant.available) {
+                val reply = vm.assistant
+                androidx.compose.animation.AnimatedVisibility(reply == null && vm.assistantBusy) { AssistantBar(busy = true) {} }
+                androidx.compose.animation.AnimatedVisibility(reply != null, Modifier.bringIntoViewRequester(bringCard)) {
+                    // Держим последний ответ, пока карточка сворачивается
+                    val shown = remember { mutableStateOf<app.fitfat.data.Assistant.Reply?>(null) }
+                    if (reply != null) shown.value = reply
+                    shown.value?.let { r ->
+                        AssistantCard(
+                            r, onDismiss = vm::dismissAssistant, onAdd = { vm.acceptAssistant(it) },
+                            onOption = { vm.askAssistant(ctx, answer = it) }, onRetry = { vm.askAssistant(ctx) },
+                        )
+                    }
+                }
+            }
+
             if (hasItems) {
                 val total = vm.picked.fold(Macros()) { a, it -> a + it.macros }
                 Row(
@@ -225,24 +289,6 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("останется", fontSize = 12.sp, color = colors.onSurfaceVariant)
                         Text("${fmt0(left - total.kcal)} ккал", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            } else if (frequent.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SectionTitle("Часто ${mealIn(vm.meal)}", Modifier.padding(horizontal = 8.dp))
-                    // В один ряд с прокруткой, от края до края экрана
-                    Row(
-                        Modifier.bleed(16.dp).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        frequent.forEach { fr ->
-                            Surface(onClick = { portion = fr }, shape = RoundedCornerShape(8.dp), color = colors.surfaceContainerHigh, modifier = Modifier.heightIn(min = 32.dp)) {
-                                Row(Modifier.padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    CategoryIcon(fr.product.category, 24.dp, radius = 12.dp, iconSize = 16.dp, photo = fr.product.photo)
-                                    Text("${fr.product.name} ${amount(fr.product, fr.grams, fr.pieces)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -318,6 +364,12 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         NewProductSheet(r, onDismiss = { creating = null }) { p, g, pcs -> vm.createProduct(p, r, g, pcs) { creating = null } }
     }
     if (whenOpen) WhenSheet(vm, onDismiss = { whenOpen = false })
+    if (consent) {
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        AssistantConsentDialog(onDismiss = { consent = false }) {
+            app.fitfat.data.Assistant.giveConsent(ctx); consent = false; vm.askAssistant(ctx)
+        }
+    }
 }
 
 /**
@@ -438,12 +490,6 @@ private fun recentSub(p: Product): String {
 private fun amount(p: Product, grams: Double, pieces: Double?) =
     if (p.perPiece) "${fmt1(pieces ?: 1.0)} шт" else "${fmt0(grams)} г"
 
-private fun mealIn(m: app.fitfat.data.Meal) = when (m) {
-    app.fitfat.data.Meal.Breakfast -> "на завтрак"
-    app.fitfat.data.Meal.Lunch -> "в обед"
-    app.fitfat.data.Meal.Dinner -> "на ужин"
-}
-
 private fun plural(n: Int) = when {
     n % 10 == 1 && n % 100 != 11 -> "продукт"
     n % 10 in 2..4 && n % 100 !in 12..14 -> "продукта"
@@ -455,4 +501,13 @@ private fun Modifier.bleed(by: androidx.compose.ui.unit.Dp) = layout { m, c ->
     val extra = (by * 2).roundToPx()
     val pl = m.measure(c.copy(minWidth = c.minWidth + extra, maxWidth = c.maxWidth + extra))
     layout(c.maxWidth, pl.height) { pl.place(-extra / 2, 0) }
+}
+
+/**
+ * Ассистент к месту для фрагмента: его нет в базе, найденный продукт покрывает его не целиком
+ * («манты с говядиной» → «Говядина варёная»), или вся строка — вопрос. Запомненный выбор — без ассистента.
+ */
+private fun wantsAssistant(r: Recognized, text: String): Boolean {
+    val best = r.candidates.firstOrNull() ?: return true
+    return looksLikeRequest(text) || (best.score != Int.MAX_VALUE && app.fitfat.data.Recognizer.uncovered(r.fragment, best.product).isNotEmpty())
 }

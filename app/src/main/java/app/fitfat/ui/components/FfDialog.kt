@@ -31,7 +31,7 @@ fun FfDialog(onDismiss: () -> Unit, top: Dp, width: Dp, start: Dp? = null, conte
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         (LocalView.current.parent as? DialogWindowProvider)?.window?.setDimAmount(0f)
         Box(
-            Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f))
+            Modifier.fillMaxSize().trackTouches().background(Color.Black.copy(alpha = 0.5f))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss),
         ) {
             Box(
