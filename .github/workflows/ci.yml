@@ -51,7 +51,8 @@ jobs:
           ls -la build/ios/Build/Products/Debug-iphonesimulator/FitFat.app | head -30
       - name: Лог xcodebuild при падении
         if: failure()
-        run: grep -E "error:|warning: .*Kotlin|Undefined symbol|ld: " build/xcodebuild.log | head -100 || tail -200 build/xcodebuild.log
+        run: |
+          grep -E "error:|warning: .*Kotlin|Undefined symbol|ld: " build/xcodebuild.log | head -100 || tail -200 build/xcodebuild.log
       - name: Упаковать .app
         run: |
           cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
