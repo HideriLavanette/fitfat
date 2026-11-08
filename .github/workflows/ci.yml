@@ -47,7 +47,8 @@ jobs:
       - name: Приложение для симулятора
         run: |
           set -o pipefail
-          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'             -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO build 2>&1 | tee build/xcodebuild.log | tail -150
+          mkdir -p build
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'             -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO ARCHS=arm64 build 2>&1 | tee build/xcodebuild.log | tail -150
           # Сборка должна дать исполняемый файл внутри .app, а не пустую папку
           test -f build/ios/Build/Products/Debug-iphonesimulator/FitFat.app/FitFat
           ls -la build/ios/Build/Products/Debug-iphonesimulator/FitFat.app | head -30

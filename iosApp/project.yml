@@ -14,6 +14,8 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    # Фреймворк Kotlin для симулятора собран только под arm64 (Apple Silicon); x86_64 не линкуем
+    "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
   configs:
     Debug:
       KOTLIN_FRAMEWORK_BUILD_TYPE: debug
