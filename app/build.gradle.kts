@@ -25,7 +25,14 @@ kotlin {
     // expect/actual-классы (Prefs, Platform, конструктор Room) — убрать предупреждение «в бете»
     targets.configureEach {
         compilations.configureEach {
-            compileTaskProvider.configure { compilerOptions.freeCompilerArgs.add("-Xexpect-actual-classes") }
+            compileTaskProvider.configure {
+                compilerOptions.freeCompilerArgs.addAll(
+                    "-Xexpect-actual-classes",
+                    "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
+                    "-opt-in=kotlin.time.ExperimentalTime",
+                    "-opt-in=kotlinx.cinterop.ExperimentalForeignApi",
+                )
+            }
         }
     }
 
@@ -59,6 +66,7 @@ kotlin {
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.haze)
+            implementation(libs.compose.ui.backhandler)
         }
         androidMain.dependencies {
             implementation(compose.preview)

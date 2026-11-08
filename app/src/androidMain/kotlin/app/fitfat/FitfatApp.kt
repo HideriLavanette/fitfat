@@ -23,10 +23,10 @@ class FitfatApp : Application() {
         super.onCreate()
         AndroidApp.context = this
         graph = AppGraph.start()
-        app.fitfat.notify.Reminders.schedule(this)
+        app.fitfat.notify.Reminders.schedule()
         // Фото, на которые больше не ссылается ни один продукт (заменили, убрали, отменили правку), — удаляем
         CoroutineScope(Dispatchers.IO).launch {
-            runCatching { Photos.cleanup(this@FitfatApp, database.productDao().photos().toSet()) }
+            runCatching { Photos.cleanup(database.productDao().photos().toSet()) }
         }
     }
 }
