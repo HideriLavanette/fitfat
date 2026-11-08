@@ -31,6 +31,9 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() { super.onStart(); app.fitfat.platform.AndroidApp.activity = this }
+    override fun onStop() { if (app.fitfat.platform.AndroidApp.activity === this) app.fitfat.platform.AndroidApp.activity = null; super.onStop() }
+
     /** Нажали на уведомление, когда приложение уже открыто. */
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)

@@ -141,7 +141,7 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
      * Спросить ассистента о текущей строке ([answer] — ответ на его уточняющий вопрос: вариант-кнопка или свои слова).
      * [activity] — контекст активити (тихое обновление входа Google).
      */
-    fun askAssistant(activity: Context, answer: String? = null) {
+    fun askAssistant(answer: String? = null) {
         if (assistantBusy) return
         // Ответы на уточняющие вопросы копятся под строкой: «манты ⏎ Уточнение: тесто, фарш, лук; 5 шт»
         val q = if (answer != null) "$asked\nУточнение: $answer" else text.trim()
@@ -149,7 +149,7 @@ class AddFoodViewModel(app: Application) : AndroidViewModel(app) {
         asked = q
         assistantBusy = true; assistant = null
         viewModelScope.launch {
-            val reply = Assistant.ask(activity, q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value))
+            val reply = Assistant.ask(q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value))
             assistant = reply; assistantBusy = false
         }
     }

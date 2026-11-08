@@ -81,6 +81,37 @@ kotlin {
     }
 }
 
+// Значения сборки для общего кода обеих платформ: адрес ассистента, client id Google, репозиторий обновлений, версия.
+// Файл генерируется в build/, в репозиторий не попадает.
+val generateBuildValues by tasks.registering {
+    val outDir = layout.buildDirectory.dir("generated/buildValues/commonMain/kotlin")
+    inputs.property("assistantUrl", assistantUrl)
+    inputs.property("googleWebClientId", googleWebClientId)
+    inputs.property("updateRepo", updateRepo)
+    inputs.property("versionName", appVersionName)
+    inputs.property("versionCode", appVersionCode)
+    outputs.dir(outDir)
+    doLast {
+        val f = outDir.get().file("app/fitfat/BuildValues.kt").asFile
+        f.parentFile.mkdirs()
+        f.writeText(
+            """
+            |package app.fitfat
+            |
+            |/** Генерируется Gradle из gradle.properties и -P (см. app/build.gradle.kts). Не править руками. */
+            |object BuildValues {
+            |    const val ASSISTANT_URL = "$assistantUrl"
+            |    const val GOOGLE_WEB_CLIENT_ID = "$googleWebClientId"
+            |    const val UPDATE_REPO = "$updateRepo"
+            |    const val VERSION_NAME = "$appVersionName"
+            |    const val VERSION_CODE = $appVersionCode
+            |}
+            |""".trimMargin(),
+        )
+    }
+}
+kotlin.sourceSets.getByName("commonMain").kotlin.srcDir(generateBuildValues)
+
 android {
     namespace = "app.fitfat"
     compileSdk = 35

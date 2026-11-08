@@ -205,7 +205,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                 placeholder = !hasItems,
                 // Ассистент — кнопкой в той же подсказке над словом, слева от продукта из базы
                 onAssistant = if (app.fitfat.data.Assistant.available) ({ _ ->
-                    if (app.fitfat.data.Assistant.consented(actx)) vm.askAssistant(actx) else consent = true
+                    if (app.fitfat.data.Assistant.consented()) vm.askAssistant() else consent = true
                 }) else null,
                 assistantBusy = vm.assistantBusy,
                 wantsAssistant = { r -> wantsAssistant(r, vm.text) },
@@ -272,7 +272,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                     shown.value?.let { r ->
                         AssistantCard(
                             r, onDismiss = vm::dismissAssistant, onAdd = { vm.acceptAssistant(it) },
-                            onOption = { vm.askAssistant(ctx, answer = it) }, onRetry = { vm.askAssistant(ctx) },
+                            onOption = { vm.askAssistant(answer = it) }, onRetry = { vm.askAssistant() },
                         )
                     }
                 }
@@ -369,7 +369,7 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     if (consent) {
         val ctx = androidx.compose.ui.platform.LocalContext.current
         AssistantConsentDialog(onDismiss = { consent = false }) {
-            app.fitfat.data.Assistant.giveConsent(ctx); consent = false; vm.askAssistant(ctx)
+            app.fitfat.data.Assistant.giveConsent(); consent = false; vm.askAssistant()
         }
     }
 }

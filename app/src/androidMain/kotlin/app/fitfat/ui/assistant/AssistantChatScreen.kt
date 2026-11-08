@@ -79,8 +79,8 @@ fun AssistantChatScreen(vm: AssistantViewModel, onReport: () -> Unit) {
 
     fun send(text: String) {
         if (text.isBlank() || vm.busy) return
-        if (!Assistant.chatConsented(ctx)) { consentFor = text; return }
-        vm.send(ctx, text); input = ""
+        if (!Assistant.chatConsented()) { consentFor = text; return }
+        vm.send(text); input = ""
     }
     // Новое сообщение или «думаю» — к низу переписки
     LaunchedEffect(vm.messages.size, vm.busy) { val n = vm.messages.size + (if (vm.busy) 1 else 0); if (n > 0) list.animateScrollToItem(n) }
@@ -116,7 +116,7 @@ fun AssistantChatScreen(vm: AssistantViewModel, onReport: () -> Unit) {
                 else AssistantBubble {
                     if (m.error) {
                         Text(m.text, fontSize = 15.sp, lineHeight = 21.sp, color = colors.error)
-                        Surface(onClick = { vm.retry(ctx) }, shape = RoundedCornerShape(18.dp), color = colors.surfaceContainerHighest, modifier = Modifier.height(36.dp)) {
+                        Surface(onClick = { vm.retry() }, shape = RoundedCornerShape(18.dp), color = colors.surfaceContainerHighest, modifier = Modifier.height(36.dp)) {
                             Box(Modifier.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) { Text("Ещё раз", fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
                         }
                     } else {
@@ -181,7 +181,7 @@ fun AssistantChatScreen(vm: AssistantViewModel, onReport: () -> Unit) {
             },
             // Закрывающее — слева
             dismissButton = { TextButton(onClick = { consentFor = null }) { Text("Не сейчас") } },
-            confirmButton = { TextButton(onClick = { Assistant.giveChatConsent(ctx); consentFor = null; vm.send(ctx, pending); input = "" }) { Text("Понятно, продолжить") } },
+            confirmButton = { TextButton(onClick = { Assistant.giveChatConsent(); consentFor = null; vm.send(pending); input = "" }) { Text("Понятно, продолжить") } },
         )
     }
 }

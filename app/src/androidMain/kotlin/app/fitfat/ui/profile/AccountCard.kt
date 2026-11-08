@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
 fun AccountCard() {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
-    val store = remember { GoogleAccount.get(context) }
+    val store = remember { GoogleAccount.get() }
     val account by store.account.collectAsState()
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
@@ -76,14 +76,14 @@ fun AccountCard() {
                 when {
                     wait -> Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
                     on -> FilledTonalButton(
-                        onClick = { scope.launch { busy = true; store.signOut(context); error = null; busy = false } },
+                        onClick = { scope.launch { busy = true; store.signOut(); error = null; busy = false } },
                         modifier = Modifier.height(40.dp), colors = ButtonDefaults.filledTonalButtonColors(containerColor = colors.surfaceContainerHighest),
                     ) { Text("Отключить", fontSize = 14.sp) }
                     else -> Button(
                         onClick = {
                             scope.launch {
                                 busy = true
-                                error = when (val r = store.signIn(context)) {
+                                error = when (val r = store.signIn()) {
                                     is GoogleAccount.Result.Error -> r.message
                                     else -> null
                                 }

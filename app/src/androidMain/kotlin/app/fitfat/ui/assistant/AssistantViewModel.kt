@@ -3,7 +3,6 @@ package app.fitfat.ui.assistant
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import android.app.Application
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,7 +41,7 @@ class AssistantViewModel(app: Application) : AndroidViewModel(app) {
     val added = mutableStateListOf<Pair<Long, Int>>()
     private var nextId = 1L
 
-    fun send(activity: Context, text: String) {
+    fun send(text: String) {
         val t = text.trim()
         if (t.isEmpty() || busy) return
         messages += ChatMsg(nextId++, true, t)
@@ -52,9 +51,9 @@ class AssistantViewModel(app: Application) : AndroidViewModel(app) {
                 (if (m.fromUser) "user" else "assistant") to
                     (m.text + m.items.joinToString("") { "\n— ${it.name}" } + (if (m.note.isNotBlank()) "\n${m.note}" else "")).trim()
             }
-            val ctx = runCatching { AssistantContext.build(fa) }.getOrNull()
+            val ctx = runCatching { AssistantContext.build(fa.graph) }.getOrNull()
             val reply = if (ctx == null) Assistant.ChatReply.Error("Не получилось собрать данные дневника.")
-                else Assistant.chat(activity, history, ctx)
+                else Assistant.chat(history, ctx)
             messages += when (reply) {
                 is Assistant.ChatReply.Ok -> ChatMsg(nextId++, false, reply.text, reply.items, reply.note)
                 is Assistant.ChatReply.Error -> ChatMsg(nextId++, false, reply.message, error = true)
@@ -64,11 +63,11 @@ class AssistantViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Повторить последний вопрос после ошибки. */
-    fun retry(activity: Context) {
+    fun retry() {
         val last = messages.lastOrNull { it.fromUser } ?: return
         messages.removeAll { it.error }
         messages.remove(last)
-        send(activity, last.text)
+        send(last.text)
     }
 
     /** «+» у предложения: в дневник на сегодня, сейчас, приём по времени. Нового продукта нет в базе — сохраняется с пометкой «оценка ассистента». */
