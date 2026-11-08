@@ -36,6 +36,8 @@ object MockIcons {
     val Delete = strokeIcon("M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13")
     val Edit = strokeIcon("M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4")
     /** Карточка продукта: лист со строками — открыть, а не править. */
+    /** Отправить: стрелка вверх (макет Assistant). */
+    val ArrowUp = strokeIcon("M12 19V5M5 12l7-7 7 7")
     /** Подсказка: лампочка. */
     val Bulb = strokeIcon("M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.5 1.1 1.3 1.1 2.2h5c0-.9.4-1.7 1.1-2.2A6 6 0 0 0 12 3Z")
     val Card = strokeIcon("M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM8 8h8M8 12h8M8 16h5")

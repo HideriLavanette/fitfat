@@ -37,17 +37,33 @@ object Assistant {
     private fun prefs(c: Context) = c.getSharedPreferences("assistant", Context.MODE_PRIVATE)
     fun consented(c: Context) = prefs(c).getBoolean("consent", false)
     fun giveConsent(c: Context) = prefs(c).edit { putBoolean("consent", true) }
+    /** Согласие для вкладки «Ассистент»: туда уходит больше — сводка дневника и веса. */
+    fun chatConsented(c: Context) = prefs(c).getBoolean("consent_chat", false)
+    fun giveChatConsent(c: Context) = prefs(c).edit { putBoolean("consent_chat", true) }
 
     /** Продукты из базы, похожие на слова строки, — подсказка ассистенту, чтобы брал их, а не выдумывал. */
     fun similar(text: String, products: List<Product>, limit: Int = 20): List<Product> =
         Recognizer.split(text).flatMap { Recognizer.candidates(it, products, 5) }.map { it.product }.distinctBy { it.id }.take(limit)
 
+    /** Токен входа Google или текст ошибки для экрана. */
+    private suspend fun token(activity: Context): Pair<String?, String?> {
+        if (!available) return null to "Ассистент не настроен в этой сборке."
+        val google = GoogleAccount.get(activity)
+        if (google.account.value == null) return null to "Чтобы пользоваться ассистентом, подключите аккаунт Google в «Профиле»."
+        val t = google.idToken(activity) ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или переподключите аккаунт в «Профиле»."
+        return t to null
+    }
+
+    /** POST на сервер: ответ JSON или текст ошибки. */
+    private suspend fun call(path: String, token: String, body: JSONObject): Pair<JSONObject?, String?> = withContext(Dispatchers.IO) {
+        runCatching { post("${BuildConfig.ASSISTANT_URL}$path", token, body) }
+            .getOrElse { null to "Нет связи с ассистентом. Проверьте интернет и попробуйте ещё раз." }
+    }
+
     /** [activity] — контекст активити: может понадобиться тихо обновить токен Google. */
     suspend fun ask(activity: Context, text: String, leftKcal: Double?, known: List<Product>): Reply {
-        if (!available) return Reply.Error("Ассистент не настроен в этой сборке.")
-        val google = GoogleAccount.get(activity)
-        if (google.account.value == null) return Reply.Error("Чтобы пользоваться ассистентом, подключите аккаунт Google в «Профиле».")
-        val token = google.idToken(activity) ?: return Reply.Error("Не получилось подтвердить вход Google. Проверьте интернет или переподключите аккаунт в «Профиле».")
+        val (token, authErr) = token(activity)
+        if (token == null) return Reply.Error(authErr!!)
         val body = JSONObject().apply {
             put("text", text)
             leftKcal?.let { put("leftKcal", Math.round(it)) }
@@ -58,13 +74,35 @@ object Assistant {
                 }
             })
         }
-        return withContext(Dispatchers.IO) {
-            runCatching { post("${BuildConfig.ASSISTANT_URL}/estimate", token, body) }
-                .getOrElse { Reply.Error("Нет связи с ассистентом. Проверьте интернет и попробуйте ещё раз.") }
-        }
+        val (j, err) = call("/estimate", token, body)
+        return if (j == null) Reply.Error(err ?: "Ассистент недоступен.") else parse(j)
     }
 
-    private fun post(url: String, token: String, body: JSONObject): Reply {
+    /** Ответ во вкладке «Ассистент» (макет 5.2): текст, продукты-предложения с «+», вывод после них. */
+    sealed interface ChatReply {
+        data class Ok(val text: String, val items: List<Item>, val note: String) : ChatReply
+        data class Error(val message: String) : ChatReply
+    }
+
+    /**
+     * Сообщение во вкладке «Ассистент». [history] — переписка (role «user»/«assistant», текст), последняя — от человека;
+     * [context] — сводка данных ([AssistantContext]).
+     */
+    suspend fun chat(activity: Context, history: List<Pair<String, String>>, context: JSONObject): ChatReply {
+        val (token, authErr) = token(activity)
+        if (token == null) return ChatReply.Error(authErr!!)
+        val body = JSONObject()
+            .put("messages", JSONArray().apply { history.forEach { (r, t) -> put(JSONObject().put("role", r).put("text", t)) } })
+            .put("context", context)
+        val (j, err) = call("/chat", token, body)
+        if (j == null) return ChatReply.Error(err ?: "Ассистент недоступен.")
+        val text = j.optString("reply").trim()
+        val items = parseItems(j.optJSONArray("items") ?: JSONArray())
+        if (text.isEmpty() && items.isEmpty()) return ChatReply.Error("Ассистент вернул пустой ответ — попробуйте ещё раз.")
+        return ChatReply.Ok(text, items, j.optString("note").trim())
+    }
+
+    private fun post(url: String, token: String, body: JSONObject): Pair<JSONObject?, String?> {
         val c = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"; doOutput = true
             connectTimeout = 15_000; readTimeout = 90_000
@@ -76,8 +114,8 @@ object Assistant {
             val code = c.responseCode
             val raw = (if (code in 200..299) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() }.orEmpty()
             val json = runCatching { JSONObject(raw) }.getOrNull()
-            if (code !in 200..299) return Reply.Error(json?.optString("error")?.takeIf { it.isNotBlank() } ?: "Ассистент недоступен ($code).")
-            return json?.let(::parse) ?: Reply.Error("Ассистент вернул непонятный ответ — попробуйте ещё раз.")
+            if (code !in 200..299) return null to (json?.optString("error")?.takeIf { it.isNotBlank() } ?: "Ассистент недоступен ($code).")
+            return if (json != null) json to null else null to "Ассистент вернул непонятный ответ — попробуйте ещё раз."
         } finally { c.disconnect() }
     }
 
@@ -90,8 +128,17 @@ object Assistant {
                 Reply.Question(j.optString("question").ifBlank { reply }, opts)
             }
             "items" -> {
-                val a = j.optJSONArray("items") ?: JSONArray()
-                val items = (0 until a.length()).mapNotNull { i ->
+                val items = parseItems(j.optJSONArray("items") ?: JSONArray())
+                if (items.isEmpty()) Reply.Answer(reply.ifBlank { "Не нашёл в строке еды, которую можно записать." })
+                else Reply.Items(items, reply, j.optString("note").trim())
+            }
+            else -> Reply.Answer(reply.ifBlank { "Не понял запрос — попробуйте написать иначе." })
+        }
+    }
+
+    /** Блюда из ответа: без названия или веса — отбрасываются, калории — из БЖУ. */
+    private fun parseItems(a: JSONArray): List<Item> =
+                (0 until a.length()).mapNotNull { i ->
                     val o = a.optJSONObject(i) ?: return@mapNotNull null
                     val grams = o.optDouble("grams", Double.NaN)
                     val name = o.optString("name").trim()
@@ -110,12 +157,6 @@ object Assistant {
                         confidence = o.optString("confidence", "medium"),
                     )
                 }
-                if (items.isEmpty()) Reply.Answer(reply.ifBlank { "Не нашёл в строке еды, которую можно записать." })
-                else Reply.Items(items, reply, j.optString("note").trim())
-            }
-            else -> Reply.Answer(reply.ifBlank { "Не понял запрос — попробуйте написать иначе." })
-        }
-    }
 
     private val CATEGORIES = setOf("grain", "meat", "dairy", "fruit", "veg", "sauce", "drink")
 }

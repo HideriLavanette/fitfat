@@ -118,6 +118,7 @@ fun AppRoot(
     today: TodayViewModel = viewModel(),
     add: AddFoodViewModel = viewModel(),
     productsVm: ProductsViewModel = viewModel(),
+    assistantVm: app.fitfat.ui.assistant.AssistantViewModel = viewModel(),
 ) {
     val nav = rememberNavController()
     val backStack by nav.currentBackStackEntryAsState()
@@ -307,7 +308,7 @@ fun AppRoot(
             Tab.Weight -> WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) }) {
                 app.fitfat.ui.week.WeekCard(weekDays) { nav.navigate("week") }
             }
-            Tab.Assistant -> app.fitfat.ui.week.AssistantScreen()
+            Tab.Assistant -> app.fitfat.ui.assistant.AssistantChatScreen(assistantVm, onReport = { nav.navigate("week") })
             Tab.Profile -> {
                 // Без профиля «Тело и цель» не из чего показывать — сначала первая настройка
                 fun needSetup() = (profileNow == null).also { if (it) { setupFirstRun = false; setupEdit = false; setupOpen = true } }

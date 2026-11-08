@@ -28,21 +28,6 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import kotlin.math.abs
 
-/**
- * Вкладка «Ассистент»: советы ассистента — в отдельной версии (DESIGN.md). Недельный отчёт — на вкладке «Вес» ([WeekCard]).
- */
-@Composable
-fun AssistantScreen() {
-    val colors = MaterialTheme.colorScheme
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text("Ассистент", fontSize = 22.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp))
-        Text("Советы по питанию появятся в следующих версиях.", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(horizontal = 8.dp))
-    }
-}
-
 /** Вход в недельный отчёт («Неделя») с балансом за прошедшие дни — на вкладке «Вес». */
 @Composable
 fun WeekCard(days: List<WeekDay>, onWeek: () -> Unit) {
