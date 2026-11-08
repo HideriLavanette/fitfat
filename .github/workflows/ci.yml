@@ -78,6 +78,8 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" "$APP"
+          # Тёмный режим системы: тема «как в системе» по умолчанию, макеты — тёмные
+          xcrun simctl ui "$UDID" appearance dark || true
           mkdir -p shots
           shot() { name=$1; shift; env "$@" xcrun simctl launch "$UDID" app.fitfat >/dev/null; sleep 12; xcrun simctl io "$UDID" screenshot "shots/$name.png"; xcrun simctl terminate "$UDID" app.fitfat || true; sleep 1; }
           # 1. Первый запуск — настройка
