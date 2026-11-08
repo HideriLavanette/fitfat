@@ -78,33 +78,17 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" "$APP"
-          P="$(xcrun simctl get_app_container "$UDID" app.fitfat data)/Library/Preferences"
-          mkdir -p "$P" shots
+          mkdir -p shots
           shot() { name=$1; shift; env "$@" xcrun simctl launch "$UDID" app.fitfat >/dev/null; sleep 12; xcrun simctl io "$UDID" screenshot "shots/$name.png"; xcrun simctl terminate "$UDID" app.fitfat || true; sleep 1; }
           # 1. Первый запуск — настройка
           shot 01-setup
-          # Профиль как у автора, разрешение на уведомления уже спрашивали
-          defaults write "$P/app.fitfat.profile" sex -string m
-          defaults write "$P/app.fitfat.profile" age -int 28
-          defaults write "$P/app.fitfat.profile" h -int 180
-          defaults write "$P/app.fitfat.profile" w -float 78.5
-          defaults write "$P/app.fitfat.profile" bf -int 18
-          defaults write "$P/app.fitfat.profile" gym -bool true
-          defaults write "$P/app.fitfat.profile" sports -array
-          defaults write "$P/app.fitfat.profile" act -int 1
-          defaults write "$P/app.fitfat.profile" goal -string Recomp
-          defaults write "$P/app.fitfat.profile" pk -float -1
-          defaults write "$P/app.fitfat.profile" target -float -1
-          defaults write "$P/app.fitfat.profile" done -bool true
-          defaults write "$P/app.fitfat.settings" notices_asked -bool true
-          # 2. Главный с утренним окном веса
-          shot 02-morning-weight
+          # 2. Главный с утренним окном веса (готовый профиль создаёт само приложение по FITFAT_DEMO)
+          shot 02-morning-weight SIMCTL_CHILD_FITFAT_DEMO=profile
           # 3. Главный без окна (вес на сегодня пропущен)
-          defaults write "$P/app.fitfat.weight" skipped_day -int $(( $(date +%s) / 86400 ))
-          shot 03-today
+          shot 03-today SIMCTL_CHILD_FITFAT_DEMO=profile,skip
           # 4. «Неделя» и 5. шторка веса — как по нажатию на уведомление
-          shot 04-week SIMCTL_CHILD_FITFAT_OPEN=week
-          shot 05-weight-sheet SIMCTL_CHILD_FITFAT_OPEN=weight
+          shot 04-week SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=week
+          shot 05-weight-sheet SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=weight
           ls -la shots
       - name: Скриншоты — в ветку ios-screenshots
         env:
