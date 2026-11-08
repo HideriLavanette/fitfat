@@ -27,6 +27,8 @@ jobs:
   # линковка фреймворка и сборка приложения для симулятора без подписи.
   ios:
     runs-on: macos-latest
+    permissions:
+      contents: write # ветка ios-screenshots со скриншотами из симулятора
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -62,6 +64,58 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           tail -200 build/xcodebuild.log
+      - name: Скриншоты в симуляторе
+        run: |
+          set -o pipefail
+          APP=build/ios/Build/Products/Debug-iphonesimulator/FitFat.app
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          devs = [x for rt, l in d['devices'].items() if 'iOS' in rt for x in l if x['isAvailable'] and x['name'].startswith('iPhone') and 'SE' not in x['name']]
+          devs.sort(key=lambda x: x['name'])
+          print(devs[-1]['udid'])")
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          P="$(xcrun simctl get_app_container "$UDID" app.fitfat data)/Library/Preferences"
+          mkdir -p "$P" shots
+          shot() { name=$1; shift; env "$@" xcrun simctl launch "$UDID" app.fitfat >/dev/null; sleep 12; xcrun simctl io "$UDID" screenshot "shots/$name.png"; xcrun simctl terminate "$UDID" app.fitfat || true; sleep 1; }
+          # 1. Первый запуск — настройка
+          shot 01-setup
+          # Профиль как у автора, разрешение на уведомления уже спрашивали
+          defaults write "$P/app.fitfat.profile" sex -string m
+          defaults write "$P/app.fitfat.profile" age -int 28
+          defaults write "$P/app.fitfat.profile" h -int 180
+          defaults write "$P/app.fitfat.profile" w -float 78.5
+          defaults write "$P/app.fitfat.profile" bf -int 18
+          defaults write "$P/app.fitfat.profile" gym -bool true
+          defaults write "$P/app.fitfat.profile" sports -array
+          defaults write "$P/app.fitfat.profile" act -int 1
+          defaults write "$P/app.fitfat.profile" goal -string Recomp
+          defaults write "$P/app.fitfat.profile" pk -float -1
+          defaults write "$P/app.fitfat.profile" target -float -1
+          defaults write "$P/app.fitfat.profile" done -bool true
+          defaults write "$P/app.fitfat.settings" notices_asked -bool true
+          # 2. Главный с утренним окном веса
+          shot 02-morning-weight
+          # 3. Главный без окна (вес на сегодня пропущен)
+          defaults write "$P/app.fitfat.weight" skipped_day -int $(( $(date +%s) / 86400 ))
+          shot 03-today
+          # 4. «Неделя» и 5. шторка веса — как по нажатию на уведомление
+          shot 04-week SIMCTL_CHILD_FITFAT_OPEN=week
+          shot 05-weight-sheet SIMCTL_CHILD_FITFAT_OPEN=weight
+          ls -la shots
+      - name: Скриншоты — в ветку ios-screenshots
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd shots
+          { echo "# Скриншоты iOS (симулятор, CI)"; echo; echo "Сборка $GITHUB_SHA."; echo; for f in *.png; do echo "## $f"; echo; echo "![$f]($f)"; echo; done; } > README.md
+          git init -q && git checkout -q -b ios-screenshots && git add .             && git -c user.name=github-actions -c user.email=actions@github.com commit -qm "Скриншоты iOS из CI, сборка $GITHUB_SHA"             && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ios-screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fitfat-ios-screenshots
+          path: shots/*.png
       - name: Упаковать .app
         run: |
           cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
