@@ -2,11 +2,12 @@ package app.fitfat
 
 import androidx.compose.ui.window.ComposeUIViewController
 import app.fitfat.data.AppGraph
-import app.fitfat.data.DayClock
 import app.fitfat.data.Profile
 import app.fitfat.platform.Demo
 import app.fitfat.platform.Prefs
+import app.fitfat.time.now
 import app.fitfat.time.toEpochDay
+import kotlinx.datetime.LocalDate
 import app.fitfat.notify.ReminderScheduler
 import app.fitfat.notify.Reminders
 import app.fitfat.ui.FitfatAppUi
@@ -27,7 +28,8 @@ fun MainViewController(): UIViewController {
             g.profile.save(Profile())
             Prefs("settings").edit { putBoolean("notices_asked", true) }
         }
-        if ("skip" in demo) Prefs("weight").edit { putLong("skipped_day", DayClock.today().toEpochDay()) }
+        // Календарный день, как в WeightViewModel (утреннее окно сверяет с LocalDate.now(), а не с днём дневника)
+        if ("skip" in demo) Prefs("weight").edit { putLong("skipped_day", LocalDate.now().toEpochDay()) }
         if ("settings" in demo) Demo.screen = "settings"
         if ("alert" in demo) Demo.alert = true
     }
