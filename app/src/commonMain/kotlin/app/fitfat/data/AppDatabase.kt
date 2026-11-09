@@ -75,6 +75,8 @@ const val SOURCE_OFF = "off"
 const val SOURCE_MANUAL = "manual"
 /** Примерная оценка ассистента (0.6) — значения неточные, их стоит уточнить. */
 const val SOURCE_AI = "ai"
+/** КБЖУ переписаны ассистентом с этикетки на фото и прошли проверку на правдоподобие (0.6.4) — это не оценка. */
+const val SOURCE_LABEL = "label"
 
 /** Ингредиент блюда: продукт и его сырой вес в рецепте. */
 @Entity(tableName = "dish_ingredient")

@@ -37,8 +37,11 @@ object Assistant {
         val grams: Double, val pieces: Double?, val per100: Macros, val confidence: String,
         /** На какой вес КБЖУ: [WEIGHT_DRY] / [WEIGHT_RAW] / [WEIGHT_COOKED] или null. */
         val weightState: String? = null,
+        /** КБЖУ взяты с этикетки на фото и правдоподобны — продукт сохраняется без пометки «оценка» ([SOURCE_LABEL]). */
+        val fromLabel: Boolean = false,
     ) {
         val macros: Macros get() = per100 * (grams / 100.0)
+        val source: String get() = if (fromLabel) SOURCE_LABEL else SOURCE_AI
     }
 
     sealed interface Reply {
@@ -252,6 +255,8 @@ object Assistant {
     }
 
     /** Блюда из ответа: без названия или веса — отбрасываются, калории — из БЖУ. */
+    internal fun parseItemsForTest(a: JsonArray) = parseItems(a)
+
     private fun parseItems(a: JsonArray): List<Item> =
         a.indices.mapNotNull { i ->
             val o = a.optObject(i) ?: return@mapNotNull null
@@ -271,8 +276,21 @@ object Assistant {
                 per100 = Macros(p * 4 + f * 9 + u * 4, p, f, u),
                 confidence = o.optString("confidence").ifBlank { "medium" },
                 weightState = o.optString("weight_state").takeIf { it in WeightState.all },
+                fromLabel = o.optBoolean("from_label", false) && labelPlausible(o.optDouble("kcal"), p, f, u),
             )
         }
+
+    /**
+     * Вторая проверка цифр с этикетки (первая — у ассистента): БЖУ не больше 100 г на 100 г, а калории с этикетки
+     * сходятся с БЖУ (4·Б + 9·Ж + 4·У) с точностью 20 % (не меньше 25 ккал — округления, клетчатка, полиолы).
+     * Не сходится — значит, на этикетке ошибка или цифры прочитаны неверно, и продукт остаётся оценкой.
+     */
+    internal fun labelPlausible(kcal: Double, p: Double, f: Double, u: Double): Boolean {
+        if (kcal.isNaN() || kcal < 0) return false
+        if (p + f + u > 101) return false
+        val calc = p * 4 + f * 9 + u * 4
+        return kotlin.math.abs(kcal - calc) <= maxOf(25.0, calc * 0.2)
+    }
 
     private val CATEGORIES = setOf("grain", "meat", "dairy", "fruit", "veg", "sauce", "drink")
 }

@@ -22,7 +22,6 @@ import app.fitfat.data.Meal
 import app.fitfat.data.Portion
 import app.fitfat.data.Product
 import app.fitfat.data.Recognizer
-import app.fitfat.data.SOURCE_AI
 import app.fitfat.data.portion
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -216,7 +215,8 @@ class AddFoodViewModel : ViewModel() {
                     name = it.name, category = it.category,
                     kcal = it.per100.kcal, protein = it.per100.protein, fat = it.per100.fat, carbs = it.per100.carbs,
                     defaultGrams = Math.round(it.grams / (it.pieces ?: 1.0)).toDouble().coerceAtLeast(1.0),
-                    aliases = Recognizer.normalize(it.name), source = SOURCE_AI,
+                    // С этикетки на фото (и правдоподобно) — без пометки «оценка»
+                    aliases = Recognizer.normalize(it.name), source = it.source,
                     weightState = it.weightState,
                     // Оценено по фото — снимок становится фото блюда (остаётся на телефоне)
                     photo = assistantPhoto,

@@ -22,7 +22,6 @@ import app.fitfat.data.Meal
 import app.fitfat.data.Portion
 import app.fitfat.data.Product
 import app.fitfat.data.Recognizer
-import app.fitfat.data.SOURCE_AI
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalTime
@@ -119,7 +118,7 @@ class AssistantViewModel : ViewModel() {
                 name = item.name, category = item.category,
                 kcal = item.per100.kcal, protein = item.per100.protein, fat = item.per100.fat, carbs = item.per100.carbs,
                 defaultGrams = Math.round(item.grams / (item.pieces ?: 1.0)).toDouble().coerceAtLeast(1.0),
-                aliases = Recognizer.normalize(item.name), source = SOURCE_AI,
+                aliases = Recognizer.normalize(item.name), source = item.source,
             ),
         )
         val now = LocalTime.now()

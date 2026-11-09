@@ -260,6 +260,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                             fromOff -> app.fitfat.data.SOURCE_OFF
                             existing?.source == app.fitfat.data.SOURCE_SEED && !touched -> app.fitfat.data.SOURCE_SEED
                             existing?.source == app.fitfat.data.SOURCE_AI && !touched -> app.fitfat.data.SOURCE_AI
+                            existing?.source == app.fitfat.data.SOURCE_LABEL && !touched -> app.fitfat.data.SOURCE_LABEL
                             else -> app.fitfat.data.SOURCE_MANUAL
                         },
                     ),

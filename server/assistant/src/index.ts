@@ -233,7 +233,7 @@ const SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["name", "existing", "category", "grams", "pieces", "kcal", "protein", "fat", "carbs", "confidence", "weight_state"],
+        required: ["name", "existing", "category", "grams", "pieces", "kcal", "protein", "fat", "carbs", "confidence", "weight_state", "from_label"],
         properties: {
           name: { type: "string" },
           existing: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -246,6 +246,7 @@ const SCHEMA = {
           carbs: { type: "number" },
           confidence: { type: "string", enum: ["low", "medium", "high"] },
           weight_state: { type: "string", enum: ["dry", "raw", "cooked", "none"] },
+          from_label: { type: "boolean" },
         },
       },
     },
@@ -283,6 +284,15 @@ const SYSTEM = `Ты — ассистент ввода еды в FitFat, тре�
 
 Если к строке приложено фото еды: определи по нему блюда и примерный вес порции (по размеру тарелки, приборов, упаковки), строка — подсказка человека («это плов», «съел половину»). Если на фото не еда или ничего не разобрать — kind "answer" с короткой просьбой сфотографировать тарелку целиком сверху при хорошем свете. По фото оценка всегда примерная: confidence не выше medium, в note — что вес определён на глаз.
 
+Если на фото видна этикетка с пищевой ценностью (таблица «Пищевая ценность на 100 г»): КБЖУ бери с этикетки — это данные производителя, а не оценка. Значения на порцию или на упаковку пересчитай на 100 г; kcal — тоже с этикетки, как написано. Название — с упаковки (вид продукта и, если видно, марка: «Сыр Российский 50 %»). Вес съеденного — из строки; если его нет — обычная порция этого продукта (вес всей упаковки — только если ясно, что съели всё).
+НО сначала подумай, можно ли этим цифрам верить: производители ошибаются и привирают. Проверь:
+  1) Б + Ж + У не больше 100 г на 100 г;
+  2) калории сходятся с БЖУ: ≈ 4·Б + 9·Ж + 4·У, расхождение не больше ~15 %;
+  3) состав похож на такой продукт. Ориентиры на 100 г: твёрдый сыр — Б 22–30, Ж 24–35, У 0–3; творог 5–9 % — Б 16–18; молоко — Б ~3, Ж 1–6, У ~4,7; сливочное масло — Ж 72–83; колбаса варёная — Б 10–14, Ж 18–30; хлеб — У 40–55; шоколад — Ж 30–40, У 45–60. Пример вранья: сыр «Б 30, Ж 10» — у твёрдого сыра так не бывает, похоже, белок и жир завышен/занижен или строки перепутаны.
+  Цифры правдоподобны — from_label true, confidence high.
+  Неправдоподобны — не переписывай их: поставь реальные типичные значения для такого продукта (явную перестановку строк — исправь), from_label false, confidence medium, а в note коротко: что написано на этикетке и почему не взял («На этикетке Б 30 / Ж 10 — для твёрдого сыра так не бывает, взял типичные Б 25 / Ж 29»).
+Если цифры на этикетке не разобрать — оценивай по виду продукта как обычно и попроси в note сфотографировать таблицу ближе. from_label false у всего, что не переписано с этикетки (блюда, оценки на глаз, продукты из базы).
+
 Правила оценки: опирайся на типичные рецептуры и справочные значения; калории согласуй с БЖУ (≈ 4·Б + 9·Ж + 4·У). Числа округляй: ккал до целых, БЖУ до 0,1 г, граммы до целых. Не выдумывай точность — лучше честная оценка с пометкой в note.`;
 
 async function estimate(env: Env, text: string, leftKcal: number | null, known: Known[], photo: string | null = null, diary: string | null = null) {
@@ -298,9 +308,11 @@ async function estimate(env: Env, text: string, leftKcal: number | null, known: 
 
   const params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming = {
     model: env.MODEL,
-    max_tokens: 4000,
+    // С фото — подумать перед ответом: разглядеть этикетку и проверить, можно ли верить цифрам производителя
+    max_tokens: photo ? 12000 : 4000,
+    ...(photo ? { thinking: { type: "adaptive" as const } } : {}),
     system: SYSTEM,
-    output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA as unknown as Record<string, unknown> } },
+    output_config: { effort: photo ? "medium" : "low", format: { type: "json_schema", schema: SCHEMA as unknown as Record<string, unknown> } },
     messages: [{
       role: "user",
       content: photo

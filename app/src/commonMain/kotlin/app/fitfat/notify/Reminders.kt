@@ -13,6 +13,8 @@ import kotlinx.datetime.LocalDateTime
 object Reminders {
     const val WEIGHT = "weight"
     const val WEEK = "week"
+    /** Предложение срезать калории ([app.fitfat.data.PaceCheck]) — открывает «Сегодня» с карточкой. Только Android. */
+    const val PACE = "pace"
 
     /** Что открыть по нажатию на уведомление: [WEIGHT] — шторка веса, [WEEK] — «Неделя». Читает AppRoot. */
     val open = MutableStateFlow<String?>(null)

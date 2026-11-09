@@ -167,6 +167,7 @@ fun sourceLabel(p: Product) = when (p.source ?: if (p.id <= SEED_COUNT) app.fitf
     app.fitfat.data.SOURCE_SEED -> "Из встроенной базы"
     app.fitfat.data.SOURCE_OFF -> "Из Open Food Facts"
     app.fitfat.data.SOURCE_AI -> "Оценка ассистента"
+    app.fitfat.data.SOURCE_LABEL -> "С этикетки на фото"
     else -> "Введён вручную"
 } + (p.barcode?.let { " · штрихкод $it" } ?: "")
 

@@ -14,14 +14,16 @@ import kotlin.math.roundToInt
  *
  * 1. Сухая масса = вес × (1 − % жира). Базовый обмен — Кэтч — Макардл: 370 + 21,6 × сухая масса.
  * 2. Калории обычного дня — без множителя активности (активность не спрашиваем: люди её переоценивают,
- *    а нагрузки бывают не каждый день): похудение и рекомпозиция — базовый обмен; поддержание — базовый обмен × 1,2;
+ *    а нагрузки бывают не каждый день): похудение и рекомпозиция — базовый обмен + 150 ккал запаса на старт
+ *    (0.6.4: не начинать с жёсткой диеты, дальше срезать по темпу); поддержание — базовый обмен × 1,2;
  *    набор — поддержание + 250 ккал за счёт углеводов (жиры при наборе не растут — иначе просто жиронабор).
  * 3. Белок: тренируется — 2,2 г на кг веса (похудение, рекомпозиция), 2,0 (набор, поддержание);
  *    не тренируется — на кг сухой массы: похудение 2,2 · рекомпозиция 2,0 · набор 1,8 · поддержание 1,6.
  *    Жиры: мужчинам 0,9, женщинам 1,2 г на кг сухой массы (границы 0,8–1,2). Остальное — углеводы.
  * 4. День тренировки — +90 г углеводов, только при интенсивных занятиях (зал, бег, плавание, единоборства,
  *    командные, велосипед); низкоинтенсивные (йога) не добавляют — они помогают худеть.
- * 5. Не худеет: тренд веса за 14 дней упал меньше чем на 0,2 кг — предложить −150 ккал. Белок не трогаем;
+ * 5. Не худеет или худеет медленно: тренд веса за 14 дней упал меньше чем на 0,2 кг (рекомпозиция) или меньше
+ *    половины плана — 0,5 % веса в неделю (похудение) — предложить −150 ккал ([PaceCheck]). Белок не трогаем;
  *    срезаем сначала жиры, но не ниже 0,8 г на кг сухой массы, остальное — углеводы, не ниже 50 г.
  */
 
@@ -62,6 +64,17 @@ object NormsCalc {
     const val PLATEAU_DAYS = 14
     /** Тренд за [PLATEAU_DAYS] упал меньше — значит стоит, кг. */
     const val PLATEAU_MIN_DROP = 0.2
+    /** Запас к базовому обмену на старте похудения и рекомпозиции, ккал (0.6.4). */
+    const val START_BUFFER = 150.0
+    /** План похудения: доля веса в неделю (0,5 %). Медленнее половины плана — предлагаем срез. */
+    const val LOSE_PACE = 0.005
+
+    /** Сколько по плану уходит за [PLATEAU_DAYS] дней, кг: похудение — 0,5 % веса в неделю; рекомпозиция — без плана. */
+    fun planDrop14(goal: Goal, weightKg: Double): Double =
+        if (goal == Goal.Lose) weightKg * LOSE_PACE * PLATEAU_DAYS / 7 else 0.0
+
+    /** Меньше — пора срезать: похудение — половина плана (не меньше 0,2 кг), рекомпозиция — 0,2 кг. */
+    fun minDrop14(goal: Goal, weightKg: Double): Double = max(PLATEAU_MIN_DROP, planDrop14(goal, weightKg) / 2)
 
     fun lean(b: Body) = b.weightKg * (1 - b.bodyFatPct / 100)
 
@@ -80,7 +93,7 @@ object NormsCalc {
 
     /** Калории обычного дня, от которых раскладываются БЖУ. */
     fun kcalBase(b: Body): Double = when (b.goal) {
-        Goal.Lose, Goal.Recomp -> bmr(b)
+        Goal.Lose, Goal.Recomp -> bmr(b) + START_BUFFER
         Goal.Keep, Goal.Gain -> bmr(b) * KEEP_FACTOR + b.goal.kcalDelta
     }
 
@@ -101,15 +114,15 @@ object NormsCalc {
 
     /**
      * Вес стоит: с начала норм (или прошлого среза) прошло не меньше 14 дней, за последние 14 дней
-     * есть хотя бы 6 взвешиваний, и тренд упал меньше чем на 0,2 кг. [trend] — сглаженный вес по датам.
+     * есть хотя бы 6 взвешиваний, и тренд упал меньше чем на [minDrop] кг. [trend] — сглаженный вес по датам.
      */
-    fun isPlateau(trend: List<Pair<LocalDate, Double>>, normsSince: LocalDate, today: LocalDate): Boolean {
+    fun isPlateau(trend: List<Pair<LocalDate, Double>>, normsSince: LocalDate, today: LocalDate, minDrop: Double = PLATEAU_MIN_DROP): Boolean {
         if (ChronoUnit.DAYS.between(normsSince, today) < PLATEAU_DAYS) return false
         val from = today.minusDays(PLATEAU_DAYS.toLong())
         val window = trend.filter { !it.first.isBefore(from) && !it.first.isAfter(today) }.sortedBy { it.first }
         if (window.size < 6) return false
         val start = trend.lastOrNull { !it.first.isAfter(from) }?.second ?: window.first().second
-        return start - window.last().second < PLATEAU_MIN_DROP
+        return start - window.last().second < minDrop
     }
 
     /**

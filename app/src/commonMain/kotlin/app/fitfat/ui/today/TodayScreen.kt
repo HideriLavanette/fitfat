@@ -652,8 +652,8 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
     }
 }
 
-/** Предложение среза при застое: изменение тренда за 14 дней, нормы обычного дня до и после. */
-data class PlateauOffer(val dropKg: Double, val before: app.fitfat.data.Macros, val after: app.fitfat.data.Macros)
+/** Предложение среза при застое или медленном темпе — см. [app.fitfat.data.PaceCheck]. */
+typealias PlateauOffer = app.fitfat.data.PaceOffer
 
 /**
  * «Вес стоит 2 недели»: карточка 24 `surfaceContainerHigh` под кольцом. Что меняется — жиры и углеводы до → после,
@@ -670,7 +670,7 @@ private fun PlateauCard(o: PlateauOffer, onCut: () -> Unit, onLater: () -> Unit,
             Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(colors.secondaryContainer), contentAlignment = Alignment.Center) {
                 Icon(MockIcons.NavWeight, null, Modifier.size(18.dp), tint = colors.onSecondaryContainer)
             }
-            Text("Вес стоит 2 недели", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Text(app.fitfat.data.PaceCheck.title(o), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
         }
         val drop = Fmt.f1(kotlin.math.abs(o.dropKg))
         val parts = listOfNotNull(
@@ -678,7 +678,8 @@ private fun PlateauCard(o: PlateauOffer, onCut: () -> Unit, onLater: () -> Unit,
             if (o.after.carbs != o.before.carbs) "углеводы ${fmt0(o.before.carbs)} → ${fmt0(o.after.carbs)} г" else null,
         ).joinToString(", ")
         Text(
-            "Тренд за 14 дней: ${if (o.dropKg > 0) "+" else "−"}$drop кг. Предлагаю срезать ${fmt0(o.before.kcal - o.after.kcal)} ккал: $parts. Белок не трогаем.",
+            "Тренд за 14 дней: ${if (o.dropKg > 0) "+" else "−"}$drop кг" +
+                (if (o.slow) ", по плану — около −${Fmt.f1(o.planKg)} кг" else "") + ". Предлагаю срезать ${fmt0(o.before.kcal - o.after.kcal)} ккал: $parts. Белок не трогаем.",
             fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant,
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

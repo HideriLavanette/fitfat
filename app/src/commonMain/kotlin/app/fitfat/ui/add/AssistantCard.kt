@@ -116,8 +116,15 @@ fun AssistantCard(
                     val total = reply.items.fold(Macros()) { a, it -> a + it.macros }
                     Text("Всего ≈ ${fmt0(total.kcal)} ккал", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp))
                 }
+                // Всё с этикетки — это не оценка; часть с этикетки — говорим, что именно
+                val labeled = reply.items.count { it.fromLabel }
+                val head = when (labeled) {
+                    reply.items.size -> "КБЖУ — с этикетки на фото."
+                    0 -> "Примерная оценка — реальные КБЖУ могут заметно отличаться."
+                    else -> "КБЖУ ${reply.items.filter { it.fromLabel }.joinToString { "«${it.name}»" }} — с этикетки, остальное — примерная оценка."
+                }
                 Text(
-                    "Примерная оценка — реальные КБЖУ могут заметно отличаться." + (if (reply.note.isNotBlank()) " ${reply.note}" else ""),
+                    head + (if (reply.note.isNotBlank()) " ${reply.note}" else ""),
                     fontSize = 12.sp, lineHeight = 16.sp, color = colors.onSurfaceVariant,
                 )
                 Buttons(cancel = "Отмена", onCancel = onDismiss, ok = "Добавить ${reply.items.size}", onOk = { onAdd(reply.items) })

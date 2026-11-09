@@ -21,6 +21,7 @@ import app.fitfat.platform.AndroidApp
 import app.fitfat.time.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
@@ -89,12 +90,26 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
                     Reminders.WEEK -> ReminderScheduler.post(context, kind, Reminders.WEEK_TITLE, Reminders.WEEK_TEXT)
                 }
+                // Заодно проверить темп похудения: пора срезать — сказать один раз за период норм (карточка — на главном)
+                runCatching { pace(app) }
                 ReminderScheduler.schedule()
             } finally {
                 done.finish()
             }
         }
     }
+}
+
+private suspend fun pace(fa: FitfatApp) {
+    val store = fa.profile
+    val p = store.load() ?: return
+    if (!store.done || !app.fitfat.data.PaceCheck.shouldNotify(store.normsSince)) return
+    val trend = app.fitfat.ui.weight.withTrend(fa.graph.weights.entries.first()).map { it.date to it.trend }
+    val o = app.fitfat.data.PaceCheck.offer(
+        p, trend, fa.graph.norms.norms(app.fitfat.data.DayType.Normal), store.normsSince, store.plateauSnooze, app.fitfat.data.DayClock.today(),
+    ) ?: return
+    ReminderScheduler.post(fa, Reminders.PACE, app.fitfat.data.PaceCheck.title(o), app.fitfat.data.PaceCheck.text(o))
+    app.fitfat.data.PaceCheck.markNotified(store.normsSince)
 }
 
 class BootReceiver : BroadcastReceiver() {

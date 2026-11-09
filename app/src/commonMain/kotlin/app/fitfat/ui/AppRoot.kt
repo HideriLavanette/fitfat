@@ -260,20 +260,15 @@ fun AppRoot(
     val tabContent: @Composable (Tab) -> Unit = { t ->
         when (t) {
             Tab.Today -> {
-                // Вес стоит 2 недели — предложить срезать 150 ккал (похудение и рекомпозиция)
+                // Вес стоит или уходит медленнее половины плана — предложить срезать 150 ккал (похудение и рекомпозиция)
                 val plateau = remember(profileVer, wuiTop.all) {
                     val pr = profileNow ?: return@remember null
-                    val day = app.fitfat.data.DayClock.today()
-                    if (!profileStore.done || (pr.goal != app.fitfat.data.Goal.Lose && pr.goal != app.fitfat.data.Goal.Recomp)) return@remember null
-                    if (profileStore.plateauSnooze?.let { !day.isAfter(it) } == true) return@remember null
-                    val tr = wuiTop.all.map { it.date to it.trend }
-                    if (!app.fitfat.data.NormsCalc.isPlateau(tr, profileStore.normsSince, day)) return@remember null
-                    val w = wuiTop.last?.kg ?: pr.weightKg
+                    if (!profileStore.done) return@remember null
                     // «До» — ровно те нормы, что сейчас на главном; «после» — они же минус срез
-                    val before = fitApp.norms.norms(app.fitfat.data.DayType.Normal)
-                    val after = app.fitfat.data.NormsCalc.cut(before, app.fitfat.data.NormsCalc.lean(pr.body(w))) ?: return@remember null
-                    val from = tr.lastOrNull { !it.first.isAfter(day.minusDays(14)) }?.second ?: tr.first().second
-                    app.fitfat.ui.today.PlateauOffer(tr.last().second - from, before, after)
+                    app.fitfat.data.PaceCheck.offer(
+                        pr, wuiTop.all.map { it.date to it.trend }, fitApp.norms.norms(app.fitfat.data.DayType.Normal),
+                        profileStore.normsSince, profileStore.plateauSnooze, app.fitfat.data.DayClock.today(),
+                    )
                 }
                 TodayScreen(
                     today, weightFor = { d -> wuiTop.byDay[d.toEpochDay()]?.kg },
@@ -695,6 +690,7 @@ fun AppRoot(
         when (o) {
             app.fitfat.notify.Reminders.WEIGHT -> weighing = LocalDate.now()
             app.fitfat.notify.Reminders.WEEK -> if (current != "week") nav.navigate("week")
+            app.fitfat.notify.Reminders.PACE -> { nav.popBackStack(Tab.Today.route, inclusive = false); goTab(Tab.Today) }
         }
     }
     // Разрешение на уведомления — один раз, после первой настройки: напоминания включены по умолчанию
