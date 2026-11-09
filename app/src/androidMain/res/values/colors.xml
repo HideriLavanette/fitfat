@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="splash_bg">#FF191113</color>
+    <!-- Фон окна до первого кадра: как фон приложения (палитра «Синяя» по умолчанию), светлый — в светлой теме системы.
+         Тёмный — в values-night. Раньше был всегда тёмным: в светлой теме запуск начинался с тёмной вспышки (09.11.2026). -->
+    <color name="splash_bg">#FFF7F9FF</color>
     <color name="icon_bg">#FF6F3349</color>
 </resources>

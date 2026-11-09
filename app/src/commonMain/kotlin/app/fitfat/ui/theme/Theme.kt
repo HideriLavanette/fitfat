@@ -127,11 +127,12 @@ private val DarkMacros = MacroPalette(
     aiContainer = Color(0xFF3D3415),
 )
 
-// Светлая тема: те же оттенки, тон 40 для линии и тон 90 для дорожки
+// Светлая тема (09.11.2026, правка автора: прежние тона 40 были тусклыми и «грязными»): чистые насыщенные фиолетовый,
+// золотой и оранжевый — для полос и букв; дорожки и плашки — светлые того же оттенка. Текст на плашке — контраст около 2,7–4,7 (буквы и числа жирные).
 private val LightMacros = MacroPalette(
-    protein = Color(0xFF6B5A9C), proteinContainer = Color(0xFFEBE0FF),
-    fat = Color(0xFF7A6421), fatContainer = Color(0xFFF7E8BF),
-    carbs = Color(0xFF8E5333), carbsContainer = Color(0xFFFFDECB),
+    protein = Color(0xFF6D4AE0), proteinContainer = Color(0xFFEDE7FF),
+    fat = Color(0xFFC99400), fatContainer = Color(0xFFFFF2CC),
+    carbs = Color(0xFFDD5A26), carbsContainer = Color(0xFFFFE6DA),
     over = Color(0xFFD93A42),
     training = Color(0xFF2F5EA8), trainingContainer = Color(0xFFD9E3FF),
     cycle = Color(0xFFC23B3B),
