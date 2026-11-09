@@ -91,6 +91,9 @@ jobs:
           # 4. «Неделя» и 5. шторка веса — как по нажатию на уведомление
           shot 04-week SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=week
           shot 05-weight-sheet SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=weight
+          # 6. «Настройки» (тумблеры) и 7. образец алерта — вид элементов iOS
+          shot 06-settings SIMCTL_CHILD_FITFAT_DEMO=profile,skip,settings
+          shot 07-alert SIMCTL_CHILD_FITFAT_DEMO=profile,skip,alert
           ls -la shots
       - name: Скриншоты — в ветку ios-screenshots
         env:
