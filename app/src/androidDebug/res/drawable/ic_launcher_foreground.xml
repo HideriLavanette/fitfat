@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Отладочная сборка: та же миска с паром, янтарная, со знаком кода «</>» на миске -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFE3B8"
+        android:pathData="M30,52 L78,52 A24,24 0 0,1 30,52 Z" />
+    <path
+        android:strokeColor="#FFFFC27A"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M46,44 C46,40 50,40 50,36 M58,44 C58,40 62,40 62,36" />
+    <path
+        android:strokeColor="#FF7A4A12"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M45,57 L40,62 L45,67 M56,56 L52,68 M63,57 L68,62 L63,67" />
+</vector>

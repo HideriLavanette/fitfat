@@ -1,0 +1,121 @@
+name: iOS
+
+# iOS собирается только здесь: у автора нет Mac (docs/IOS.md). Проверяется компиляция iosMain,
+# линковка фреймворка и сборка приложения для симулятора без подписи, плюс скриншоты из симулятора.
+# Это долго (macOS, Kotlin/Native), поэтому запускается только когда менялось то, что попадает в iOS,
+# или вручную (Actions → iOS → Run workflow).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/src/commonMain/**'
+      - 'app/src/iosMain/**'
+      - 'iosApp/**'
+      - 'app/build.gradle.kts'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - '.github/workflows/ios.yml'
+  workflow_dispatch:
+
+# Новый пуш отменяет устаревший прогон
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    permissions:
+      contents: write # ветка ios-screenshots со скриншотами из симулятора
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      # Компилятор Kotlin/Native и его зависимости (~1 ГБ) — из кэша, а не скачивать каждый прогон
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+      - name: Фреймворк Kotlin для симулятора
+        run: gradle :app:linkDebugFrameworkIosSimulatorArm64
+      - name: Проект Xcode из iosApp/project.yml
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install xcodegen
+          xcodegen generate --spec iosApp/project.yml
+      - name: Приложение для симулятора
+        run: |
+          set -o pipefail
+          mkdir -p build
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Debug             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'             -derivedDataPath build/ios CODE_SIGNING_ALLOWED=NO ARCHS=arm64 build 2>&1 | tee build/xcodebuild.log | tail -150
+          # Сборка должна дать исполняемый файл внутри .app, а не пустую папку
+          test -f build/ios/Build/Products/Debug-iphonesimulator/FitFat.app/FitFat
+          ls -la build/ios/Build/Products/Debug-iphonesimulator/FitFat.app | head -30
+      - name: Лог xcodebuild при падении
+        if: failure()
+        run: |
+          # В сводку прогона (видна без входа на GitHub) — ошибки xcodebuild и хвост лога
+          {
+            echo "## xcodebuild упал"
+            echo '```'
+            grep -E "error:|error |Undefined symbol|ld: |fatal|Could not|No such|failed" build/xcodebuild.log | head -80
+            echo "--- хвост лога ---"
+            tail -120 build/xcodebuild.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -200 build/xcodebuild.log
+      - name: Скриншоты в симуляторе
+        run: |
+          set -o pipefail
+          APP=build/ios/Build/Products/Debug-iphonesimulator/FitFat.app
+          UDID=$(xcrun simctl list devices available -j | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          devs = [x for rt, l in d['devices'].items() if 'iOS' in rt for x in l if x['isAvailable'] and x['name'].startswith('iPhone') and 'SE' not in x['name']]
+          devs.sort(key=lambda x: x['name'])
+          print(devs[-1]['udid'])")
+          xcrun simctl boot "$UDID" || true
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" "$APP"
+          # Тёмный режим системы: тема «как в системе» по умолчанию, макеты — тёмные
+          xcrun simctl ui "$UDID" appearance dark || true
+          mkdir -p shots
+          shot() { name=$1; shift; env "$@" xcrun simctl launch "$UDID" app.fitfat >/dev/null; sleep 12; xcrun simctl io "$UDID" screenshot "shots/$name.png"; xcrun simctl terminate "$UDID" app.fitfat || true; sleep 1; }
+          # 1. Первый запуск — настройка
+          shot 01-setup
+          # 2. Главный с утренним окном веса (готовый профиль создаёт само приложение по FITFAT_DEMO)
+          shot 02-morning-weight SIMCTL_CHILD_FITFAT_DEMO=profile
+          # 3. Главный без окна (вес на сегодня пропущен)
+          shot 03-today SIMCTL_CHILD_FITFAT_DEMO=profile,skip
+          # 4. «Неделя» и 5. шторка веса — как по нажатию на уведомление
+          shot 04-week SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=week
+          shot 05-weight-sheet SIMCTL_CHILD_FITFAT_DEMO=profile,skip SIMCTL_CHILD_FITFAT_OPEN=weight
+          # 6. «Настройки» (тумблеры) и 7. образец алерта — вид элементов iOS
+          shot 06-settings SIMCTL_CHILD_FITFAT_DEMO=profile,skip,settings
+          shot 07-alert SIMCTL_CHILD_FITFAT_DEMO=profile,skip,alert
+          ls -la shots
+      - name: Скриншоты — в ветку ios-screenshots
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd shots
+          { echo "# Скриншоты iOS (симулятор, CI)"; echo; echo "Сборка $GITHUB_SHA."; echo; for f in *.png; do echo "## $f"; echo; echo "![$f]($f)"; echo; done; } > README.md
+          git init -q && git checkout -q -b ios-screenshots && git add .             && git -c user.name=github-actions -c user.email=actions@github.com commit -qm "Скриншоты iOS из CI, сборка $GITHUB_SHA"             && git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ios-screenshots
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fitfat-ios-screenshots
+          path: shots/*.png
+      - name: Упаковать .app
+        run: |
+          cd build/ios/Build/Products/Debug-iphonesimulator && zip -qry "$GITHUB_WORKSPACE/FitFat-simulator.zip" FitFat.app
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fitfat-ios-simulator
+          path: FitFat-simulator.zip

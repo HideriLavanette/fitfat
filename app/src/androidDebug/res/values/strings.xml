@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Отладочная сборка (app.fitfat.debug) — чтобы на телефоне не путать с релизом -->
+    <string name="app_name">Fitfat debug</string>
+</resources>

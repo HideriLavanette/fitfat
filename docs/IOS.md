@@ -42,7 +42,8 @@
 ## Сборка и проверка
 - Локально (Windows): `./gradlew assembleDebug` собирает Android и компилирует весь `commonMain`.
   Цели iOS на Windows отключены (`kotlin.native.ignoreDisabledTargets=true`), `iosMain` локально не компилируется.
-- CI (`.github/workflows/ci.yml`, job `ios`, `macos-latest`): компилирует iOS-фреймворк
+- CI (`.github/workflows/ios.yml`, workflow «iOS», `macos-latest`; запускается при пуше в `main`, только если менялись
+  `commonMain`, `iosMain`, `iosApp` или настройки Gradle, и вручную из Actions): компилирует iOS-фреймворк
   (`:app:linkDebugFrameworkIosSimulatorArm64`), генерирует проект XcodeGen'ом и собирает приложение для симулятора
   без подписи. Это единственная проверка `iosMain`, поэтому любая правка там — через пуш в ветку и зелёный CI.
 - Запустить на iPhone без аккаунта Apple Developer нельзя. Когда аккаунт появится: сертификат и профиль в секреты,
