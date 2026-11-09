@@ -534,7 +534,10 @@ private fun ProductRow(p: Product, selecting: Boolean, selected: Boolean, onClic
                 } else CategoryIcon(p.category, 44.dp, radius = 14.dp, iconSize = 22.dp, photo = p.photo)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(p.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                    if (p.source == app.fitfat.data.SOURCE_AI) app.fitfat.ui.components.AiMark()
+                }
                 Text(macroLine(p.protein, p.fat, p.carbs, tail = tail), fontSize = 12.sp, color = colors.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End) {

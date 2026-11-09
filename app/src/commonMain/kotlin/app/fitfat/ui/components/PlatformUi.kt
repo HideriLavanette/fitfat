@@ -33,5 +33,12 @@ expect fun fullScreenDialogProperties(): androidx.compose.ui.window.DialogProper
 expect fun noFontPadding(): androidx.compose.ui.text.PlatformTextStyle?
 
 /** Видна ли клавиатура — по высоте вставки IME (общий код, без Android-only `isImeVisible`). */
+/** Высота читается через `derivedStateOf`: экран перестраивается, только когда клавиатура появилась или ушла, а не на каждом кадре её въезда. */
 @androidx.compose.runtime.Composable
-fun imeVisible(): Boolean = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+fun imeVisible(): Boolean {
+    val ime = androidx.compose.foundation.layout.WindowInsets.ime
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    return androidx.compose.runtime.remember(ime, density) {
+        androidx.compose.runtime.derivedStateOf { ime.getBottom(density) > 0 }
+    }.value
+}

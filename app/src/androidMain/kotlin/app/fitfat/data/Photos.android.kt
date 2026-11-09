@@ -18,10 +18,10 @@ import java.io.File
 
 /**
  * Фото продуктов и блюд: лежат в `files/photos` приложения, в базе — только имя файла.
- * При добавлении уменьшаются до 1280 px по длинной стороне (JPEG 85), поворот по EXIF учитывается.
+ * При добавлении уменьшаются до 1080 px по длинной стороне (JPEG 80), поворот по EXIF учитывается.
  */
 actual object Photos {
-    private const val MAX_SIDE = 1280
+    private const val MAX_SIDE = 1080
     private val cache = object : LruCache<String, ImageBitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: ImageBitmap) = value.width * value.height * 4
     }
@@ -59,9 +59,19 @@ actual object Photos {
                 bmp = Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
             }
             val name = "p_${System.currentTimeMillis()}.jpg"
-            File(dir(ctx), name).outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 85, it) }
+            File(dir(ctx), name).outputStream().use { bmp.compress(Bitmap.CompressFormat.JPEG, 80, it) }
             cache.put(name, bmp.asImageBitmap())
             name
+        }.getOrNull()
+    }
+
+    actual suspend fun forAssistant(name: String): ByteArray? = withContext(Dispatchers.IO) {
+        runCatching {
+            val f = File(dir(app.fitfat.platform.AndroidApp.context), name)
+            var bmp = BitmapFactory.decodeFile(f.path) ?: return@runCatching null
+            val k = 1024f / maxOf(bmp.width, bmp.height)
+            if (k < 1f) bmp = Bitmap.createScaledBitmap(bmp, (bmp.width * k).toInt(), (bmp.height * k).toInt(), true)
+            java.io.ByteArrayOutputStream().also { bmp.compress(Bitmap.CompressFormat.JPEG, 75, it) }.toByteArray()
         }.getOrNull()
     }
 

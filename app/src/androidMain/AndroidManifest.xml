@@ -5,6 +5,9 @@
     <!-- Нужно, чтобы приложение могло само предложить установить скачанное обновление -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Своя камера «Добавить»: штрихкод и фото еды (09.11.2026) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Напоминание о весе и недельный отчёт -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />

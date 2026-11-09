@@ -69,6 +69,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.components.FloatingNavBar
 import app.fitfat.ui.components.NavGuardZone
@@ -135,6 +136,9 @@ fun AppRoot(
 
     // Тихая проверка обновлений при запуске — не чаще раза в 12 часов
     LaunchedEffect(Unit) { updates.autoCheck() }
+    // Доступ к ассистенту — при запуске и сразу после входа или выхода: иначе после входа оставался прежний ответ
+    val signedIn by app.fitfat.data.GoogleAccount.get().account.collectAsState()
+    LaunchedEffect(signedIn?.email) { app.fitfat.data.Access.refresh() }
     // Прошлый запуск упал — отчёт разработчику
     LaunchedEffect(Unit) { kotlinx.coroutines.delay(3_000); app.fitfat.data.Reports.sendPendingCrash() }
     // Копия в Google Диск раз в день — тихо, если вошли и доступ к Диску уже дан
@@ -336,6 +340,7 @@ fun AppRoot(
                     onProducts = { nav.navigate("products") },
                     onSettings = { nav.navigate("settings") },
                     onAssistant = { goTab(Tab.Assistant) },
+                    onSubscription = { nav.navigate("subscription") },
                 )
             }
         }
@@ -346,7 +351,7 @@ fun AppRoot(
         Box(Modifier.fillMaxSize().hazeSource(haze)) {
         TabLayer(
             current = Tab.entries.indexOfFirst { it.route == current },
-            layerAlpha = tabLayerAlpha.value,
+            layerAlpha = { tabLayerAlpha.value },
             modifier = Modifier.fillMaxSize()
                 // Свайп по экрану вкладки — соседняя вкладка (если жест не забрал сам экран: пейджер, свайп записи, линейки).
                 // Пока ведут — экран идёт за пальцем с сопротивлением, с края выезжает подсказка соседней вкладки.
@@ -428,7 +433,7 @@ fun AppRoot(
                 // Свой непрозрачный фон: под рамкой ещё виден главный экран, он не должен просвечивать
                 // Системное «назад» тоже сворачивает экран в кнопку
                 androidx.compose.ui.backhandler.BackHandler(enabled = lastFab != null && !closingAdd) { closeAdd() }
-                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (entry.id == hiddenAdd) 0f else 1f }.morphClip(morphFrom, morph.value).background(MaterialTheme.colorScheme.surface)) {
+                Box(Modifier.fillMaxSize().graphicsLayer { alpha = if (entry.id == hiddenAdd) 0f else 1f }.morphClip(morphFrom) { morph.value }.background(MaterialTheme.colorScheme.surface)) {
                 Box(Modifier.fillMaxSize().graphicsLayer {
                     alpha = morphContentAlpha(morphFrom, morph.value)
                     // Экран выходит из размытия: 24 dp → 0 за BLUR_MS (Android 12+, раньше — только проявление)
@@ -442,6 +447,7 @@ fun AppRoot(
                     pendingProduct = pendingProduct, onPendingTaken = { pendingProduct = 0L },
                     onDishes = { nav.navigate("dishes") }, session = entry.id,
                     onAssistantInfo = { focus.clearFocus(force = true); nav.popBackStack(); goTab(Tab.Assistant) },
+                    onOpenProduct = { id -> focus.clearFocus(force = true); nav.navigate("product/$id") },
                     onBarcode = { code, onFound -> productsVm.resolveBarcode(code, onFound, onNew = { nav.navigate("productEdit/0?toAdd=true") }) },
                     onCreateDish = { picked ->
                         productsVm.draft = picked.map { app.fitfat.data.DishIngredient(dishId = 0, productId = it.product.id, grams = it.grams) }
@@ -468,6 +474,9 @@ fun AppRoot(
                 app.fitfat.ui.week.WeekScreen(weekDays, ws, onBack = { nav.popBackStack() })
             }
             // Настройки приложения (0.5, макет 5.5)
+            composable("subscription") {
+                app.fitfat.ui.profile.SubscriptionScreen(onBack = { nav.popBackStack() }, onAssistant = { nav.popBackStack(); goTab(Tab.Assistant) })
+            }
             composable("settings") {
                 val tui by today.ui.collectAsStateWithLifecycle()
                 app.fitfat.ui.profile.SettingsScreen(updates, tui.groupByTime, today::setGroupByTime, onBack = { nav.popBackStack() })
@@ -629,7 +638,9 @@ fun AppRoot(
             val right = hintDir > 0
             SwipeHint(next.label, next.icon, right, hintShow, swipeArmed, Modifier.align(if (right) Alignment.CenterEnd else Alignment.CenterStart))
         }
-        morphFrom?.let { from -> FabMorph(from, morph.value) }
+        // Значение анимации читается только при отрисовке — без перестройки всего экрана на каждом кадре
+        morphFrom?.let { from -> FabMorph(from) { morph.value } }
+        AddWarmUp()
     }
     }
 
@@ -722,8 +733,10 @@ private fun lerpRect(from: Rect, w: Float, h: Float, t: Float) =
  * Экран «Добавить» во время разворота кнопки «+»: виден только внутри растущей рамки (скругление 20 → 0)
  * (фон сразу непрозрачный — главный экран не просвечивает).
  */
-private fun Modifier.morphClip(from: Rect?, t: Float): Modifier = if (from == null || t >= 1f) this else this.then(
+private fun Modifier.morphClip(from: Rect?, progress: () -> Float): Modifier = if (from == null) this else this.then(
     Modifier.graphicsLayer {
+        val t = progress()
+        if (t >= 1f) { clip = false; return@graphicsLayer }
         val r = lerpRect(from, size.width, size.height, t)
         val rad = 20.dp.toPx() * (1 - t)
         clip = true
@@ -745,9 +758,10 @@ private fun morphContentAlpha(from: Rect?, t: Float) = if (from == null) 1f else
 
 /** Кнопка «+», растущая до экрана: рамка и скругление 20 → 0; розовый гаснет, пока сквозь него проявляется «Добавить». */
 @Composable
-private fun FabMorph(from: Rect, t: Float) {
+private fun FabMorph(from: Rect, progress: () -> Float) {
     val colors = MaterialTheme.colorScheme
     Canvas(Modifier.fillMaxSize()) {
+        val t = progress()
         val r = lerpRect(from, size.width, size.height, t)
         val a = (1f - (t - 0.1f) / 0.6f).coerceIn(0f, 1f)
         drawRoundRect(colors.primary.copy(alpha = a), topLeft = r.topLeft, size = r.size, cornerRadius = androidx.compose.ui.geometry.CornerRadius(20.dp.toPx() * (1 - t)))
@@ -804,7 +818,7 @@ private fun SwipeHint(label: String, icon: ImageVector, right: Boolean, t: Float
  * [current] — открытая вкладка (−1 — сверху другой экран), [layerAlpha] — прозрачность всего слоя (гаснет под другими экранами).
  */
 @Composable
-private fun TabLayer(current: Int, layerAlpha: Float, modifier: Modifier, content: @Composable (Tab) -> Unit) {
+private fun TabLayer(current: Int, layerAlpha: () -> Float, modifier: Modifier, content: @Composable (Tab) -> Unit) {
     val n = Tab.entries.size
     val alpha = remember { List(n) { Animatable(if (it == 0) 1f else 0f) } }
     val shift = remember { List(n) { Animatable(0f) } } // доля ширины
@@ -829,8 +843,9 @@ private fun TabLayer(current: Int, layerAlpha: Float, modifier: Modifier, conten
         Tab.entries.indices.forEach { if (it !in visited) visited += it }
     }
     // Сверху другой экран и вкладку под ним уже не видно — слой не рисуем совсем
-    val layerShown = layerAlpha > 0.001f
-    Box(modifier.graphicsLayer { this.alpha = layerAlpha }) {
+    // Прозрачность читается при отрисовке, в композицию попадает только «виден / не виден»
+    val layerShown by remember { derivedStateOf { layerAlpha() > 0.001f } }
+    Box(modifier.graphicsLayer { this.alpha = layerAlpha() }) {
         visited.forEach { i ->
             androidx.compose.runtime.key(i) {
                 Box(
@@ -853,5 +868,30 @@ private fun TabLayer(current: Int, layerAlpha: Float, modifier: Modifier, conten
                 }
             }
         }
+    }
+}
+
+/**
+ * Прогрев «Добавить»: через пару секунд после запуска, пока приложение стоит без дела, невидимо собирает поле ввода
+ * и прочие тяжёлые при первом показе части — первое нажатие на «+» не спотыкается о загрузку классов (0.6, решение 09.11.2026).
+ */
+@Composable
+private fun AddWarmUp() {
+    var phase by remember { mutableIntStateOf(0) } // 0 — ждём, 1 — собрано, 2 — убрано
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(2500)
+        phase = 1
+        kotlinx.coroutines.delay(300)
+        phase = 2
+    }
+    if (phase != 1) return
+    Box(Modifier.size(1.dp).graphicsLayer { alpha = 0f }) {
+        var v by remember { mutableStateOf(androidx.compose.ui.text.input.TextFieldValue("гречка 200")) }
+        androidx.compose.foundation.text.BasicTextField(
+            v, { v = it },
+            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 17.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+        )
+        androidx.compose.animation.AnimatedVisibility(true) { Text("·") }
     }
 }

@@ -61,7 +61,12 @@ interface EstimateRequest {
   text: string;
   leftKcal?: number | null;
   known?: Known[];
+  /** Фото еды (JPEG, base64, сжатое на телефоне до ~1024 px). Не сохраняется — только для этой оценки. */
+  photo?: string;
 }
+
+/** Фото больше ~1,5 МБ base64 — не принимаем: телефон сжимает до 150–300 КБ. */
+const MAX_PHOTO = 1_500_000;
 
 const MAX_TEXT = 1200; // строка и уточнения к ней
 const MAX_HISTORY = 12; // последних сообщений переписки
@@ -97,6 +102,8 @@ export default {
     if (access.status === "none") {
       return json({ error: access.trialUsed ? "Пробная неделя закончилась. Ассистент доступен по подписке." : "Ассистент доступен по подписке — или включите бесплатную неделю во вкладке «Ассистент»." }, 402);
     }
+    const limited = await overLimit(env, email, device, access.status === "free");
+    if (limited) return json({ error: limited }, 429);
 
     let raw: unknown;
     try {
@@ -120,8 +127,10 @@ export default {
       }
       const body = raw as EstimateRequest;
       const text = (body.text ?? "").trim().slice(0, MAX_TEXT);
-      if (!text) return json({ error: "Пустая строка" }, 400);
-      return json(await estimate(env, text, body.leftKcal ?? null, (body.known ?? []).slice(0, MAX_KNOWN)));
+      const photo = typeof body.photo === "string" && body.photo.length > 100 ? body.photo : null;
+      if (photo && photo.length > MAX_PHOTO) return json({ error: "Фото слишком большое." }, 413);
+      if (!text && !photo) return json({ error: "Пустая строка" }, 400);
+      return json(await estimate(env, text, body.leftKcal ?? null, (body.known ?? []).slice(0, MAX_KNOWN), photo));
     } catch (e) {
       if (e instanceof Anthropic.RateLimitError) return json({ error: "Ассистент перегружен — попробуйте через минуту." }, 429);
       if (e instanceof Anthropic.AuthenticationError) return json({ error: "Сервер ассистента настроен неверно (ключ API)." }, 500);
@@ -133,6 +142,36 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 class Refused extends Error {}
+
+/**
+ * Лимиты на человека (защита от счёта): за день — DAY_LIMIT запросов (у полного бесплатного доступа — FREE_DAY_LIMIT),
+ * за минуту — MINUTE_LIMIT. Счётчики — в KV ACCESS по почте и, отдельно, по телефону (сменой аккаунта не обойти).
+ * KV не атомарен — при одновременных запросах счёт может отстать на 1–2, для защиты от счёта этого достаточно.
+ * Возвращает текст ошибки или null.
+ */
+const DAY_LIMIT = 60;
+const FREE_DAY_LIMIT = 300;
+const MINUTE_LIMIT = 8;
+
+async function overLimit(env: Env, email: string, device: string | null, free: boolean): Promise<string | null> {
+  const now = new Date();
+  const day = now.toISOString().slice(0, 10);
+  const minute = now.toISOString().slice(0, 16);
+  const who = [`e:${email.toLowerCase()}`, ...(device ? [`d:${device}`] : [])];
+  const dayKeys = who.map((w) => `use:${day}:${w}`);
+  const minKeys = who.map((w) => `rate:${minute}:${w}`);
+  const [dayCounts, minCounts] = await Promise.all([
+    Promise.all(dayKeys.map(async (k) => Number(await env.ACCESS.get(k)) || 0)),
+    Promise.all(minKeys.map(async (k) => Number(await env.ACCESS.get(k)) || 0)),
+  ]);
+  if (Math.max(...minCounts) >= MINUTE_LIMIT) return "Слишком много запросов подряд — подождите минуту.";
+  if (Math.max(...dayCounts) >= (free ? FREE_DAY_LIMIT : DAY_LIMIT)) return "На сегодня запросы к ассистенту закончились — продолжим завтра.";
+  await Promise.all([
+    ...dayKeys.map((k, i) => env.ACCESS.put(k, String(dayCounts[i] + 1), { expirationTtl: 2 * 24 * 3600 })),
+    ...minKeys.map((k, i) => env.ACCESS.put(k, String(minCounts[i] + 1), { expirationTtl: 120 })),
+  ]);
+  return null;
+}
 
 /** Отчёт: { kind: "crash" | "feedback", text, log?, app?, device? } → KV REPORTS на 90 дней. */
 async function report(req: Request, env: Env): Promise<Response> {
@@ -164,7 +203,7 @@ const SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["name", "existing", "category", "grams", "pieces", "kcal", "protein", "fat", "carbs", "confidence"],
+        required: ["name", "existing", "category", "grams", "pieces", "kcal", "protein", "fat", "carbs", "confidence", "weight_state"],
         properties: {
           name: { type: "string" },
           existing: { anyOf: [{ type: "string" }, { type: "null" }] },
@@ -176,6 +215,7 @@ const SCHEMA = {
           fat: { type: "number" },
           carbs: { type: "number" },
           confidence: { type: "string", enum: ["low", "medium", "high"] },
+          weight_state: { type: "string", enum: ["dry", "raw", "cooked", "none"] },
         },
       },
     },
@@ -208,16 +248,20 @@ const SYSTEM = `Ты — ассистент ввода еды в FitFat, тре�
 - kind "answer": строка — вопрос или просьба, не еда («сколько мне ещё можно?»). reply — короткий ответ (до 3 предложений), items пустой. Если просьба — правка дневника или что-то, чего ты здесь сделать не можешь, честно скажи, что пока так не умеешь.
 Неиспользуемые поля — пустые строки и пустые массивы.
 
+  • weight_state — на какой вес даны КБЖУ: cooked для готовых блюд и всего, что съедено в готовом виде (почти всегда при оценке съеденного), dry — сухая крупа или макароны, raw — сырое мясо или рыба, none — хлеб, молочное, фрукты, напитки, покупное.
+
+Если к строке приложено фото еды: определи по нему блюда и примерный вес порции (по размеру тарелки, приборов, упаковки), строка — подсказка человека («это плов», «съел половину»). Если на фото не еда или ничего не разобрать — kind "answer" с короткой просьбой сфотографировать тарелку целиком сверху при хорошем свете. По фото оценка всегда примерная: confidence не выше medium, в note — что вес определён на глаз.
+
 Правила оценки: опирайся на типичные рецептуры и справочные значения; калории согласуй с БЖУ (≈ 4·Б + 9·Ж + 4·У). Числа округляй: ккал до целых, БЖУ до 0,1 г, граммы до целых. Не выдумывай точность — лучше честная оценка с пометкой в note.`;
 
-async function estimate(env: Env, text: string, leftKcal: number | null, known: Known[]) {
+async function estimate(env: Env, text: string, leftKcal: number | null, known: Known[], photo: string | null = null) {
   const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
   const knownText = known.length
     ? known
         .map((k) => `- ${k.name}: ${r0(k.kcal)} ккал, Б ${r1(k.protein)}, Ж ${r1(k.fat)}, У ${r1(k.carbs)} ${k.perPiece ? `на 1 шт (${r0(k.pieceGrams ?? 0)} г)` : "на 100 г"}`)
         .join("\n")
     : "(ничего похожего)";
-  const user = `Строка: «${text}»\n\nЕсть в базе пользователя (похожее на слова строки):\n${knownText}` +
+  const user = (text ? `Строка: «${text}»` : "Строки нет — только фото.") + `\n\nЕсть в базе пользователя (похожее на слова строки):\n${knownText}` +
     (leftKcal != null ? `\n\nОсталось ккал на этот день: ${r0(leftKcal)}` : "");
 
   const params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming = {
@@ -225,7 +269,12 @@ async function estimate(env: Env, text: string, leftKcal: number | null, known: 
     max_tokens: 4000,
     system: SYSTEM,
     output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA as unknown as Record<string, unknown> } },
-    messages: [{ role: "user", content: user }],
+    messages: [{
+      role: "user",
+      content: photo
+        ? [{ type: "image", source: { type: "base64", media_type: "image/jpeg", data: photo } }, { type: "text", text: user }]
+        : user,
+    }],
   };
   // Отказ классификатора — серверный запасной вариант; у Haiku его нет
   if (!env.MODEL.startsWith("claude-haiku")) {

@@ -35,6 +35,8 @@ object Assistant {
     data class Item(
         val name: String, val existing: String?, val category: String,
         val grams: Double, val pieces: Double?, val per100: Macros, val confidence: String,
+        /** На какой вес КБЖУ: [WEIGHT_DRY] / [WEIGHT_RAW] / [WEIGHT_COOKED] или null. */
+        val weightState: String? = null,
     ) {
         val macros: Macros get() = per100 * (grams / 100.0)
     }
@@ -71,11 +73,14 @@ object Assistant {
         runCatching { post("${BuildValues.ASSISTANT_URL}$path", token, body) }
             .getOrElse { null to "Нет связи с ассистентом. Проверьте интернет и попробуйте ещё раз." }
 
-    suspend fun ask(text: String, leftKcal: Double?, known: List<Product>): Reply {
+    /** [photo] — JPEG еды для оценки по фото (не сохраняется на сервере). */
+    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+    suspend fun ask(text: String, leftKcal: Double?, known: List<Product>, photo: ByteArray? = null): Reply {
         val (token, authErr) = token()
         if (token == null) return Reply.Error(authErr!!)
         val body = buildJsonObject {
             put("text", text)
+            if (photo != null) put("photo", kotlin.io.encoding.Base64.encode(photo))
             leftKcal?.let { put("leftKcal", Math.round(it)) }
             putJsonArray("known") {
                 known.forEach { p ->
@@ -166,6 +171,7 @@ object Assistant {
                 // Калории — из БЖУ, как у всех продуктов приложения
                 per100 = Macros(p * 4 + f * 9 + u * 4, p, f, u),
                 confidence = o.optString("confidence").ifBlank { "medium" },
+                weightState = o.optString("weight_state").takeIf { it in WeightState.all },
             )
         }
 

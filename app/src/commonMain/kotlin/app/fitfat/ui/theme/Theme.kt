@@ -108,6 +108,9 @@ data class MacroPalette(
     val cycleInk: Color,
     /** Пунктир под словом, которого нет в базе. */
     val unknown: Color,
+    /** Оценка ассистента (ИИ): жёлтая плашка и значок предупреждения — цифры примерные. */
+    val ai: Color,
+    val aiContainer: Color,
 )
 
 // Значения из DESIGN.md (тёмная тема)
@@ -120,6 +123,8 @@ private val DarkMacros = MacroPalette(
     cycle = Color(0xFFFF8A8A),
     cycleContainer = Color(0xFF4A2228), cycleBorder = Color(0xFF8C3B45), cycleInk = Color(0xFFFFB3B3),
     unknown = Color(0xFFFFB86B),
+    ai = Color(0xFFFFD54F),
+    aiContainer = Color(0xFF3D3415),
 )
 
 // Светлая тема: те же оттенки, тон 40 для линии и тон 90 для дорожки
@@ -132,6 +137,8 @@ private val LightMacros = MacroPalette(
     cycle = Color(0xFFC23B3B),
     cycleContainer = Color(0xFFFFDAD9), cycleBorder = Color(0xFFC23B3B), cycleInk = Color(0xFF8C1D2B),
     unknown = Color(0xFFA35A00),
+    ai = Color(0xFF7A5C00),
+    aiContainer = Color(0xFFFFF0B8),
 )
 
 private val LocalMacroPalette = staticCompositionLocalOf { DarkMacros }
@@ -152,6 +159,8 @@ object MacroColors {
     val cycleBorder: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycleBorder
     val cycleInk: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.cycleInk
     val unknown: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.unknown
+    val ai: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.ai
+    val aiContainer: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.aiContainer
 }
 
 @Composable

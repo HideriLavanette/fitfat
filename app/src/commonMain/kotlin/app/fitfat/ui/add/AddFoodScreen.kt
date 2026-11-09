@@ -83,10 +83,14 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
     session: String = date.toString(),
     /** «Подробнее» на плашке ассистента без подписки — во вкладку «Ассистент». */
     onAssistantInfo: () -> Unit = {},
+    /** Карточка продукта из окна порции или правки. */
+    onOpenProduct: (Long) -> Unit = {},
 ) {
     // Ассистент в «Добавить» — только с доступом (подписка, пробная неделя, бесплатный список; DESIGN.md, «Подписка и доступ»)
     val access by app.fitfat.data.Access.state.collectAsStateWithLifecycle()
     val aiOn = app.fitfat.data.Assistant.available && access.has
+    // Камера: штрихкод или фото еды для ассистента
+    var cameraOpen by remember { mutableStateOf(false) }
     LaunchedEffect(date, session) { vm.start(date, session) }
     val products by vm.products.collectAsStateWithLifecycle()
     val recent by vm.recent.collectAsStateWithLifecycle()
@@ -221,11 +225,16 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
 
         // «Добавить блюдо» · «Создать блюдо (N)» из того, что уже выбрано (макет Add-food)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Сканер штрихкода (макет Add-food: маленькая кнопка 48 слева)
+            // Одна камера (решение автора 09.11.2026): штрихкод находится сам, снимок еды — оценка ассистентом (если есть доступ)
             if (app.fitfat.platform.Platform.supportsBarcodeScan) Surface(
-                onClick = { app.fitfat.ui.components.scanBarcode { code -> onBarcode(code) { p -> portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null) } } },
+                onClick = { cameraOpen = true }, enabled = !vm.assistantBusy,
                 shape = RoundedCornerShape(16.dp), color = colors.surfaceContainer, modifier = Modifier.size(48.dp),
-            ) { Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Barcode, "Сканировать штрихкод", Modifier.size(22.dp), tint = colors.onSurfaceVariant) } }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (vm.assistantBusy && vm.assistantPhoto != null) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    else Icon(MockIcons.Camera, if (aiOn) "Камера: штрихкод или фото еды" else "Сканировать штрихкод", Modifier.size(22.dp), tint = colors.onSurfaceVariant)
+                }
+            }
             // Блюдо собирается из продуктов, уже выбранных блюд в нём нет
             val forDish = vm.picked.filter { !it.product.isDish }
             val both = forDish.isNotEmpty()
@@ -288,23 +297,6 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                 }
             }
 
-            if (hasItems) {
-                val total = vm.picked.fold(Macros()) { a, it -> a + it.macros }
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerHigh).padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("+${fmt0(total.kcal)} ккал", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(macroLine(total.protein, total.fat, total.carbs), fontSize = 13.sp, color = colors.onSurfaceVariant)
-                    }
-                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("останется", fontSize = 12.sp, color = colors.onSurfaceVariant)
-                        Text("${fmt0(left - total.kcal)} ккал", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-
             // «Посмотреть все» есть всегда, даже когда недавних ещё нет
             run {
                 Column(verticalArrangement = Arrangement.spacedBy(if (hasItems) 4.dp else 6.dp)) {
@@ -327,6 +319,27 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
             }
         }
 
+        }
+
+        // Итог КБЖУ — закреплён над кнопкой «Добавить», виден при любой прокрутке (решение автора 09.11.2026)
+        androidx.compose.animation.AnimatedVisibility(
+            hasItems, enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.expandVertically(expandFrom = Alignment.Bottom),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.shrinkVertically(shrinkTowards = Alignment.Bottom),
+        ) {
+            val total = vm.picked.fold(Macros()) { a, it -> a + it.macros }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("+${fmt0(total.kcal)} ккал", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(macroLine(total.protein, total.fat, total.carbs), fontSize = 13.sp, color = colors.onSurfaceVariant)
+                }
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("останется", fontSize = 12.sp, color = colors.onSurfaceVariant)
+                    Text("${fmt0(left - total.kcal)} ккал", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
 
         val n = vm.picked.size
@@ -352,18 +365,20 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         EditPickedDialog(
             draft, adding = true,
             onDismiss = { pending = null }, onRemove = { pending = null },
+            onCard = { pending = null; onOpenProduct(p.id) },
             onSave = { g, n, ov -> vm.confirm(r, p, if (p.perPiece) null else g, n, ov); pending = null },
         )
     }
     editing?.let { item ->
         EditPickedDialog(
             item, onDismiss = { editing = null },
+            onCard = { editing = null; onOpenProduct(item.product.id) },
             onRemove = { vm.remove(item); editing = null },
             onSave = { g, pcs, ov -> vm.update(item, g, pcs, ov); editing = null },
         )
     }
     portion?.let { fr ->
-        PortionDialog(fr.product, fr.grams, fr.pieces, onDismiss = { portion = null }) { g, pcs -> vm.add(fr.product, g, pcs); portion = null }
+        PortionDialog(fr.product, fr.grams, fr.pieces, onDismiss = { portion = null }, onCard = { portion = null; onOpenProduct(fr.product.id) }) { g, pcs -> vm.add(fr.product, g, pcs); portion = null }
     }
     variants?.let { r ->
         VariantsDialog(
@@ -376,6 +391,14 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
         NewProductSheet(r, onDismiss = { creating = null }) { p, g, pcs -> vm.createProduct(p, r, g, pcs) { creating = null } }
     }
     if (whenOpen) WhenSheet(vm, onDismiss = { whenOpen = false })
+    if (cameraOpen) app.fitfat.ui.components.FoodCamera(
+        allowPhoto = aiOn,
+        lookup = { code -> app.fitfat.data.AppGraph.get().food.byBarcode(code) },
+        onProduct = { p -> cameraOpen = false; portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null) },
+        onCreate = { code -> cameraOpen = false; onBarcode(code) { p -> portion = FrequentItem(p, p.defaultGrams, if (p.perPiece) p.defaultGrams.coerceAtLeast(1.0) else null) } },
+        onPhoto = { name -> cameraOpen = false; vm.askAssistantPhoto(name) },
+        onClose = { cameraOpen = false },
+    )
     if (consent) {
         AssistantConsentDialog(onDismiss = { consent = false }) {
             app.fitfat.data.Assistant.giveConsent(); consent = false; vm.askAssistant()
@@ -416,7 +439,10 @@ private fun PickedRow(item: Picked, onTap: () -> Unit) {
         Row(Modifier.padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CategoryIcon(item.product.category, 44.dp, radius = 14.dp, iconSize = 20.dp, photo = item.product.photo)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(item.product.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(item.product.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                    if (item.product.source == app.fitfat.data.SOURCE_AI) app.fitfat.ui.components.AiMark()
+                }
                 Text(item.pieces?.let { "${fmt1(it)} шт · ~${fmt0(item.grams)} г" } ?: "${fmt0(item.grams)} г", fontSize = 12.sp, color = colors.onSurfaceVariant)
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(1.dp)) {

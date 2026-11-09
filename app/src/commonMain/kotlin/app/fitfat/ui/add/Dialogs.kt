@@ -99,12 +99,16 @@ private fun DialogCard(gap: Dp, content: @Composable ColumnScope.() -> Unit) {
 }
 
 @Composable
-private fun DialogHeader(p: Product, sub: androidx.compose.ui.text.AnnotatedString) {
+private fun DialogHeader(p: Product, sub: androidx.compose.ui.text.AnnotatedString, onCard: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         CategoryIcon(p.category, 48.dp, radius = 16.dp, iconSize = 24.dp, photo = p.photo)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(p.name, fontSize = 18.sp, fontWeight = FontWeight(650))
             Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Переход в карточку продукта (09.11.2026, решение автора)
+        if (onCard != null) Surface(onClick = onCard, shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.size(44.dp)) {
+            Box(contentAlignment = Alignment.Center) { Icon(MockIcons.Card, "Карточка продукта", Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurface) }
         }
     }
 }
@@ -128,7 +132,7 @@ private fun RowScope.DialogButtons(left: String, leftColor: Color, onLeft: () ->
  * Граммы 40 / 750 и ккал 22 / 700, линейка (штуки — «−/+»), чипы Б / Ж / У, «Отмена» / «Добавить».
  */
 @Composable
-fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> Unit, onAdd: (Double, Double?) -> Unit) {
+fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> Unit, onCard: (() -> Unit)? = null, onAdd: (Double, Double?) -> Unit) {
     var g by remember { mutableDoubleStateOf(grams) }
     var n by remember { mutableDoubleStateOf(pieces ?: p.defaultGrams.coerceAtLeast(1.0)) }
     val gramsNow = if (p.perPiece) (p.pieceGrams ?: 0.0) * n else g
@@ -136,7 +140,7 @@ fun PortionDialog(p: Product, grams: Double, pieces: Double?, onDismiss: () -> U
     val colors = MaterialTheme.colorScheme
     FfDialog(onDismiss, top = 210.dp, width = 342.dp) {
         DialogCard(16.dp) {
-            DialogHeader(p, perLine(p))
+            DialogHeader(p, perLine(p), onCard)
             PortionChips(p, gramsNow) { pg -> if (p.perPiece) n = piecesFor(p, pg) else g = pg }
             if (p.perPiece) {
                 PieceStepper(n, { n = it }, p.pieceGrams ?: 0.0)
@@ -220,6 +224,8 @@ fun EditPickedDialog(
     onSave: (Double, Double?, Macros?) -> Unit,
     /** Новый продукт (вес не был написан): слева «Отмена», справа «Добавить». */
     adding: Boolean = false,
+    /** Открыть карточку продукта. */
+    onCard: (() -> Unit)? = null,
 ) {
     val p = item.product
     var g by remember { mutableDoubleStateOf(item.grams) }
@@ -241,7 +247,7 @@ fun EditPickedDialog(
 
     FfDialog(onDismiss, top = 170.dp, width = 350.dp) {
         DialogCard(14.dp) {
-            DialogHeader(p, perLine(p))
+            DialogHeader(p, perLine(p), onCard)
             PortionChips(p, gramsNow) { pg -> if (p.perPiece) n = piecesFor(p, pg) else g = pg }
             if (p.perPiece) {
                 PieceStepper(n, { n = it }, p.pieceGrams ?: 0.0)

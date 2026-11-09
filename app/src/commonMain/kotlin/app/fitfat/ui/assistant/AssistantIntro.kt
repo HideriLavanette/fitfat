@@ -86,7 +86,9 @@ fun AssistantIntro() {
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { Access.refresh() }
-    LaunchedEffect(page) { delay(6_000); page = (page + 1) % FEATURES.size }
+    // Вкладка скрыта (другая вкладка или экран поверх) — карточки и демо стоят: иначе приложение перерисовывается впустую
+    val active = app.fitfat.ui.components.LocalAnimationsActive.current
+    LaunchedEffect(page, active) { if (!active) return@LaunchedEffect; delay(6_000); page = (page + 1) % FEATURES.size }
 
     Column(
         Modifier.fillMaxSize().statusBarsPadding().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 128.dp),
@@ -113,7 +115,8 @@ fun AssistantIntro() {
             ) { i ->
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerLow).padding(14.dp), contentAlignment = Alignment.TopCenter) {
-                        when (i) {
+                        // Демо собирается заново при возврате на вкладку — анимация с начала, пока скрыта — не тикает
+                        if (active) when (i) {
                             0 -> DemoParse()
                             1 -> DemoEstimate()
                             2 -> DemoChat()

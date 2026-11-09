@@ -49,6 +49,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -557,6 +558,7 @@ private fun MealSection(
  */
 @Composable
 private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepeat: () -> Unit, onDelete: () -> Unit, first: Boolean = false) {
+    val aiIds by remember { app.fitfat.data.AppGraph.get().food.aiIds }.collectAsState(initial = emptySet())
     val colors = MaterialTheme.colorScheme
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -635,7 +637,10 @@ private fun EntryRow(e: FoodEntry, showTime: Boolean, onTap: () -> Unit, onRepea
             ) {
                 CategoryIcon(e.category)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(e.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                        if (e.productId in aiIds) app.fitfat.ui.components.AiMark()
+                    }
                     Text(macroLine(e.protein, e.fat, e.carbs, fmt = ::fmtF1), fontSize = 13.sp, color = colors.onSurfaceVariant)
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {

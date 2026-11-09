@@ -21,6 +21,9 @@ actual object Photos {
     private val cache = HashMap<String, ImageBitmap>()
     private fun dir(): String = documentDirectory() + "/photos"
 
+    /** На iPhone съёмки пока нет — и оценки по фото тоже. */
+    actual suspend fun forAssistant(name: String): ByteArray? = null
+
     actual suspend fun load(name: String): ImageBitmap? {
         cache[name]?.let { return it }
         return withContext(Dispatchers.Default) {

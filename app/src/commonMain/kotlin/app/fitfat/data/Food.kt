@@ -4,6 +4,7 @@ import app.fitfat.platform.Prefs
 import app.fitfat.time.*
 import app.fitfat.time.Fmt
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.LocalDate
@@ -127,6 +128,8 @@ class NormsStore() {
 
 class FoodRepository(private val products: ProductDao, private val food: FoodDao, private val dishes: DishDao) {
     val allProducts = products.observeAll()
+    /** Продукты, оценённые ассистентом (жёлтая метка в дневнике). */
+    val aiIds = allProducts.map { list -> list.filter { it.source == SOURCE_AI }.map { it.id }.toSet() }
     val recent = products.observeRecent(8)
     /** Записи дня: новые сверху; ночные (до начала дня) — после вечерних, как самые поздние. */
     fun day(date: LocalDate) = kotlinx.coroutines.flow.combine(food.observeDay(date.toEpochDay()), DayClock.start) { list, start ->

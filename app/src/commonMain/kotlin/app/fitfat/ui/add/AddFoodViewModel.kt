@@ -142,20 +142,32 @@ class AddFoodViewModel : ViewModel() {
      * Спросить ассистента о текущей строке ([answer] — ответ на его уточняющий вопрос: вариант-кнопка или свои слова).
      * [activity] — контекст активити (тихое обновление входа Google).
      */
-    fun askAssistant(answer: String? = null) {
+    /** Фото еды для оценки (имя файла в `photos`); держится, пока идёт разговор об этом фото — уточнения уходят с ним же. */
+    var assistantPhoto by mutableStateOf<String?>(null)
+        private set
+
+    /** Оценить по фото: [name] — снимок, уже уменьшенный и сохранённый на телефоне. Строка в поле — подсказка к фото. */
+    fun askAssistantPhoto(name: String) {
+        assistantPhoto = name
+        askAssistant(fromPhoto = true)
+    }
+
+    fun askAssistant(answer: String? = null, fromPhoto: Boolean = false) {
         if (assistantBusy) return
+        if (answer == null && !fromPhoto) assistantPhoto = null
         // Ответы на уточняющие вопросы копятся под строкой: «манты ⏎ Уточнение: тесто, фарш, лук; 5 шт»
         val q = if (answer != null) "$asked\nУточнение: $answer" else text.trim()
-        if (q.isBlank()) return
+        if (q.isBlank() && assistantPhoto == null) return
         asked = q
         assistantBusy = true; assistant = null
         viewModelScope.launch {
-            val reply = Assistant.ask(q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value))
+            val photo = assistantPhoto?.let { app.fitfat.data.Photos.forAssistant(it) }
+            val reply = Assistant.ask(q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value), photo)
             assistant = reply; assistantBusy = false
         }
     }
 
-    fun dismissAssistant() { assistant = null }
+    fun dismissAssistant() { assistant = null; assistantPhoto = null }
 
     /**
      * «Добавить» в карточке ассистента: продукт из базы — как есть, новое блюдо сохраняется продуктом с пометкой
@@ -170,11 +182,14 @@ class AddFoodViewModel : ViewModel() {
                     kcal = it.per100.kcal, protein = it.per100.protein, fat = it.per100.fat, carbs = it.per100.carbs,
                     defaultGrams = Math.round(it.grams / (it.pieces ?: 1.0)).toDouble().coerceAtLeast(1.0),
                     aliases = Recognizer.normalize(it.name), source = SOURCE_AI,
+                    weightState = it.weightState,
+                    // Оценено по фото — снимок становится фото блюда (остаётся на телефоне)
+                    photo = assistantPhoto,
                 )
             )
             if (p.perPiece) add(p, it.grams, it.pieces) else picked += Picked(nextKey++, p, it.grams, it.pieces)
         }
-        text = ""; assistant = null; asked = ""
+        text = ""; assistant = null; asked = ""; assistantPhoto = null
     }
 
     fun selectMeal(m: Meal) { meal = m; mealFlow.value = m; mealTouched = true }

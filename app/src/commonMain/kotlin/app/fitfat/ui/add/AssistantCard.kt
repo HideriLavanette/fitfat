@@ -190,7 +190,10 @@ private fun EstimateRow(it: Assistant.Item) {
     ) {
         CategoryIcon(it.category, 40.dp, radius = 12.dp, iconSize = 20.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            Text(it.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(it.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f, fill = false))
+                if (it.existing == null) app.fitfat.ui.components.AiMark()
+            }
             Text(
                 (it.pieces?.let { p -> "${fmt1(p)} шт · ${fmt0(it.grams)} г" } ?: "${fmt0(it.grams)} г") +
                     if (it.existing != null) " · из вашей базы" else " · ≈ ${fmt0(it.per100.kcal)} ккал на 100 г",

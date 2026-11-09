@@ -86,10 +86,11 @@ fun PhotoTile(photo: String?, size: Dp, radius: Dp, busy: Boolean, onClick: () -
 
 /** Шторка выбора: «Снять» · «Выбрать из галереи» · «Убрать фото» (если есть). */
 @Composable
-fun PhotoSheet(picker: PhotoPicker, hasPhoto: Boolean, onDismiss: () -> Unit, onRemove: () -> Unit) {
+fun PhotoSheet(picker: PhotoPicker, hasPhoto: Boolean, onDismiss: () -> Unit, onRemove: () -> Unit, title: String? = null, hint: String? = null) {
     val colors = MaterialTheme.colorScheme
     FfSheet(onDismiss = onDismiss, gap = 8.dp) {
-        Text(if (hasPhoto) "Сменить фото" else "Добавить фото", fontSize = 20.sp, fontWeight = FontWeight(650), modifier = Modifier.padding(bottom = 6.dp))
+        Text(title ?: if (hasPhoto) "Сменить фото" else "Добавить фото", fontSize = 20.sp, fontWeight = FontWeight(650), modifier = Modifier.padding(bottom = 6.dp))
+        if (hint != null) Text(hint, fontSize = 13.sp, lineHeight = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp))
         if (app.fitfat.platform.Platform.supportsPhotoPick) {
             PhotoRow(MockIcons.Camera, "Снять на камеру", colors.onSurface) { onDismiss(); picker.camera() }
             PhotoRow(MockIcons.Gallery, "Выбрать из галереи", colors.onSurface) { onDismiss(); picker.gallery() }
