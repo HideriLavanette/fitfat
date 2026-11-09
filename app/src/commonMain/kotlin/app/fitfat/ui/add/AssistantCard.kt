@@ -91,7 +91,12 @@ fun AssistantBar(busy: Boolean, onAsk: () -> Unit) {
  */
 @OptIn(ExperimentalLayoutApi::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun AssistantCard(reply: Assistant.Reply, onDismiss: () -> Unit, onAdd: (List<Assistant.Item>) -> Unit, onOption: (String) -> Unit, onRetry: () -> Unit) {
+fun AssistantCard(
+    reply: Assistant.Reply, onDismiss: () -> Unit, onAdd: (List<Assistant.Item>) -> Unit, onOption: (String) -> Unit, onRetry: () -> Unit,
+    edits: List<app.fitfat.data.DiaryEdits.Planned> = emptyList(),
+    editsState: app.fitfat.ui.components.EditsState = app.fitfat.ui.components.EditsState.Pending,
+    onApplyEdits: () -> Unit = {}, onRevertEdits: () -> Unit = {},
+) {
     val colors = MaterialTheme.colorScheme
     // Отвечают своими словами — клавиатура выезжает, докручиваем до всей карточки: поле, варианты и «Отмена» на виду
     val bring = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
@@ -134,6 +139,12 @@ fun AssistantCard(reply: Assistant.Reply, onDismiss: () -> Unit, onAdd: (List<As
             is Assistant.Reply.Answer -> {
                 Text(reply.text, fontSize = 15.sp, lineHeight = 21.sp)
                 Buttons(cancel = "Понятно", onCancel = onDismiss)
+            }
+            // Правка уже записанного: та же карточка, что в чате; «Отмена» закрывает ответ, после «Применить» — «Готово»
+            is Assistant.Reply.Edits -> {
+                if (reply.text.isNotBlank()) Text(reply.text, fontSize = 15.sp, lineHeight = 21.sp)
+                app.fitfat.ui.components.DiaryEditsCard(edits, editsState, onApply = onApplyEdits, onCancel = onDismiss, onRevert = onRevertEdits)
+                if (editsState != app.fitfat.ui.components.EditsState.Pending) Buttons(cancel = "Готово", onCancel = onDismiss)
             }
             is Assistant.Reply.Error -> {
                 Text(reply.message, fontSize = 14.sp, lineHeight = 20.sp, color = colors.error)
@@ -230,9 +241,10 @@ fun AssistantConsentDialog(onDismiss: () -> Unit, onAgree: () -> Unit) {
         title = { Text("Ассистент") },
         text = {
             Text(
-                "Ассистент оценивает блюда, которых нет в базе, и отвечает на вопросы. Для этого строка, которую вы написали, " +
-                    "остаток калорий на день и названия похожих продуктов из вашей базы уходят через сервер FitFat в Claude (Anthropic). " +
-                    "Дневник, вес и параметры тела не отправляются.\n\nОценки примерные: реальные КБЖУ могут заметно отличаться.",
+                "Ассистент оценивает блюда, которых нет в базе, правит записи по вашей просьбе и отвечает на вопросы. Для этого строка, " +
+                    "которую вы написали, остаток калорий на день, названия похожих продуктов из вашей базы и записи дневника за сегодня " +
+                    "и вчера (название, порция, приём) уходят через сервер FitFat в Claude (Anthropic). Вес и параметры тела не отправляются." +
+                    "\n\nОценки примерные: реальные КБЖУ могут заметно отличаться.",
                 fontSize = 14.sp, lineHeight = 20.sp,
             )
         },

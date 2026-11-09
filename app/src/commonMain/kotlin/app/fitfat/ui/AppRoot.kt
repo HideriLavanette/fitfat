@@ -320,7 +320,12 @@ fun AppRoot(
                     },
                 )
             }
-            Tab.Weight -> WeightScreen(weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) }) {
+            Tab.Weight -> WeightScreen(
+                weight, onOpenDay = { d -> today.setDate(d); goTab(Tab.Today) },
+                // Карточка цели — только у «Похудеть» и «Набрать» с целевым весом
+                target = profileNow?.takeIf { it.goal == app.fitfat.data.Goal.Lose || it.goal == app.fitfat.data.Goal.Gain }?.targetKg,
+                onGoal = { nav.navigate("me") },
+            ) {
                 app.fitfat.ui.week.WeekCard(weekDays) { nav.navigate("week") }
             }
             Tab.Assistant -> {
@@ -451,6 +456,7 @@ fun AppRoot(
                     onBarcode = { code, onFound -> productsVm.resolveBarcode(code, onFound, onNew = { nav.navigate("productEdit/0?toAdd=true") }) },
                     onCreateDish = { picked ->
                         productsVm.draft = picked.map { app.fitfat.data.DishIngredient(dishId = 0, productId = it.product.id, grams = it.grams) }
+                        productsVm.draftMeta = null
                         nav.navigate("dish/0")
                     },
                 )
@@ -542,7 +548,9 @@ fun AppRoot(
             composable("dishes") {
                 DishesScreen(
                     productsVm, onBack = { nav.popBackStack() },
-                    onCreate = { productsVm.draft = emptyList(); nav.navigate("dish/0") },
+                    onCreate = { productsVm.draft = emptyList(); productsVm.draftMeta = null; nav.navigate("dish/0") },
+                    // Черновик уже собран ассистентом («Из описания») — открыть как есть
+                    onCreateDraft = { nav.navigate("dish/0") },
                     onOpenCard = { id -> nav.navigate("dish/$id") },
                     // Порция блюда уходит в «Что съели» на экране добавления
                     onAdd = { dish, g, ov -> add.add(dish, g, null, ov); nav.popBackStack() },

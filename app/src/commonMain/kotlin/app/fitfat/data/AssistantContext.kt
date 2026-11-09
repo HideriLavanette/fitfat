@@ -23,6 +23,25 @@ object AssistantContext {
         put("kcal", r(m.kcal)); put("protein", r(m.protein, 1)); put("fat", r(m.fat, 1)); put("carbs", r(m.carbs, 1))
     }
 
+    /**
+     * Записи дневника сегодня и вчера с id — для правок словами в «Добавить» («убери вчерашние фетучини»).
+     * Только название, порция, приём и ккал — без заметок.
+     */
+    suspend fun diary(app: AppGraph): kotlinx.serialization.json.JsonArray {
+        val today = DayClock.today()
+        val list = app.food.range(today.minusDays(1), today).first().sortedWith(compareBy({ it.epochDay }, { it.minute }))
+        return kotlinx.serialization.json.buildJsonArray {
+            list.forEach { e ->
+                addJsonObject {
+                    put("id", e.id); put("day", if (e.epochDay == today.toEpochDay()) "сегодня" else "вчера")
+                    put("meal", Meal.of(e.meal).label); put("name", e.name); put("grams", r(e.grams))
+                    e.pieces?.let { put("pieces", r(it, 1)) }
+                    put("kcal", r(e.kcal))
+                }
+            }
+        }
+    }
+
     suspend fun build(app: AppGraph): JsonObject {
         val today = DayClock.today()
         val profile = app.profile.load()

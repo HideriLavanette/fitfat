@@ -123,6 +123,9 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
             frac = fracs.firstOrNull { (n, _) -> n > 0 && p.cookedGrams != null && (p.cookedGrams / n).roundToInt() == p.defaultGrams.roundToInt() }?.first ?: 0
         } else {
             items.clear(); items.addAll(vm.draft); vm.draft = emptyList()
+            // Из описания (ассистент): название, вес готового и шаги — сразу в карточку, на проверку
+            vm.draftMeta?.let { m -> name = m.name; cooked = m.cookedGrams; recipe = m.recipe }
+            vm.draftMeta = null
         }
         loaded = true
     }
@@ -331,6 +334,8 @@ private fun IngredientRow(x: DishIngredient, p: Product?, first: Boolean, onGram
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(p?.name ?: "Удалённый продукт", fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f, fill = false))
+                    // Цифры ингредиента — оценка ассистента
+                    if (p?.source == app.fitfat.data.SOURCE_AI) app.fitfat.ui.components.AiMark()
                     // В каком виде взвешен ингредиент; готовый в рецепте — подсвечен: обычно его надо взвешивать до готовки
                     app.fitfat.data.WeightState.word(p?.weightState)?.let { w ->
                         val cooked = p?.weightState == app.fitfat.data.WEIGHT_COOKED

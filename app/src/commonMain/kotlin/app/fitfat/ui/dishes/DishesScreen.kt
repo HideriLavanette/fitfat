@@ -63,6 +63,7 @@ import app.fitfat.ui.components.tick
 import app.fitfat.ui.products.IconBtn
 import app.fitfat.ui.products.ProductsViewModel
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 /** «1 ингредиент», «3 ингредиента», «5 ингредиентов». */
 fun ingredientsWord(n: Int) = "$n " + when {
@@ -81,6 +82,8 @@ fun DishesScreen(
     vm: ProductsViewModel,
     onBack: () -> Unit,
     onCreate: () -> Unit,
+    /** Открыть карточку нового блюда с готовым черновиком ([ProductsViewModel.draft], [ProductsViewModel.draftMeta]). */
+    onCreateDraft: () -> Unit = onCreate,
     onOpenCard: (Long) -> Unit,
     onAdd: (dish: Product, grams: Double, override: Macros?) -> Unit,
 ) {
@@ -89,6 +92,10 @@ fun DishesScreen(
     var q by rememberSaveable { mutableStateOf("") }
     var open by remember { mutableStateOf<Product?>(null) }
     val colors = MaterialTheme.colorScheme
+    // «Из описания» — только с доступом к ассистенту (DESIGN.md, «Подписка и доступ»)
+    val access by app.fitfat.data.Access.state.collectAsStateWithLifecycle()
+    val aiOn = app.fitfat.data.Assistant.available && access.has
+    var fromText by remember { mutableStateOf(false) }
     val query = Recognizer.normalize(q)
     val dishes = all.filter { it.isDish && (query.isEmpty() || Recognizer.normalize(it.name).contains(query)) }
         .sortedWith(compareByDescending<Product> { it.lastUsed }.thenBy { it.name })
@@ -139,13 +146,24 @@ fun DishesScreen(
                 }
             }
         }
-        Surface(onClick = onCreate, shape = RoundedCornerShape(28.dp), color = colors.primary, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
-                Icon(MockIcons.Plus, null, Modifier.size(22.dp), tint = colors.onPrimary)
-                Text("Создать блюдо", fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.15.sp, color = colors.onPrimary)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Рецепт своими словами — ассистент собирает карточку блюда (0.6, 09.11.2026)
+            if (aiOn) Surface(onClick = { fromText = true }, shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerHigh, modifier = Modifier.weight(1f).height(56.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(MockIcons.NavAssistant, null, Modifier.size(20.dp), tint = colors.onSurface)
+                    Text("Из описания", fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.15.sp)
+                }
+            }
+            Surface(onClick = onCreate, shape = RoundedCornerShape(28.dp), color = colors.primary, modifier = Modifier.weight(1f).height(56.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(MockIcons.Plus, null, Modifier.size(22.dp), tint = colors.onPrimary)
+                    Text(if (aiOn) "Создать" else "Создать блюдо", fontSize = 16.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.15.sp, color = colors.onPrimary)
+                }
             }
         }
     }
+
+    if (fromText) RecipeFromTextSheet(vm, onDismiss = { fromText = false }, onReady = { fromText = false; onCreateDraft() })
 
     open?.let { d ->
         DishPortionSheet(
@@ -256,5 +274,79 @@ fun DishPortionSheet(
 private fun StepBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
     Surface(onClick = onClick, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.size(36.dp)) {
         Box(contentAlignment = Alignment.Center) { Icon(icon, desc, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurface) }
+    }
+}
+
+/**
+ * «Блюдо из описания» (0.6, 09.11.2026, макета нет): рецепт своими словами → ассистент раскладывает его на ингредиенты
+ * с весом и КБЖУ → открывается карточка нового блюда на проверку (ингредиенты-оценки — с жёлтой меткой).
+ * Описание сохраняется, пока шторка открыта; ошибка — текстом над кнопками, описание не теряется.
+ */
+@Composable
+private fun RecipeFromTextSheet(vm: ProductsViewModel, onDismiss: () -> Unit, onReady: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var text by rememberSaveable { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var consent by remember { mutableStateOf(false) }
+
+    fun go() {
+        if (text.isBlank() || busy) return
+        if (!app.fitfat.data.Assistant.consented()) { consent = true; return }
+        busy = true; error = null
+        scope.launch {
+            val known = app.fitfat.data.Assistant.similar(text, vm.products.value.filter { !it.isDish }, 30)
+            when (val r = app.fitfat.data.Assistant.recipe(text.trim(), known)) {
+                is app.fitfat.data.Assistant.RecipeReply.Ok -> vm.draftFromRecipe(r) { busy = false; onReady() }
+                is app.fitfat.data.Assistant.RecipeReply.Error -> { busy = false; error = r.message }
+            }
+        }
+    }
+
+    FfSheet(onDismiss = { if (!busy) onDismiss() }) {
+        Text("Блюдо из описания", fontSize = 22.sp, fontWeight = FontWeight(650))
+        Text(
+            "Напишите, из чего готовили и сколько чего положили. Ассистент соберёт карточку блюда — вы проверите и поправите.",
+            fontSize = 14.sp, lineHeight = 20.sp, color = colors.onSurfaceVariant,
+        )
+        BasicTextField(
+            text, { text = it; error = null },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp).clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainerHighest)
+                .padding(16.dp).semantics { contentDescription = "Описание блюда" },
+            textStyle = TextStyle(color = colors.onSurface, fontSize = 16.sp, lineHeight = 22.sp),
+            cursorBrush = SolidColor(colors.primary),
+            decorationBox = { inner ->
+                Box {
+                    if (text.isEmpty()) Text(
+                        "Борщ: свёкла 300 г, говядина 400 г, картошка 3 шт, капуста 200 г, морковь, лук, 2 ст. л. масла, вода 2 л. Вышло 3 кг",
+                        fontSize = 16.sp, lineHeight = 22.sp, color = colors.onSurfaceVariant,
+                    )
+                    inner()
+                }
+            },
+        )
+        error?.let { Text(it, fontSize = 14.sp, lineHeight = 20.sp, color = colors.error) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Закрывающее — слева
+            Surface(onClick = onDismiss, enabled = !busy, shape = RoundedCornerShape(28.dp), color = colors.surfaceContainerHigh, modifier = Modifier.weight(1f).height(52.dp)) {
+                Box(contentAlignment = Alignment.Center) { Text("Отмена", fontSize = 16.sp, fontWeight = FontWeight.Medium) }
+            }
+            val can = text.isNotBlank() && !busy
+            Surface(onClick = { go() }, enabled = can, shape = RoundedCornerShape(28.dp), color = if (can || busy) colors.primary else colors.surfaceContainerHigh, modifier = Modifier.weight(1f).height(52.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    if (busy) androidx.compose.material3.CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.onPrimary)
+                    Text(if (busy) "Собираю…" else "Собрать", fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                        color = if (can || busy) colors.onPrimary else colors.onSurfaceVariant)
+                }
+            }
+        }
+    }
+
+    if (consent) {
+        app.fitfat.ui.add.AssistantConsentDialog(onDismiss = { consent = false }) {
+            app.fitfat.data.Assistant.giveConsent(); consent = false; go()
+        }
     }
 }

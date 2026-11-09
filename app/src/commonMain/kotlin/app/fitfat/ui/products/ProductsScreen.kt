@@ -1,5 +1,6 @@
 package app.fitfat.ui.products
 
+import app.fitfat.ui.common.container
 import app.fitfat.ui.components.FfAlert
 
 import app.fitfat.time.Math
@@ -107,13 +108,14 @@ private fun Tag.icon(): ImageVector = when (this) {
 }
 
 /** Цвет тега — фон его категории (как у плашек продуктов); у «Штучных» своего цвета нет. */
+@Composable
 private fun Tag.bg(): Color? = when (this) {
-    Tag.Meat -> category("meat").bg
-    Tag.Dairy -> category("dairy").bg
-    Tag.Grain -> category("grain").bg
-    Tag.Plant -> category("veg").bg
-    Tag.Sweet -> category("sauce").bg
-    Tag.Drink -> category("drink").bg
+    Tag.Meat -> category("meat").container
+    Tag.Dairy -> category("dairy").container
+    Tag.Grain -> category("grain").container
+    Tag.Plant -> category("veg").container
+    Tag.Sweet -> category("sauce").container
+    Tag.Drink -> category("drink").container
     Tag.Piece -> null
 }
 

@@ -292,6 +292,8 @@ fun AddFoodScreen(vm: AddFoodViewModel, date: LocalDate, onClose: () -> Unit, on
                         AssistantCard(
                             r, onDismiss = vm::dismissAssistant, onAdd = { vm.acceptAssistant(it) },
                             onOption = { vm.askAssistant(answer = it) }, onRetry = { vm.askAssistant() },
+                            edits = vm.plannedEdits, editsState = vm.editsState,
+                            onApplyEdits = vm::applyEdits, onRevertEdits = vm::revertEdits,
                         )
                     }
                 }

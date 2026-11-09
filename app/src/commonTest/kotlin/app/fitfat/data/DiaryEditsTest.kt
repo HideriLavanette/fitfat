@@ -4,6 +4,7 @@ import app.fitfat.time.toEpochDay
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -70,6 +71,16 @@ class DiaryEditsTest {
         ]"""), all, today)
         assertEquals(1, list.size)
         assertNull(list[0].after)
+    }
+
+    @Test fun estimateEditsReply() {
+        val ok = Assistant.parse(Json.parseToJsonElement("""{"kind":"edits","reply":"Уберу фетучини","question":"","options":[],"items":[],"note":"",
+            "edits":[{"op":"remove","entry_id":1,"grams":null,"pieces":null,"meal":null}]}""").jsonObject)
+        assertTrue(ok is Assistant.Reply.Edits && ok.edits.single().entryId == 1L)
+        // Правок не осталось (выдуманный id отброшен разбором) — честный ответ
+        val none = Assistant.parse(Json.parseToJsonElement("""{"kind":"edits","reply":"","question":"","options":[],"items":[],"note":"",
+            "edits":[{"op":"remove","entry_id":0,"grams":null,"pieces":null,"meal":null}]}""").jsonObject)
+        assertTrue(none is Assistant.Reply.Answer)
     }
 
     @Test fun noOpChangeDropped() {

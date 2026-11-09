@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -81,7 +82,13 @@ private val rangeFmt = DateTimeFormatter.ofPattern("d MMMM")
  * Тап по дню — сводка дня (вес, КБЖУ, тип, еда), из неё — правка веса (1.3) или главный экран на эту дату.
  */
 @Composable
-fun WeightScreen(vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit, week: @Composable () -> Unit = {}) {
+fun WeightScreen(
+    vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit,
+    /** Целевой вес — у целей «Похудеть» и «Набрать», если задан; иначе карточки цели нет. */
+    target: Double? = null,
+    onGoal: () -> Unit = {},
+    week: @Composable () -> Unit = {},
+) {
     val ui by vm.ui.collectAsStateWithLifecycle()
     val hint by vm.hint.collectAsStateWithLifecycle()
     var viewing by remember { mutableStateOf<LocalDate?>(null) } // сводка дня
@@ -112,6 +119,9 @@ fun WeightScreen(vm: WeightViewModel, onOpenDay: (LocalDate) -> Unit, week: @Com
                 )
             }
         }
+        // Прогноз цели (0.6, 09.11.2026): сколько осталось и когда по реальному темпу
+        val last = ui.last
+        if (target != null && last != null) GoalCard(target, last.kg, ui, onGoal)
         // Недельный отчёт (0.5): баланс, вес, средние БЖУ — под текущим весом
         week()
         PillToggle(Period.entries.map { it.label }, ui.period.ordinal, onSelect = { vm.setPeriod(Period.entries[it]) }, modifier = Modifier.fillMaxWidth())
@@ -354,5 +364,59 @@ private fun DayCell(d: LocalDate, today: LocalDate, p: WeightPoint?, type: DayTy
         Text(w, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight(650), maxLines = 1, color = if (p == null) colors.outline else colors.onSurface)
         Spacer(Modifier.padding(top = 1.dp))
         Box(Modifier.width(18.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(if (train) MacroColors.training else Color.Transparent))
+    }
+}
+
+/**
+ * Карточка цели на вкладке «Вес» (0.6, 09.11.2026, макета нет): «Цель 75 кг · осталось 7,9 кг», полоса пути от первого
+ * взвешивания за полгода до цели, дата по темпу тренда за 2 недели («≈ 14 марта 2027 · через 17 нед.» и «темп −0,4 кг/нед»).
+ * Тап — «Тело и цель».
+ */
+@Composable
+private fun GoalCard(target: Double, weight: Double, ui: WeightUi, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val trend = remember(ui.all) { ui.all.map { it.date to it.trend } }
+    val today = app.fitfat.data.DayClock.today()
+    // Начало пути — первый тренд за полгода: старые записи с другой целью не портят полосу
+    val start = remember(ui.all) { ui.all.firstOrNull { !it.date.isBefore(today.minusDays(183)) }?.trend ?: weight }
+    val up = target > start
+    val f = remember(target, weight, trend) { app.fitfat.ui.setup.goalForecast(target, weight, trend, up) }
+    val remain = abs(target - weight)
+    val progress = if (abs(target - start) < 0.1) 1f else ((start - weight) / (start - target)).toFloat().coerceIn(0f, 1f)
+    val bar by androidx.compose.animation.core.animateFloatAsState(progress, androidx.compose.animation.core.tween(700), label = "goal")
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainer).clickable(onClick = onClick).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Цель", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                Text(
+                    if (f == app.fitfat.ui.setup.GoalForecast.Reached) "${formatKg(target)} кг — достигнута"
+                    else "${formatKg(target)} кг · осталось ${formatKg(remain)} кг",
+                    fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Icon(MockIcons.ChevronRight, null, Modifier.size(20.dp), tint = colors.onSurfaceVariant)
+        }
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)).background(colors.surfaceContainerHighest)) {
+            Box(Modifier.fillMaxWidth(bar).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(colors.primary))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            when (f) {
+                is app.fitfat.ui.setup.GoalForecast.Eta -> {
+                    Text("≈ ${app.fitfat.ui.setup.etaDate(f.date)} · через ${f.weeks} нед.", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("по темпу последних 2 недель: ${app.fitfat.ui.setup.paceText(f.perWeek)}", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                }
+                is app.fitfat.ui.setup.GoalForecast.NotMoving -> {
+                    Text("Срок не посчитать — вес сейчас не движется к цели", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("темп последних 2 недель: ${app.fitfat.ui.setup.paceText(f.perWeek)}", fontSize = 13.sp, color = colors.onSurfaceVariant)
+                }
+                app.fitfat.ui.setup.GoalForecast.NotEnough ->
+                    Text("Срок появится, когда наберётся 2 недели взвешиваний", fontSize = 14.sp, color = colors.onSurfaceVariant)
+                app.fitfat.ui.setup.GoalForecast.Reached ->
+                    Text("Можно выбрать новую цель в «Тело и цель»", fontSize = 14.sp, color = colors.onSurfaceVariant)
+            }
+        }
     }
 }

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 /** База продуктов и блюд: список, карточки, правка. */
 class ProductsViewModel : ViewModel() {
@@ -39,6 +40,30 @@ class ProductsViewModel : ViewModel() {
 
     /** Состав нового блюда из «Создать блюдо» на экране добавления. */
     var draft: List<DishIngredient> = emptyList()
+    /** Название, вес готового и шаги нового блюда — из «Блюдо из описания» (ассистент). */
+    var draftMeta: DishDraftMeta? = null
+
+    /**
+     * «Блюдо из описания»: ингредиенты — продукты базы (если ассистент узнал их) или новые с пометкой «оценка ассистента».
+     * Готовит черновик для карточки блюда; [onReady] — открыть её.
+     */
+    fun draftFromRecipe(r: app.fitfat.data.Assistant.RecipeReply.Ok, onReady: () -> Unit) = viewModelScope.launch {
+        val all = repo.allProducts.first()
+        // Один и тот же продукт дважды («лук» в зажарку и в бульон) — одной строкой
+        val merged = r.ingredients.groupBy { (it.existing ?: it.name).lowercase() }.values.map { l -> l.first().copy(grams = l.sumOf { it.grams }) }
+        draft = merged.map { ing ->
+            val p = all.firstOrNull { !it.isDish && it.name.equals(ing.existing ?: ing.name, ignoreCase = true) } ?: repo.createProduct(
+                Product(
+                    name = ing.name, category = ing.category,
+                    kcal = ing.per100.kcal, protein = ing.per100.protein, fat = ing.per100.fat, carbs = ing.per100.carbs,
+                    aliases = app.fitfat.data.Recognizer.normalize(ing.name), source = app.fitfat.data.SOURCE_AI, weightState = ing.weightState,
+                ),
+            )
+            DishIngredient(dishId = 0, productId = p.id, grams = ing.grams)
+        }
+        draftMeta = DishDraftMeta(r.name, r.cookedGrams, r.steps)
+        onReady()
+    }
 
     fun product(id: Long): Flow<Product?> = repo.product(id)
     fun ingredients(dishId: Long): Flow<List<DishIngredient>> = repo.ingredients(dishId)
@@ -84,3 +109,6 @@ class ProductsViewModel : ViewModel() {
 fun newFromOff(code: String, off: OffProduct?): Product =
     if (off == null) Product(name = "", category = "grain", kcal = 0.0, protein = 0.0, fat = 0.0, carbs = 0.0, barcode = code, source = app.fitfat.data.SOURCE_MANUAL)
     else Product(name = off.name, category = "grain", kcal = off.kcal, protein = off.protein, fat = off.fat, carbs = off.carbs, barcode = code, source = app.fitfat.data.SOURCE_OFF)
+
+/** Черновик нового блюда сверх состава: название, вес готового (null — как сумма сырых), шаги рецепта. */
+data class DishDraftMeta(val name: String, val cookedGrams: Double?, val recipe: String)

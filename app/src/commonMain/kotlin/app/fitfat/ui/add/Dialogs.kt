@@ -1,5 +1,6 @@
 package app.fitfat.ui.add
 
+import app.fitfat.ui.common.container
 import app.fitfat.ui.components.FfAlert
 
 import app.fitfat.time.*
@@ -484,7 +485,7 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
                 val sel = c.id == cat
                 Surface(
                     onClick = { cat = c.id }, shape = RoundedCornerShape(8.dp),
-                    color = if (sel) c.bg else Color.Transparent,
+                    color = if (sel) c.container else Color.Transparent,
                     border = androidx.compose.foundation.BorderStroke(1.dp, if (sel) colors.primary else colors.outlineVariant),
                     modifier = Modifier.height(32.dp),
                 ) {

@@ -45,12 +45,15 @@ object Assistant {
         data class Items(val items: List<Item>, val text: String, val note: String) : Reply
         data class Question(val text: String, val options: List<String>) : Reply
         data class Answer(val text: String) : Reply
+        /** Правка уже записанного («убери вчерашние фетучини») — карточка «Изменения в дневнике». */
+        data class Edits(val text: String, val edits: List<Edit>) : Reply
         data class Error(val message: String) : Reply
     }
 
     private val prefs by lazy { Prefs("assistant") }
-    fun consented() = prefs.getBoolean("consent", false)
-    fun giveConsent() = prefs.edit { putBoolean("consent", true) }
+    /** v2 (09.11.2026): в «Добавить» теперь уходят и записи дневника за сегодня и вчера — согласие спрашиваем заново. */
+    fun consented() = prefs.getBoolean("consent_v2", false)
+    fun giveConsent() = prefs.edit { putBoolean("consent_v2", true) }
     /** Согласие для вкладки «Ассистент»: туда уходит больше — сводка дневника и веса. */
     fun chatConsented() = prefs.getBoolean("consent_chat", false)
     fun giveChatConsent() = prefs.edit { putBoolean("consent_chat", true) }
@@ -75,13 +78,15 @@ object Assistant {
 
     /** [photo] — JPEG еды для оценки по фото (не сохраняется на сервере). */
     @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
-    suspend fun ask(text: String, leftKcal: Double?, known: List<Product>, photo: ByteArray? = null): Reply {
+    /** [diary] — записи сегодня и вчера с id ([AssistantContext.diary]) — для правок словами. */
+    suspend fun ask(text: String, leftKcal: Double?, known: List<Product>, photo: ByteArray? = null, diary: JsonArray? = null): Reply {
         val (token, authErr) = token()
         if (token == null) return Reply.Error(authErr!!)
         val body = buildJsonObject {
             put("text", text)
             if (photo != null) put("photo", kotlin.io.encoding.Base64.encode(photo))
             leftKcal?.let { put("leftKcal", Math.round(it)) }
+            diary?.let { put("diary", it) }
             putJsonArray("known") {
                 known.forEach { p ->
                     addJsonObject {
@@ -143,6 +148,72 @@ object Assistant {
             Edit(op, id, grams, pieces, meal)
         }.distinctBy { it.op to it.entryId }
 
+    /** Ингредиент рецепта: вес — как кладут (сырой / сухой), КБЖУ — на 100 г в этом виде; [estimated] — вес предположил ассистент. */
+    data class RecipeIngredient(
+        val name: String, val existing: String?, val category: String, val grams: Double,
+        val per100: Macros, val weightState: String?, val estimated: Boolean,
+    )
+
+    sealed interface RecipeReply {
+        /** [cookedGrams] — вес готового, если его назвали; [steps] — шаги, если их описали. */
+        data class Ok(
+            val name: String, val cookedGrams: Double?, val steps: String,
+            val ingredients: List<RecipeIngredient>, val message: String, val note: String,
+        ) : RecipeReply
+        data class Error(val message: String) : RecipeReply
+    }
+
+    /** Рецепт из описания своими словами (DESIGN.md, «Блюдо из описания»): уходит описание и похожие продукты из базы. */
+    suspend fun recipe(text: String, known: List<Product>): RecipeReply {
+        val (token, authErr) = token()
+        if (token == null) return RecipeReply.Error(authErr!!)
+        val body = buildJsonObject {
+            put("text", text)
+            putJsonArray("known") {
+                known.forEach { p ->
+                    addJsonObject {
+                        put("name", p.name); put("kcal", p.kcal); put("protein", p.protein); put("fat", p.fat); put("carbs", p.carbs)
+                        put("perPiece", p.perPiece); put("pieceGrams", p.pieceGrams)
+                    }
+                }
+            }
+        }
+        val (j, err) = call("/recipe", token, body)
+        return if (j == null) RecipeReply.Error(err ?: "Ассистент недоступен.") else parseRecipe(j)
+    }
+
+    /** Ответ /recipe → [RecipeReply]. Ингредиенты без названия или веса отбрасываются, калории — из БЖУ. Открыто для тестов. */
+    fun parseRecipe(j: JsonObject): RecipeReply {
+        val message = j.optString("message").trim()
+        if (!j.optBoolean("ok")) return RecipeReply.Error(message.ifBlank { "Опишите блюдо: из чего оно и сколько чего положили." })
+        val a = j.optArray("ingredients") ?: JsonArray(emptyList())
+        val ings = a.indices.mapNotNull { i ->
+            val o = a.optObject(i) ?: return@mapNotNull null
+            val name = o.optString("name").trim()
+            val grams = o.optDouble("grams")
+            if (name.isEmpty() || grams.isNaN() || grams <= 0) return@mapNotNull null
+            val p = o.optDouble("protein", 0.0).coerceAtLeast(0.0)
+            val f = o.optDouble("fat", 0.0).coerceAtLeast(0.0)
+            val u = o.optDouble("carbs", 0.0).coerceAtLeast(0.0)
+            RecipeIngredient(
+                name = name.replaceFirstChar { it.uppercase() },
+                existing = if (o.isNull("existing")) null else o.optString("existing").takeIf { it.isNotBlank() },
+                category = o.optString("category").takeIf { it in CATEGORIES } ?: "grain",
+                grams = Math.round(grams.coerceAtMost(20_000.0)).toDouble(),
+                per100 = Macros(p * 4 + f * 9 + u * 4, p, f, u),
+                weightState = o.optString("weight_state").takeIf { it in WeightState.all },
+                estimated = o.optBoolean("estimated"),
+            )
+        }
+        if (ings.isEmpty()) return RecipeReply.Error(message.ifBlank { "Не нашёл в описании ингредиентов — напишите, из чего блюдо и сколько чего положили." })
+        val cooked = if (j.isNull("cooked_grams")) null else j.optDouble("cooked_grams").takeIf { !it.isNaN() && it > 0 }
+        return RecipeReply.Ok(
+            name = j.optString("name").trim().replaceFirstChar { it.uppercase() }.ifBlank { "Блюдо" },
+            cookedGrams = cooked?.let { Math.round(it.coerceAtMost(50_000.0)).toDouble() },
+            steps = j.optString("steps").trim(), ingredients = ings, message = message, note = j.optString("note").trim(),
+        )
+    }
+
     private suspend fun post(url: String, token: String, body: JsonObject): Pair<JsonObject?, String?> {
         val resp = Http.client.post(url) {
             header("Authorization", "Bearer $token")
@@ -170,6 +241,11 @@ object Assistant {
                 val items = parseItems(j.optArray("items") ?: JsonArray(emptyList()))
                 if (items.isEmpty()) Reply.Answer(reply.ifBlank { "Не нашёл в строке еды, которую можно записать." })
                 else Reply.Items(items, reply, j.optString("note").trim())
+            }
+            "edits" -> {
+                val edits = parseEdits(j.optArray("edits") ?: JsonArray(emptyList()))
+                if (edits.isEmpty()) Reply.Answer(reply.ifBlank { "Не нашёл такую запись за сегодня и вчера." })
+                else Reply.Edits(reply, edits)
             }
             else -> Reply.Answer(reply.ifBlank { "Не понял запрос — попробуйте написать иначе." })
         }

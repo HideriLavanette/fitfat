@@ -143,6 +143,10 @@ private val LightMacros = MacroPalette(
 
 private val LocalMacroPalette = staticCompositionLocalOf { DarkMacros }
 
+/** Светлая ли сейчас тема — по палитре макросов (её выбирает [FitfatTheme] вместе со схемой цветов). */
+@Composable @ReadOnlyComposable
+fun isLightTheme(): Boolean = LocalMacroPalette.current === LightMacros
+
 /** Доступ к палитре макросов текущей темы: `MacroColors.protein` и т. п. */
 object MacroColors {
     val protein: Color @Composable @ReadOnlyComposable get() = LocalMacroPalette.current.protein

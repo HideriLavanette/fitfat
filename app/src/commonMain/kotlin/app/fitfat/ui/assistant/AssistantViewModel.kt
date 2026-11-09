@@ -1,5 +1,7 @@
 package app.fitfat.ui.assistant
 
+import app.fitfat.ui.components.EditsState
+
 import app.fitfat.platform.Prefs
 
 import app.fitfat.data.AppGraph
@@ -33,8 +35,6 @@ data class ChatMsg(
     val edits: List<app.fitfat.data.DiaryEdits.Planned> = emptyList(),
 )
 
-/** Карточка правок: ждёт решения, применена (можно вернуть), отменена или возвращена. */
-enum class EditsState { Pending, Applied, Cancelled, Reverted }
 
 /**
  * Вкладка «Ассистент» (макет 5.2): переписка живёт, пока открыто приложение. В запрос — последние сообщения

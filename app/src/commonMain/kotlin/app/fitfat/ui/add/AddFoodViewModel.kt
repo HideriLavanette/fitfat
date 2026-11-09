@@ -162,12 +162,47 @@ class AddFoodViewModel : ViewModel() {
         assistantBusy = true; assistant = null
         viewModelScope.launch {
             val photo = assistantPhoto?.let { app.fitfat.data.Photos.forAssistant(it) }
-            val reply = Assistant.ask(q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value), photo)
-            assistant = reply; assistantBusy = false
+            val diary = runCatching { app.fitfat.data.AssistantContext.diary(app.fitfat.data.AppGraph.get()) }.getOrNull()
+            val reply = Assistant.ask(q, leftKcal.value - picked.sumOf { it.macros.kcal }, Assistant.similar(q, products.value), photo, diary)
+            // Правки — к записям сегодня и вчера; не нашлось ни одной — честный ответ вместо пустой карточки
+            if (reply is Assistant.Reply.Edits) {
+                val today = DayClock.today()
+                plannedEdits = runCatching {
+                    app.fitfat.data.DiaryEdits.plan(reply.edits, repo.range(today.minusDays(1), today).first(), today)
+                }.getOrDefault(emptyList())
+                editsState = app.fitfat.ui.components.EditsState.Pending; undoEdits = null
+                assistant = if (plannedEdits.isEmpty()) Assistant.Reply.Answer("Не нашёл такую запись за сегодня и вчера.") else reply
+            } else assistant = reply
+            assistantBusy = false
         }
     }
 
     fun dismissAssistant() { assistant = null; assistantPhoto = null }
+
+    /** Правки дневника из ответа ассистента ([Assistant.Reply.Edits]) и состояние их карточки. */
+    var plannedEdits by mutableStateOf<List<app.fitfat.data.DiaryEdits.Planned>>(emptyList())
+        private set
+    var editsState by mutableStateOf(app.fitfat.ui.components.EditsState.Pending)
+        private set
+    private var undoEdits: (suspend () -> Unit)? = null
+
+    /** «Применить»: записи меняются в дневнике, строка-просьба стирается — это не еда. */
+    fun applyEdits() {
+        if (editsState != app.fitfat.ui.components.EditsState.Pending) return
+        editsState = app.fitfat.ui.components.EditsState.Applied
+        viewModelScope.launch {
+            runCatching { app.fitfat.data.DiaryEdits.apply(repo, plannedEdits) }
+                .onSuccess { undoEdits = it; text = ""; asked = "" }
+                .onFailure { editsState = app.fitfat.ui.components.EditsState.Pending }
+        }
+    }
+
+    fun revertEdits() {
+        val u = undoEdits ?: return
+        undoEdits = null
+        editsState = app.fitfat.ui.components.EditsState.Reverted
+        viewModelScope.launch { runCatching { u() } }
+    }
 
     /**
      * «Добавить» в карточке ассистента: продукт из базы — как есть, новое блюдо сохраняется продуктом с пометкой

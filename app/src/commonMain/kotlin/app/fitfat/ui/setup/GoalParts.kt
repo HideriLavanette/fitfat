@@ -165,21 +165,39 @@ internal fun HorizontalDrum(values: List<Double>, value: Double, description: St
     }
 }
 
-/** Срок цели по реальному тренду веса за последние 2 недели: «Цель ≈ 12 марта 2027 · 17 нед. при темпе −0,3 кг/нед». */
-internal fun targetEta(target: Double, weight: Double, trend: List<Pair<LocalDate, Double>>): String {
+/** Прогноз цели по реальному тренду веса за последние 2 недели (общий для «Тело и цель» и вкладки «Вес»). */
+internal sealed interface GoalForecast {
+    /** Взвешиваний меньше чем на 2 недели. */
+    data object NotEnough : GoalForecast
+    /** Цель уже достигнута (вес по ту сторону целевого или в пределах 0,2 кг). */
+    data object Reached : GoalForecast
+    /** Вес стоит или идёт от цели. [perWeek] — кг в неделю. */
+    data class NotMoving(val perWeek: Double) : GoalForecast
+    data class Eta(val date: LocalDate, val weeks: Int, val perWeek: Double) : GoalForecast
+}
+
+/** [up] — цель выше начального веса (набор), иначе — похудение. */
+internal fun goalForecast(target: Double, weight: Double, trend: List<Pair<LocalDate, Double>>, up: Boolean = target > weight): GoalForecast {
+    val remain = target - weight
+    if (abs(remain) < 0.2 || (up && remain < 0) || (!up && remain > 0)) return GoalForecast.Reached
     val today = app.fitfat.data.DayClock.today()
     val window = trend.filter { !it.first.isBefore(today.minusDays(14)) }
-    return if (window.size < 6 || ChronoUnit.DAYS.between(window.first().first, window.last().first) < 10) {
-        "Срок появится, когда наберётся 2 недели взвешиваний"
-    } else {
-        val days = ChronoUnit.DAYS.between(window.first().first, window.last().first).toDouble()
-        val perWeek = (window.last().second - window.first().second) / days * 7
-        val remain = target - weight
-        if (abs(perWeek) < 0.05 || perWeek * remain <= 0) "Сейчас вес не движется к цели — срок не посчитать"
-        else {
-            val weeks = remain / perWeek
-            val eta = today.plusDays((weeks * 7).roundToInt().toLong())
-            "Цель ≈ ${eta.format(etaFmt)} · ${weeks.roundToInt()} нед. при темпе ${if (perWeek > 0) "+" else "−"}${fmt1(abs(perWeek))} кг/нед"
-        }
-    }
+    if (window.size < 6 || ChronoUnit.DAYS.between(window.first().first, window.last().first) < 10) return GoalForecast.NotEnough
+    val days = ChronoUnit.DAYS.between(window.first().first, window.last().first).toDouble()
+    val perWeek = (window.last().second - window.first().second) / days * 7
+    if (abs(perWeek) < 0.05 || perWeek * remain <= 0) return GoalForecast.NotMoving(perWeek)
+    val weeks = remain / perWeek
+    return GoalForecast.Eta(today.plusDays((weeks * 7).roundToInt().toLong()), weeks.roundToInt().coerceAtLeast(1), perWeek)
 }
+
+internal fun etaDate(d: LocalDate): String = d.format(etaFmt)
+internal fun paceText(perWeek: Double) = "${if (perWeek > 0) "+" else "−"}${fmt1(abs(perWeek))} кг/нед"
+
+/** Срок цели строкой для «Тело и цель»: «Цель ≈ 12 марта 2027 · 17 нед. при темпе −0,3 кг/нед». */
+internal fun targetEta(target: Double, weight: Double, trend: List<Pair<LocalDate, Double>>): String =
+    when (val f = goalForecast(target, weight, trend)) {
+        GoalForecast.NotEnough -> "Срок появится, когда наберётся 2 недели взвешиваний"
+        GoalForecast.Reached -> "Цель достигнута"
+        is GoalForecast.NotMoving -> "Сейчас вес не движется к цели — срок не посчитать"
+        is GoalForecast.Eta -> "Цель ≈ ${etaDate(f.date)} · ${f.weeks} нед. при темпе ${paceText(f.perWeek)}"
+    }

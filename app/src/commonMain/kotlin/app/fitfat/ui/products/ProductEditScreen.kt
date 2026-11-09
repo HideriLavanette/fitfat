@@ -1,5 +1,6 @@
 package app.fitfat.ui.products
 
+import app.fitfat.ui.common.container
 import app.fitfat.ui.components.FfAlert
 
 import app.fitfat.time.Math
@@ -333,7 +334,7 @@ fun CategoryGrid(selected: String?, onSelect: (String) -> Unit) {
                     val r by animateDpAsState(if (sel) 22.dp else 14.dp, label = "r")
                     val border by animateColorAsState(if (sel) colors.onSurface else Color.Transparent, label = "b")
                     Surface(
-                        onClick = { onSelect(c.id) }, shape = RoundedCornerShape(r), color = c.bg,
+                        onClick = { onSelect(c.id) }, shape = RoundedCornerShape(r), color = c.container,
                         modifier = Modifier.weight(1f).heightIn(min = 44.dp).border(2.dp, border, RoundedCornerShape(r)),
                     ) {
                         Row(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
