@@ -234,55 +234,36 @@ internal fun AboutStep(p: Profile, onChange: (Profile) -> Unit) {
 
 // ——— Шаг 2: процент жира ———
 
-private class Band(val from: Int, val to: Int, val title: String, val text: String)
-
-private val maleBands = listOf(
-    Band(3, 8, "Соревновательная сушка", "Видны все мышцы и вены. Держать такой уровень долго тяжело."),
-    Band(9, 12, "Атлетичный", "Чёткий пресс, рельеф плеч и рук."),
-    Band(13, 17, "Спортивный", "Пресс виден при хорошем свете, живот плоский."),
-    Band(18, 22, "Обычный", "Пресса не видно, живот мягкий, но не выступает."),
-    Band(23, 27, "Выше среднего", "Живот округлый, появляются бока."),
-    Band(28, 50, "Избыточный", "Жир на животе, боках и спине заметен даже в одежде."),
-)
-private val femaleBands = listOf(
-    Band(3, 15, "Соревновательная форма", "Очень выражен рельеф. Держать долго трудно, может сбиваться цикл."),
-    Band(16, 20, "Атлетичная", "Виден пресс, рельеф рук и ног."),
-    Band(21, 25, "Спортивная", "Подтянутая фигура, лёгкий контур пресса, талия чёткая."),
-    Band(26, 31, "Обычная", "Мягкие формы, пресса не видно, бёдра и руки без рельефа."),
-    Band(32, 37, "Выше среднего", "Округлый живот, мягкие бёдра и руки."),
-    Band(38, 50, "Избыточная", "Жир заметен на животе, бёдрах и руках даже в одежде."),
-)
-
 @Composable
 internal fun FatStep(p: Profile, onChange: (Profile) -> Unit) {
     val colors = MaterialTheme.colorScheme
     val female = p.sex == Sex.Female
-    val bands = if (female) femaleBands else maleBands
+    val levels = if (female) femaleLevels else maleLevels
     val bf = p.bodyFatPct
-    val band = bands.firstOrNull { bf in it.from..it.to } ?: bands.last()
+    val level = levels.levelOf(bf)
+    val set: (Int) -> Unit = { onChange(p.copy(bodyFatPct = it)) }
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.fillMaxWidth()) { Title("Процент жира") }
-        Text("Покрутите кольцо и сверьтесь с описанием — достаточно примерной оценки.", fontSize = 14.sp, lineHeight = 20.sp, color = colors.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
-        FatDial(bf) { onChange(p.copy(bodyFatPct = it)) }
+        Text("Сравните себя с силуэтами и приметами, потом уточните число кольцом или линейкой.", fontSize = 14.sp, lineHeight = 20.sp, color = colors.onSurfaceVariant, modifier = Modifier.fillMaxWidth())
+        FatDial(bf, set)
+        FatRuler(bf, levels, set)
+        // Текущий процент: фигура спереди и сбоку, уровень и приметы
+        val card = colors.surfaceContainer
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(colors.surfaceContainer).padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(card).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Silhouette(bf, female, Modifier.width(76.dp).height(122.dp).semantics { contentDescription = "Примерный силуэт при $bf% жира" })
+            Row(Modifier.semantics(mergeDescendants = true) { contentDescription = "Примерный силуэт при $bf% жира, спереди и сбоку" }, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                BodyFigure(bf, female, side = false, card, Modifier.width(60.dp).height(112.dp))
+                BodyFigure(bf, female, side = true, card, Modifier.width(52.dp).height(112.dp))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("${band.title} · ${band.from}–${if (band.to == 50) "50+" else band.to}%", fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                Text(band.text, fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant)
+                Text("${level.title} · ${level.range}", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                Text(level.text, fontSize = 13.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant)
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-            bands.forEach { b ->
-                val on = b === band
-                val bg by animateColorAsState(if (on) colors.secondaryContainer else colors.surfaceContainer, label = "band")
-                Box(Modifier.weight(1f).height(28.dp).clip(RoundedCornerShape(8.dp)).background(bg), contentAlignment = Alignment.Center) {
-                    Text("${b.from}" + if (b.to == 50) "+" else "", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = if (on) colors.onPrimaryContainer else colors.onSurfaceVariant)
-                }
-            }
-        }
+        Box(Modifier.fillMaxWidth()) { Caption("Все уровни — нажмите похожий") }
+        FatStrip(bf, female, levels, set)
     }
 }
 
@@ -418,44 +399,6 @@ private fun FatDial(bf: Int, onChange: (Int) -> Unit) {
     }
 }
     }
-
-/** Примерный силуэт (100×160): плечи, талия и бёдра зависят от процента жира; при низком — линии пресса. */
-@Composable
-private fun Silhouette(bf: Int, female: Boolean, modifier: Modifier) {
-    val colors = MaterialTheme.colorScheme
-    val body = colors.secondaryContainer
-    val absC = colors.onPrimaryContainer.copy(alpha = 0.7f)
-    Canvas(modifier) {
-        val kx = size.width / 100f; val ky = size.height / 160f
-        fun o(x: Float, y: Float) = Offset(x * kx, y * ky)
-        val b = bf.toFloat()
-        val sh = if (female) 24f else 30f
-        val ch = if (female) 20 + b * 0.2f else 25 + b * 0.15f
-        val wa = if (female) 10 + b * 0.32f else 12 + b * 0.42f
-        val hi = if (female) 20 + b * 0.36f else 17 + b * 0.3f
-        drawOval(body, topLeft = o(38f, 6f), size = androidx.compose.ui.geometry.Size(24 * kx, 24 * ky))
-        val p = Path().apply {
-            moveTo(o(50 - sh, 40f).x, o(50 - sh, 40f).y)
-            quadraticTo(o(50 - ch, 62f).x, o(50 - ch, 62f).y, o(50 - wa, 95f).x, o(50 - wa, 95f).y)
-            quadraticTo(o(50 - hi - 2, 110f).x, o(50 - hi - 2, 110f).y, o(50 - hi, 125f).x, o(50 - hi, 125f).y)
-            lineTo(o(50 - hi + 5, 156f).x, o(50 - hi + 5, 156f).y)
-            lineTo(o(50 + hi - 5, 156f).x, o(50 + hi - 5, 156f).y)
-            lineTo(o(50 + hi, 125f).x, o(50 + hi, 125f).y)
-            quadraticTo(o(50 + hi + 2, 110f).x, o(50 + hi + 2, 110f).y, o(50 + wa, 95f).x, o(50 + wa, 95f).y)
-            quadraticTo(o(50 + ch, 62f).x, o(50 + ch, 62f).y, o(50 + sh, 40f).x, o(50 + sh, 40f).y)
-            close()
-        }
-        drawPath(p, body)
-        val lean = if (female) bf <= 22 else bf <= 14
-        if (lean) {
-            val w = 2 * kx
-            drawLine(absC, o(44f, 72f), o(56f, 72f), w, StrokeCap.Round)
-            drawLine(absC, o(44f, 82f), o(56f, 82f), w, StrokeCap.Round)
-            drawLine(absC, o(45f, 92f), o(55f, 92f), w, StrokeCap.Round)
-            drawLine(absC, o(50f, 68f), o(50f, 96f), w, StrokeCap.Round)
-        }
-    }
-}
 
 // ——— Шаг 3: спорт и активность ———
 
