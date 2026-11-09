@@ -1,7 +1,7 @@
 # Посредник ассистента FitFat
 
 Маленький сервер на Cloudflare Workers между приложением и Claude API. Ключ Anthropic хранится только здесь, в секрете
-Worker'а, — в приложении и репозитории его нет. Запросы принимаются только с токеном входа Google от почт из `ALLOWED_EMAILS`.
+Worker'а, — в приложении и репозитории его нет. Запросы принимаются только с токеном входа Google.
 
 ## Развернуть (один раз)
 
@@ -13,7 +13,10 @@ Worker'а, — в приложении и репозитории его нет. 
    npm install
    npx wrangler login
    ```
-4. В `wrangler.toml` впиши свою почту Google в `ALLOWED_EMAILS` (через запятую, если несколько).
+4. Почты с полным бесплатным доступом — секретом (через запятую), wrangler спросит значение:
+   ```
+   npx wrangler secret put ALLOWED_EMAILS
+   ```
 5. Положи ключ секретом — wrangler спросит его и не покажет:
    ```
    npx wrangler secret put ANTHROPIC_API_KEY
@@ -42,13 +45,15 @@ npx wrangler kv namespace create REPORTS
 
 ## Бесплатный доступ
 
-`ALLOWED_EMAILS` в `wrangler.toml` — почты с полным доступом без подписки. Пробная неделя привязана к телефону:
+`ALLOWED_EMAILS` — секрет Worker'а: почты с полным доступом без подписки, через запятую. Поменять список —
+`npx wrangler secret put ALLOWED_EMAILS` (вставить весь список заново) или в панели Cloudflare: Workers → fitfat-assistant →
+Settings → Variables and Secrets. Деплой после этого не нужен. В git список не хранится. Пробная неделя привязана к телефону:
 сбросить её для телефона — `npx wrangler kv key delete --binding ACCESS --remote "trial:<устройство>"`.
 
 ## Поменять
 
 - Модель — `MODEL` в `wrangler.toml`, потом `npx wrangler deploy`. По умолчанию `claude-sonnet-5-5` — выше Sonnet не поднимать, Opus для этих задач избыточен и дорог. `claude-haiku-5-5` ещё дешевле, но оценки сложных блюд у неё грубее.
-- Кто может пользоваться — `ALLOWED_EMAILS`, потом `npx wrangler deploy`.
+- Кто пользуется бесплатно — секрет `ALLOWED_EMAILS` (см. «Бесплатный доступ»).
 - Логи в реальном времени — `npx wrangler tail`.
 
 ## Проверить локально
