@@ -29,7 +29,12 @@ import kotlinx.datetime.LocalTime
 data class ChatMsg(
     val id: Long, val fromUser: Boolean, val text: String,
     val items: List<Assistant.Item> = emptyList(), val note: String = "", val error: Boolean = false,
+    /** Предложенные правки дневника — карточка «Применить» под ответом. */
+    val edits: List<app.fitfat.data.DiaryEdits.Planned> = emptyList(),
 )
+
+/** Карточка правок: ждёт решения, применена (можно вернуть), отменена или возвращена. */
+enum class EditsState { Pending, Applied, Cancelled, Reverted }
 
 /**
  * Вкладка «Ассистент» (макет 5.2): переписка живёт, пока открыто приложение. В запрос — последние сообщения
@@ -43,6 +48,9 @@ class AssistantViewModel : ViewModel() {
     /** Предложения, уже добавленные в дневник: id сообщения → номера продуктов. */
     val added = mutableStateListOf<Pair<Long, Int>>()
     private var nextId = 1L
+    /** Состояние карточки правок по id сообщения и как вернуть применённое. */
+    val editsState = androidx.compose.runtime.mutableStateMapOf<Long, EditsState>()
+    private val undo = mutableMapOf<Long, suspend () -> Unit>()
 
     fun send(text: String) {
         val t = text.trim()
@@ -52,17 +60,46 @@ class AssistantViewModel : ViewModel() {
         viewModelScope.launch {
             val history = messages.filter { !it.error }.takeLast(12).map { m ->
                 (if (m.fromUser) "user" else "assistant") to
-                    (m.text + m.items.joinToString("") { "\n— ${it.name}" } + (if (m.note.isNotBlank()) "\n${m.note}" else "")).trim()
+                    (m.text + m.items.joinToString("") { "\n— ${it.name}" } + (if (m.note.isNotBlank()) "\n${m.note}" else "") +
+                        (if (m.edits.isEmpty()) "" else "\n[Правки дневника: " + when (editsState[m.id]) {
+                            EditsState.Applied -> "применены"; EditsState.Cancelled -> "отменены"; EditsState.Reverted -> "применены и возвращены"; else -> "ещё не применены"
+                        } + "]")).trim()
             }
             val ctx = runCatching { AssistantContext.build(fa) }.getOrNull()
             val reply = if (ctx == null) Assistant.ChatReply.Error("Не получилось собрать данные дневника.")
                 else Assistant.chat(history, ctx)
+            // Правки — к записям сегодня и вчера; несуществующие id отбрасываются
+            val planned = if (reply is Assistant.ChatReply.Ok && reply.edits.isNotEmpty()) runCatching {
+                val today = DayClock.today()
+                app.fitfat.data.DiaryEdits.plan(reply.edits, fa.food.range(today.minusDays(1), today).first(), today)
+            }.getOrDefault(emptyList()) else emptyList()
             messages += when (reply) {
-                is Assistant.ChatReply.Ok -> ChatMsg(nextId++, false, reply.text, reply.items, reply.note)
+                is Assistant.ChatReply.Ok -> ChatMsg(nextId++, false, reply.text, reply.items, reply.note, edits = planned).also {
+                    if (planned.isNotEmpty()) editsState[it.id] = EditsState.Pending
+                }
                 is Assistant.ChatReply.Error -> ChatMsg(nextId++, false, reply.message, error = true)
             }
             busy = false
         }
+    }
+
+    /** «Применить» под правками: записи меняются в дневнике, «Вернуть» откатывает. */
+    fun applyEdits(msg: ChatMsg) {
+        if (editsState[msg.id] != EditsState.Pending) return
+        editsState[msg.id] = EditsState.Applied
+        viewModelScope.launch {
+            runCatching { app.fitfat.data.DiaryEdits.apply(fa.food, msg.edits) }
+                .onSuccess { undo[msg.id] = it }
+                .onFailure { editsState[msg.id] = EditsState.Pending }
+        }
+    }
+
+    fun cancelEdits(msg: ChatMsg) { if (editsState[msg.id] == EditsState.Pending) editsState[msg.id] = EditsState.Cancelled }
+
+    fun revertEdits(msg: ChatMsg) {
+        val u = undo.remove(msg.id) ?: return
+        editsState[msg.id] = EditsState.Reverted
+        viewModelScope.launch { runCatching { u() } }
     }
 
     /** Повторить последний вопрос после ошибки. */

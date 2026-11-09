@@ -96,8 +96,16 @@ object Assistant {
     }
 
     /** Ответ во вкладке «Ассистент» (макет 5.2): текст, продукты-предложения с «+», вывод после них. */
+    /**
+     * Правка дневника из чата: [Op.Remove] — убрать запись, [Op.Change] — новая порция и/или приём,
+     * [Op.Copy] — повторить запись на сегодня. null — «не меняется». Применяет человек кнопкой.
+     */
+    data class Edit(val op: Op, val entryId: Long, val grams: Double?, val pieces: Double?, val meal: Meal?) {
+        enum class Op { Remove, Change, Copy }
+    }
+
     sealed interface ChatReply {
-        data class Ok(val text: String, val items: List<Item>, val note: String) : ChatReply
+        data class Ok(val text: String, val items: List<Item>, val note: String, val edits: List<Edit> = emptyList()) : ChatReply
         data class Error(val message: String) : ChatReply
     }
 
@@ -116,9 +124,24 @@ object Assistant {
         if (j == null) return ChatReply.Error(err ?: "Ассистент недоступен.")
         val text = j.optString("reply").trim()
         val items = parseItems(j.optArray("items") ?: JsonArray(emptyList()))
-        if (text.isEmpty() && items.isEmpty()) return ChatReply.Error("Ассистент вернул пустой ответ — попробуйте ещё раз.")
-        return ChatReply.Ok(text, items, j.optString("note").trim())
+        val edits = parseEdits(j.optArray("edits") ?: JsonArray(emptyList()))
+        if (text.isEmpty() && items.isEmpty() && edits.isEmpty()) return ChatReply.Error("Ассистент вернул пустой ответ — попробуйте ещё раз.")
+        return ChatReply.Ok(text, items, j.optString("note").trim(), edits)
     }
+
+    /** Правки из ответа: неизвестная операция, пустой id или бессмысленная порция — отбрасываются. */
+    fun parseEdits(a: JsonArray): List<Edit> =
+        a.indices.mapNotNull { i ->
+            val o = a.optObject(i) ?: return@mapNotNull null
+            val op = when (o.optString("op")) { "remove" -> Edit.Op.Remove; "change" -> Edit.Op.Change; "copy" -> Edit.Op.Copy; else -> return@mapNotNull null }
+            val id = o.optDouble("entry_id").takeIf { !it.isNaN() && it > 0 }?.toLong() ?: return@mapNotNull null
+            val grams = if (o.isNull("grams")) null else o.optDouble("grams").takeIf { !it.isNaN() && it > 0 }?.coerceAtMost(5000.0)
+            val pieces = if (o.isNull("pieces")) null else o.optDouble("pieces").takeIf { !it.isNaN() && it > 0 }?.coerceAtMost(100.0)
+            val meal = if (o.isNull("meal")) null else Meal.entries.firstOrNull { it.label == o.optString("meal") }
+            // «Поменять» без новой порции и приёма — нечего менять
+            if (op == Edit.Op.Change && grams == null && pieces == null && meal == null) return@mapNotNull null
+            Edit(op, id, grams, pieces, meal)
+        }.distinctBy { it.op to it.entryId }
 
     private suspend fun post(url: String, token: String, body: JsonObject): Pair<JsonObject?, String?> {
         val resp = Http.client.post(url) {

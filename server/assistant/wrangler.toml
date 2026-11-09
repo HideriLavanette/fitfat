@@ -7,8 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Web Client ID из Google Cloud Console — тот же, что googleWebClientId в gradle.properties
 GOOGLE_CLIENT_ID = "708835430684-gcd4jakjonpkrepbjkqihc8bagpo5bqr.apps.googleusercontent.com"
-# Полный бесплатный доступ к ассистенту, без подписки: почты через запятую. Остальным — пробная неделя или подписка.
-ALLOWED_EMAILS = "eldiderry@gmail.com"
+# Полный бесплатный доступ к ассистенту (почты через запятую) — секретом, не здесь: чужие почты не попадают в git.
+#   npx wrangler secret put ALLOWED_EMAILS
 # Модель Claude. Не дороже Sonnet: Opus для оценки блюд избыточен (решение 08.11.2026)
 MODEL = "claude-sonnet-5-5"
 

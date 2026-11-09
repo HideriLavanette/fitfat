@@ -196,6 +196,8 @@ class FoodRepository(private val products: ProductDao, private val food: FoodDao
 
     suspend fun delete(e: FoodEntry) = food.delete(e.id)
     suspend fun restore(e: FoodEntry) = food.insert(e)
+    /** Запись целиком, как есть (правки ассистента и их «Вернуть»). */
+    suspend fun updateEntry(e: FoodEntry) = food.update(e)
 }
 
 /** [macros] — КБЖУ, поправленные вручную только для этой записи. */

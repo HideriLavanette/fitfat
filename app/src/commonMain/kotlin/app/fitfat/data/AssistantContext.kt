@@ -43,7 +43,9 @@ object AssistantContext {
             putJsonArray("foods") {
                 list.forEach { e ->
                     addJsonObject {
-                        put("meal", Meal.of(e.meal).label); put("name", e.name); put("grams", r(e.grams))
+                        // id — чтобы ассистент мог предложить правку именно этой записи (убрать, порция, «как вчера»)
+                        put("id", e.id); put("meal", Meal.of(e.meal).label); put("name", e.name); put("grams", r(e.grams))
+                        e.pieces?.let { put("pieces", r(it, 1)) }
                         put("kcal", r(e.kcal)); put("protein", r(e.protein, 1)); put("fat", r(e.fat, 1)); put("carbs", r(e.carbs, 1))
                     }
                 }
