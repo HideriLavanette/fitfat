@@ -76,3 +76,56 @@ jobs:
         with:
           name: fitfat-ios-simulator
           path: FitFat-simulator.zip
+
+  # Неподписанный IPA для настоящего iPhone (release-фреймворк, arm64). Подпись — на компьютере пользователя
+  # AltStore / Sideloadly с обычным Apple ID: действует 7 дней, AltServer перепродписывает сам.
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+      - name: Фреймворк Kotlin для iPhone (release)
+        run: gradle :app:linkReleaseFrameworkIosArm64
+      - name: Проект Xcode из iosApp/project.yml
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install xcodegen
+          xcodegen generate --spec iosApp/project.yml
+      - name: Приложение для iPhone без подписи
+        run: |
+          set -o pipefail
+          mkdir -p build
+          # Версия в Info.plist — из верхнего раздела CHANGELOG.md, номер сборки — номер прогона
+          VERSION=$(grep -m1 -oE '^## \[[0-9][0-9.]*' CHANGELOG.md | tr -d '#[ ' || echo 0.0.0)
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios-device             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build 2>&1 | tee build/xcodebuild-device.log | tail -100
+          APP=build/ios-device/Build/Products/Release-iphoneos/FitFat.app
+          test -f "$APP/FitFat"
+          rm -rf build/Payload && mkdir -p build/Payload && cp -R "$APP" build/Payload/
+          (cd build && zip -qry "$GITHUB_WORKSPACE/FitFat-$VERSION-unsigned.ipa" Payload)
+          ls -la "$GITHUB_WORKSPACE"/FitFat-*-unsigned.ipa
+      - name: Лог xcodebuild при падении
+        if: failure()
+        run: |
+          {
+            echo "## xcodebuild (iPhone) упал"
+            echo '```'
+            grep -E "error:|error |Undefined symbol|ld: |fatal|Could not|No such|failed" build/xcodebuild-device.log | head -80
+            echo "--- хвост лога ---"
+            tail -120 build/xcodebuild-device.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          tail -200 build/xcodebuild-device.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fitfat-ios-ipa
+          path: FitFat-*-unsigned.ipa
