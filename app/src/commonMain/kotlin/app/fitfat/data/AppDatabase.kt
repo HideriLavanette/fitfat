@@ -268,7 +268,7 @@ private fun seedDry(db: SQLiteConnection) {
 
 /**
  * Базовые продукты (0.6.6, просьба автора 10.11.2026): овощи, фрукты, ягоды, кисломолочное разной жирности, крупы и бобовые
- * сухими, мясо, птица и рыба сырыми. КБЖУ на 100 г — по справочнику Скурихина и USDA. Добавляются, только если продукта
+ * сухими, мясо, птица и рыба сырыми; 0.6.6 — ещё популярные масла. КБЖУ на 100 г — по справочнику Скурихина и USDA. Добавляются, только если продукта
  * с таким названием ещё нет; свои продукты человека не трогаются.
  */
 private val BASIC_ROWS = listOf(
@@ -378,7 +378,18 @@ private val BASIC_ROWS = listOf(
     "('Крабовые палочки', 'meat', 73, 6, 1, 10, 'крабовые палочки', 100, NULL)",
     "('Колбаса варёная', 'meat', 257, 12.8, 22.2, 1.5, 'докторская,колбаса', 50, NULL)",
     "('Сосиски', 'meat', 266, 11, 23.9, 1.6, 'сосиски,сосиска', 100, NULL)",
-    "('Яичный белок', 'egg', 44, 11.1, 0, 0, 'белок яйца,яичные белки', 33, NULL)"
+    "('Яичный белок', 'egg', 44, 11.1, 0, 0, 'белок яйца,яичные белки', 33, NULL)",
+    "('Масло оливковое', 'oil', 898, 0, 99.8, 0, 'оливковое масло,олива', 10, NULL)",
+    "('Масло кокосовое', 'oil', 899, 0, 99.9, 0, 'кокосовое масло', 10, NULL)",
+    "('Масло льняное', 'oil', 898, 0, 99.8, 0, 'льняное масло', 10, NULL)",
+    "('Масло кукурузное', 'oil', 899, 0, 99.9, 0, 'кукурузное масло', 10, NULL)",
+    "('Масло рапсовое', 'oil', 899, 0, 99.9, 0, 'рапсовое масло', 10, NULL)",
+    "('Масло кунжутное', 'oil', 899, 0, 99.9, 0, 'кунжутное масло', 10, NULL)",
+    "('Масло горчичное', 'oil', 898, 0, 99.8, 0, 'горчичное масло', 10, NULL)",
+    "('Масло виноградных косточек', 'oil', 899, 0, 99.9, 0, 'масло виноградной косточки', 10, NULL)",
+    "('Масло авокадо', 'oil', 899, 0, 99.9, 0, 'масло авокадо', 10, NULL)",
+    "('Масло топлёное (гхи)', 'oil', 892, 0.3, 99, 0, 'топленое масло,топлёное масло,гхи', 10, NULL)",
+    "('Масло сливочное 72,5%', 'oil', 661, 0.8, 72.5, 1.3, 'крестьянское масло', 10, NULL)"
 )
 
 /** Базовые продукты, которых ещё нет в базе (по названию). */
@@ -474,7 +485,14 @@ private val MIGRATION_8_9 = object : Migration(8, 9) {
     }
 }
 
-@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 9, exportSchema = false)
+/** 0.6.6: добавлены масла — та же раздача базовых продуктов (новые по названию), схема та же. */
+private val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(connection: SQLiteConnection) {
+        seedBasic(connection)
+    }
+}
+
+@Database(entities = [WeightEntry::class, Product::class, FoodEntry::class, DishIngredient::class, TrainingLog::class], version = 10, exportSchema = false)
 @ConstructedBy(AppDatabaseConstructor::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
@@ -495,7 +513,7 @@ expect fun databaseBuilder(): RoomDatabase.Builder<AppDatabase>
 
 /** Одна база на приложение: миграции без потери данных, встроенный SQLite на обеих платформах. */
 fun createDatabase(): AppDatabase = databaseBuilder()
-    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
     .addCallback(object : RoomDatabase.Callback() {
         override fun onCreate(connection: SQLiteConnection) {
             seed(connection)
