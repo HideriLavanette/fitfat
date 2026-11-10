@@ -445,18 +445,33 @@ private fun usedLabel(n: Int): String = when {
  * на 100 г или на 1 шт, ккал считаются из БЖУ. Внизу — сколько уйдёт в эту запись. «Сохранить и добавить».
  */
 @Composable
-fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, grams: Double?, pieces: Double?) -> Unit) {
+fun NewProductSheet(
+    from: Recognized?, onDismiss: () -> Unit,
+    /** Черновик с фото упаковки (0.6.5): название, категория и БЖУ на 100 г уже заполнены — человек проверяет. */
+    seed: app.fitfat.data.Assistant.Item? = null,
+    /** Пояснение ассистента к черновику (например, почему цифры с этикетки не взяты). */
+    seedNote: String = "",
+    /** Фото упаковки — станет фото продукта. */
+    seedPhoto: String? = null,
+    /** Шторка из состава блюда: без строки «В эту запись», кнопка «Сохранить в состав». */
+    forDish: Boolean = false,
+    onSave: (Product, grams: Double?, pieces: Double?) -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    val initial = from?.fragment?.query?.replaceFirstChar { it.uppercase() } ?: ""
+    val initial = seed?.name ?: from?.fragment?.query?.replaceFirstChar { it.uppercase() } ?: ""
     var name by remember { mutableStateOf(initial) }
     val cats = remember { Categories.sortedBy { if (it.id == "sauce") 0 else 1 } }
-    var cat by remember { mutableStateOf(cats.first().id) }
+    var cat by remember { mutableStateOf(seed?.category?.takeIf { c -> cats.any { it.id == c } } ?: cats.first().id) }
     var piece by remember { mutableStateOf(from?.fragment?.pieces != null) }
-    var p by remember { mutableDoubleStateOf(0.0) }
-    var f by remember { mutableDoubleStateOf(0.0) }
-    var u by remember { mutableDoubleStateOf(0.0) }
+    var p by remember { mutableDoubleStateOf(seed?.per100?.protein?.let(::round1) ?: 0.0) }
+    var f by remember { mutableDoubleStateOf(seed?.per100?.fat?.let(::round1) ?: 0.0) }
+    var u by remember { mutableDoubleStateOf(seed?.per100?.carbs?.let(::round1) ?: 0.0) }
+    // БЖУ из черновика не трогали — источник остаётся «с этикетки» / «оценка ассистента»
+    val seedMacros = remember { Triple(p, f, u) }
+    val untouched = seed != null && Triple(p, f, u) == seedMacros && !piece
     var pieceG by remember { mutableStateOf("") }
-    val kcal = (p * 4 + f * 9 + u * 4).roundToInt()
+    // С этикетки — калории как на упаковке, пока БЖУ не меняли; иначе считаются из БЖУ
+    val kcal = if (untouched) seed!!.per100.kcal.roundToInt() else (p * 4 + f * 9 + u * 4).roundToInt()
     val entryG = from?.fragment?.grams ?: 100.0
     val entryN = from?.fragment?.pieces ?: 1.0
     val entryK = if (piece) kcal * entryN else kcal * entryG / 100
@@ -467,6 +482,11 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Новый продукт", fontSize = 22.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             if (from != null) Text("из «${from.fragment.raw.trim().trimEnd(',')}»", fontSize = 13.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
+        }
+        if (seed != null) {
+            val head = if (seed.fromLabel) "КБЖУ — с этикетки на фото. Проверьте и сохраните." else "КБЖУ — оценка ассистента: на этикетке их не видно или цифры не сходятся. Проверьте."
+            Text(listOf(head, seedNote.trim()).filter { it.isNotEmpty() }.joinToString(" "), fontSize = 13.sp, lineHeight = 18.sp,
+                color = if (seed.fromLabel) colors.onSurfaceVariant else colors.tertiary)
         }
         BasicTextField(
             name, { name = it }, singleLine = true,
@@ -524,7 +544,7 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
                 Text("г", fontSize = 14.sp, color = colors.onSurfaceVariant)
             }
         }
-        Row(Modifier.padding(horizontal = 4.dp)) {
+        if (!forDish) Row(Modifier.padding(horizontal = 4.dp)) {
             Text("В эту запись: " + if (piece) "${fmt1(entryN)} шт" else "${fmt0(entryG)} г", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.weight(1f))
             Text("${fmt0(entryK)} ккал", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
@@ -541,6 +561,8 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
                             name = n, category = cat, kcal = kcal.toDouble(), protein = p, fat = f, carbs = u,
                             perPiece = piece, pieceGrams = if (piece) pg else null, aliases = aliases,
                             defaultGrams = if (piece) 1.0 else 100.0,
+                            source = if (untouched) seed!!.source else if (seed != null || forDish) app.fitfat.data.SOURCE_MANUAL else null,
+                            photo = seedPhoto,
                         ),
                         if (piece) null else entryG, if (piece) entryN else null,
                     )
@@ -549,12 +571,14 @@ fun NewProductSheet(from: Recognized?, onDismiss: () -> Unit, onSave: (Product, 
                 color = if (valid) colors.primary else colors.surfaceContainerHighest, modifier = Modifier.weight(1.5f).height(56.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text("Сохранить и добавить", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (valid) colors.onPrimary else colors.outline)
+                    Text(if (forDish) "Сохранить в состав" else "Сохранить и добавить", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (valid) colors.onPrimary else colors.outline)
                 }
             }
         }
     }
 }
+
+private fun round1(v: Double) = (v * 10).roundToInt() / 10.0
 
 /** Расширяет элемент на [by] за поля родителя с обеих сторон. */
 private fun Modifier.bleed(by: Dp) = layout { m, c ->

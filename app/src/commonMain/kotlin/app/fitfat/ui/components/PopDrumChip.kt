@@ -110,7 +110,9 @@ fun RowScope.PopDrumChip(
     var step by remember { mutableDoubleStateOf(1.0) }
     val target by rememberUpdatedState(onTarget)
     val current by rememberUpdatedState(value)
-    val drag = rememberStepDrag(ROW, atLimit = { dir -> (((drumVal + dir * step) / step).roundToInt() * step).let { it < min - 1e-9 || it > max + 1e-9 } }) { dir ->
+    // Большие числа сверху (0.6.5): лента идёт за пальцем, палец вниз — значение растёт
+    val drag = rememberStepDrag(ROW, atLimit = { d -> val dir = -d; (((drumVal + dir * step) / step).roundToInt() * step).let { it < min - 1e-9 || it > max + 1e-9 } }) { d ->
+        val dir = -d
         val nv = ((drumVal + dir * step) / step).roundToInt() * step
         if (nv < min - 1e-9 || nv > max + 1e-9) false else { drumVal = nv; target(nv); true }
     }
@@ -197,7 +199,7 @@ fun RowScope.PopDrumChip(
                                 for (k in -4..4) {
                                     val v = drumVal + k * step
                                     if (v < min - 1e-9 || v > max + 1e-9) continue
-                                    val y = k * ROW + drag.offset
+                                    val y = -k * ROW + drag.offset
                                     val th = y / R
                                     if (abs(th) > 1.3f) continue
                                     val c = cos(th)

@@ -63,7 +63,8 @@ private fun r1(v: Double) = (v * 10).roundToInt() / 10.0
 
 /**
  * Вертикальный барабан из макетов (Claude-estimate: Б/Ж/У). Высота 180, скругление 22,
- * под выбранным — плашка 44 dp цвета [band]. Палец вверх — значение растёт.
+ * под выбранным — плашка 44 dp цвета [band]. Меньшие числа снизу, большие сверху (0.6.5): лента идёт за пальцем,
+ * палец вниз — значение растёт.
  * Ближе к центру число плавно растёт (20→26 sp), жирнеет (400→600), светлеет до `onPrimaryContainer`;
  * к краям сжимается по вертикали и гаснет.
  */
@@ -92,7 +93,9 @@ fun VerticalDrum(
     val latest = remember { doubleArrayOf(value) }
     latest[0] = v
     fun next(x: Double, dir: Int) = if (keepFraction) r1(x + dir * step) else r1(Math.round((x + dir * step) / step) * step)
-    val drag = rememberStepDrag(ROW, atLimit = { dir -> next(latest[0], dir).let { it > max + 1e-9 || it < min - 1e-9 } }) { dir ->
+    // Шаг ленты инвертирован: большие числа сверху, палец вниз подтягивает их к центру
+    val drag = rememberStepDrag(ROW, atLimit = { d -> val dir = -d; next(latest[0], dir).let { it > max + 1e-9 || it < min - 1e-9 } }) { d ->
+        val dir = -d
         val nv = next(latest[0], dir)
         if (nv > max + 1e-9 || nv < min - 1e-9) false else { latest[0] = nv; change(nv); true }
     }
@@ -120,7 +123,7 @@ fun VerticalDrum(
             for (k in -4..4) {
                 val item = r1(value + k * step)
                 if (item < min - 1e-9 || item > max + 1e-9) continue
-                val y = k * ROW + drag.offset
+                val y = -k * ROW + drag.offset
                 val th = y / R
                 if (abs(th) > 1.35f) continue
                 val c = cos(th)

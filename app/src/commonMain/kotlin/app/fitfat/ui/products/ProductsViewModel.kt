@@ -16,6 +16,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+
+/** Запрос к ассистенту для фото упаковки: один продукт на 100 г, цифры — с этикетки после проверки. */
+private const val LABEL_ASK = "Это фото упаковки продукта — ингредиент для блюда, его не съели. Верни ровно один продукт: " +
+    "название как на упаковке, граммы 100, КБЖУ на 100 г с таблицы пищевой ценности (если указаны на порцию — пересчитай на 100 г). " +
+    "Перед записью проверь цифры на правдоподобие. Если КБЖУ на фото не видно — оцени по названию и составу и поставь from_label false."
 
 /** База продуктов и блюд: список, карточки, правка. */
 class ProductsViewModel : ViewModel() {
@@ -73,6 +80,36 @@ class ProductsViewModel : ViewModel() {
         val id = if (p.id == 0L) repo.createProduct(p).id else { repo.updateProduct(p); p.id }
         onDone(id)
     }
+
+    /** Ассистент читает этикетку для нового ингредиента блюда (0.6.5). */
+    var labelBusy by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
+    /**
+     * Фото упаковки ([photo] — файл в `photos`) → КБЖУ на 100 г с этикетки (сервер проверяет их на правдоподобие).
+     * [onResult]: продукт-черновик и пояснение ассистента или текст ошибки.
+     */
+    fun readLabel(photo: String, onResult: (app.fitfat.data.Assistant.Item?, note: String, error: String?) -> Unit) {
+        if (labelBusy) return
+        labelBusy = true
+        viewModelScope.launch {
+            val bytes = app.fitfat.data.Photos.forAssistant(photo)
+            val reply = if (bytes == null) app.fitfat.data.Assistant.Reply.Error("Не получилось прочитать фото.")
+                else app.fitfat.data.Assistant.ask(LABEL_ASK, null, emptyList(), bytes)
+            labelBusy = false
+            when (reply) {
+                is app.fitfat.data.Assistant.Reply.Items -> reply.items.firstOrNull()
+                    ?.let { onResult(it, reply.note, null) } ?: onResult(null, "", "Ассистент не нашёл продукт на фото.")
+                is app.fitfat.data.Assistant.Reply.Question -> onResult(null, "", reply.text)
+                is app.fitfat.data.Assistant.Reply.Answer -> onResult(null, "", reply.text)
+                is app.fitfat.data.Assistant.Reply.Edits -> onResult(null, "", "Ассистент не понял фото — попробуйте снять этикетку ближе.")
+                is app.fitfat.data.Assistant.Reply.Error -> onResult(null, "", reply.message)
+            }
+        }
+    }
+
+    /** Новый продукт из шторки состава блюда — сразу в базу, [onDone] получает его с id. */
+    fun createIngredient(p: Product, onDone: (Product) -> Unit) = viewModelScope.launch { onDone(repo.createProduct(p)) }
 
     fun saveDish(dish: Product, items: List<DishIngredient>, onDone: (Long) -> Unit = {}) = viewModelScope.launch {
         onDone(repo.saveDish(dish, items, products.value))

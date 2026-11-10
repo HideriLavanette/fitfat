@@ -38,6 +38,9 @@ fun gramNext(v: Int, dir: Int): Int {
     return if (dir > 0) (floor(v.toDouble() / s) * s + s).toInt() else (ceil(v.toDouble() / s) * s - s).toInt()
 }
 
+/** Ровный шаг 5 г на всём диапазоне — вес блюд и их порций (0.6.5): готовое блюдо в 1 235 г тоже выставляется точно. */
+fun gramNext5(v: Int, dir: Int): Int = if (dir > 0) (floor(v / 5.0) * 5 + 5).toInt() else (ceil(v / 5.0) * 5 - 5).toInt()
+
 private const val SP = 22f   // расстояние между рисками, dp
 private const val R = 120f   // радиус «цилиндра» линейки, dp
 

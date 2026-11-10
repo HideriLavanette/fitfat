@@ -59,6 +59,7 @@ import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.macroLine
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.gramNext5
 import app.fitfat.ui.components.tick
 import app.fitfat.ui.products.IconBtn
 import app.fitfat.ui.products.ProductsViewModel
@@ -216,7 +217,7 @@ fun DishPortionSheet(
             Text(fmt0(portion.kcal), fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Text(" ккал", fontSize = 14.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 3.dp))
         }
-        GramRuler(g.roundToInt(), { g = it.toDouble() }, max = 3000)
+        GramRuler(g.roundToInt(), { g = it.toDouble() }, max = 3000, next = ::gramNext5, stepOf = { 5 })
         Text("на 100 г: ${fmt0(per100)} ккал", fontSize = 12.sp, color = colors.onSurfaceVariant)
         if (items.isNotEmpty()) {
             Surface(onClick = { expanded = !expanded }, shape = RoundedCornerShape(16.dp), color = colors.surfaceContainerHigh, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {

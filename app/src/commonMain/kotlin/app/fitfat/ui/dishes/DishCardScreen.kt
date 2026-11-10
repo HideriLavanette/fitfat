@@ -70,6 +70,7 @@ import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.fmt1
 import app.fitfat.ui.components.FfSheet
 import app.fitfat.ui.components.GramRuler
+import app.fitfat.ui.components.gramNext5
 import app.fitfat.ui.components.PopDrumChip
 import app.fitfat.ui.components.showUndo
 import app.fitfat.ui.products.IconBtn
@@ -113,6 +114,16 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
     var barcode by remember { mutableStateOf("") }
     var photoSheet by remember { mutableStateOf(false) }
     val picker = app.fitfat.ui.components.rememberPhotoPicker { photo = it }
+    // Новый ингредиент (0.6.5): вручную или по фото упаковки — ассистент читает КБЖУ с этикетки
+    var newIngredient by remember { mutableStateOf<NewIngredient?>(null) }
+    var labelSheet by remember { mutableStateOf(false) }
+    var labelConsent by remember { mutableStateOf(false) }
+    val labelPicker = app.fitfat.ui.components.rememberPhotoPicker { shot ->
+        vm.readLabel(shot) { item, note, err ->
+            if (item != null) newIngredient = NewIngredient(item, note, shot)
+            else scope.launch { snack.showSnackbar(err ?: "Ассистент недоступен.") }
+        }
+    }
 
     // Загрузка: блюдо из базы или черновик из «Создать блюдо»
     LaunchedEffect(id) {
@@ -206,7 +217,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                             }
                         }
                     }
-                    if (frac == 0) GramRuler(portion.roundToInt(), { portion = it.toDouble() }, max = 3000)
+                    if (frac == 0) GramRuler(portion.roundToInt(), { portion = it.toDouble() }, max = 3000, next = ::gramNext5, stepOf = { 5 })
                 }
                 // На 100 г
                 Row(
@@ -258,7 +269,7 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
                         Text(fmt0(cookedNow), fontSize = 28.sp, fontWeight = FontWeight.Bold)
                         Text(" г", fontSize = 15.sp, color = colors.onSurfaceVariant, modifier = Modifier.padding(bottom = 4.dp))
                     }
-                    GramRuler(cookedNow.roundToInt(), { cooked = it.toDouble() }, max = 6000)
+                    GramRuler(cookedNow.roundToInt(), { cooked = it.toDouble() }, max = 6000, next = ::gramNext5, stepOf = { 5 })
                     Text("Взвесьте казан без крышки и вычтите его вес — так КБЖУ на 100 г будут точными.", fontSize = 12.sp, lineHeight = 17.sp, color = colors.onSurfaceVariant)
                 }
                 // Штрихкод — если блюдо покупное (макет 4.4): вручную или камерой
@@ -300,10 +311,35 @@ fun DishCardScreen(vm: ProductsViewModel, id: Long, onBack: () -> Unit, onDelete
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 92.dp))
     }
 
-    if (picking) IngredientPicker(all.filter { !it.isDish }, onDismiss = { picking = false }) { p ->
-        picking = false
+    fun addIngredient(p: Product) {
         val g = if (p.perPiece) (p.pieceGrams ?: 50.0) * p.defaultGrams.coerceAtLeast(1.0) else p.defaultGrams
         items.add(DishIngredient(dishId = dishId, productId = p.id, grams = g))
+    }
+    if (picking) IngredientPicker(
+        all.filter { !it.isDish }, onDismiss = { picking = false },
+        onNew = { picking = false; newIngredient = NewIngredient() },
+        onPhoto = if (app.fitfat.data.Assistant.available && app.fitfat.platform.Platform.supportsPhotoPick) ({
+            picking = false
+            if (app.fitfat.data.Assistant.consented()) labelSheet = true else labelConsent = true
+        }) else null,
+    ) { p -> picking = false; addIngredient(p) }
+    if (labelConsent) app.fitfat.ui.add.AssistantConsentDialog(onDismiss = { labelConsent = false }) {
+        app.fitfat.data.Assistant.giveConsent(); labelConsent = false; labelSheet = true
+    }
+    if (labelSheet) app.fitfat.ui.components.PhotoSheet(
+        labelPicker, false, onDismiss = { labelSheet = false }, onRemove = {},
+        title = "Фото упаковки", hint = "Снимите таблицу пищевой ценности — ассистент перепишет КБЖУ на 100 г и проверит, не врёт ли производитель.",
+    )
+    newIngredient?.let { n ->
+        app.fitfat.ui.add.NewProductSheet(
+            null, onDismiss = { newIngredient = null }, seed = n.seed, seedNote = n.note, seedPhoto = n.photo, forDish = true,
+        ) { p, _, _ -> newIngredient = null; vm.createIngredient(p) { addIngredient(it) } }
+    }
+    if (vm.labelBusy) app.fitfat.ui.components.FfSheet(onDismiss = {}) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(vertical = 12.dp)) {
+            androidx.compose.material3.CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+            Text("Ассистент читает этикетку…", fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        }
     }
     if (photoSheet) app.fitfat.ui.components.PhotoSheet(picker, photo != null, onDismiss = { photoSheet = false }, onRemove = { photo = null })
     if (confirmDelete) {
@@ -412,9 +448,12 @@ private fun RecipeBlock(recipe: String, writing: Boolean, onStart: () -> Unit, o
     }
 }
 
-/** Выбор продукта для состава: поиск и список. */
+/** Шторка нового ингредиента: пустая или черновик с фото упаковки. */
+private class NewIngredient(val seed: app.fitfat.data.Assistant.Item? = null, val note: String = "", val photo: String? = null)
+
+/** Выбор продукта для состава: поиск и список; сверху — «Новый продукт» и «По фото упаковки» ([onPhoto] = null — без ассистента). */
 @Composable
-private fun IngredientPicker(products: List<Product>, onDismiss: () -> Unit, onPick: (Product) -> Unit) {
+private fun IngredientPicker(products: List<Product>, onDismiss: () -> Unit, onNew: () -> Unit, onPhoto: (() -> Unit)?, onPick: (Product) -> Unit) {
     val colors = MaterialTheme.colorScheme
     var q by remember { mutableStateOf("") }
     val query = Recognizer.normalize(q)
@@ -422,6 +461,11 @@ private fun IngredientPicker(products: List<Product>, onDismiss: () -> Unit, onP
         .sortedWith(compareByDescending<Product> { it.lastUsed }.thenBy { it.name }).take(40)
     FfSheet(onDismiss = onDismiss, gap = 10.dp) {
         Text("Ингредиент", fontSize = 20.sp, fontWeight = FontWeight(650))
+        // Нет в базе — создать тут же, не уходя из блюда
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PickerAction(MockIcons.Plus, "Новый продукт", Modifier.weight(1f), onNew)
+            if (onPhoto != null) PickerAction(MockIcons.Camera, "По фото упаковки", Modifier.weight(1f), onPhoto)
+        }
         Row(
             Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(24.dp)).background(colors.surfaceContainer).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -443,6 +487,18 @@ private fun IngredientPicker(products: List<Product>, onDismiss: () -> Unit, onP
                     }
                 }
             }
+        }
+    }
+}
+
+/** Кнопка над списком в выборе ингредиента: 48 dp, `secondaryContainer`. */
+@Composable
+private fun PickerAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(onClick = onClick, shape = RoundedCornerShape(16.dp), color = colors.secondaryContainer, modifier = modifier.heightIn(min = 48.dp)) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+            Icon(icon, null, Modifier.size(20.dp), tint = colors.onSecondaryContainer)
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.onSecondaryContainer, maxLines = 2)
         }
     }
 }
