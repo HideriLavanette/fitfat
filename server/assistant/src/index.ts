@@ -8,6 +8,9 @@
  *   и правки дневника (edits: убрать, поменять порцию или приём, повторить на сегодня — применяет человек кнопкой).
  * POST /access — что доступно этому телефону и аккаунту: полный доступ, пробная неделя (идёт / закончилась / не начата).
  * POST /trial — начать пробную неделю. Привязана к телефону (заголовок X-Device), а не к аккаунту: сменой аккаунта не продлить.
+ * POST /session — по токену входа Google выдать пропуск на 90 дней (ffs_…): приложение шлёт его вместо токена Google,
+ *   и системное окно входа не всплывает при каждом запуске. В KV лежит только SHA-256 пропуска → почта.
+ * POST /logout — отозвать пропуск (выход из аккаунта в приложении).
  * POST /report — отчёт о сбое или сообщение о проблеме из приложения (без входа) → KV REPORTS, хранится 90 дней.
  * /estimate и /chat пускают только с действующим токеном входа Google (подпись Google, aud = наш Web Client ID)
  * и только при доступе: почта в FREE_EMAILS (полный бесплатный доступ) или идущая пробная неделя телефона.
@@ -21,13 +24,15 @@ interface Env {
   /** Полный бесплатный доступ (через запятую). Старое имя переменной — оставлено для совместимости. */
   ALLOWED_EMAILS?: string;
   MODEL: string;
-  /** Пробные недели: trial:<устройство> → начало (мс). */
+  /** Пробные недели: trial:<устройство> → начало (мс). Пропуски: session:<sha256 пропуска> → почта. */
   ACCESS: KVNamespace;
   /** Отчёты о сбоях и сообщения о проблемах. */
   REPORTS: KVNamespace;
 }
 
 const TRIAL_MS = 7 * 24 * 60 * 60_000;
+const SESSION_TTL = 90 * 24 * 3600; // секунд
+const SESSION_PREFIX = "ffs_";
 const MAX_REPORT = 32_000;
 
 /** Идентификатор телефона из приложения: буквы, цифры, дефис; иначе null. */
@@ -88,15 +93,31 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const path = url.pathname;
-    if (req.method !== "POST" || !["/estimate", "/chat", "/recipe", "/access", "/trial", "/report"].includes(path)) return json({ error: "Не найдено" }, 404);
+    if (req.method !== "POST" || !["/estimate", "/chat", "/recipe", "/access", "/trial", "/report", "/session", "/logout"].includes(path)) return json({ error: "Не найдено" }, 404);
 
     // Отчёт о сбое — без входа: падает и у тех, кто не входил
     if (path === "/report") return report(req, env);
 
     const device = deviceOf(req);
-    const email = await verifyGoogle(req.headers.get("Authorization"), env).catch(() => null);
+    const auth = req.headers.get("Authorization");
+    const bearer = auth?.startsWith("Bearer ") ? auth.slice(7) : "";
+    const bySession = bearer.startsWith(SESSION_PREFIX);
+    const email = bySession ? await env.ACCESS.get(await sessionKey(bearer)) : await verifyGoogle(auth, env).catch(() => null);
 
-    if (path === "/access") return json(await accessOf(env, email, device));
+    if (path === "/session") {
+      // Пропуск выдаётся только по токену Google — по пропуску новый не получить
+      if (!email || bySession) return json({ error: "Нужен вход через Google." }, 401);
+      const session = SESSION_PREFIX + [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
+      await env.ACCESS.put(await sessionKey(session), email, { expirationTtl: SESSION_TTL });
+      return json({ session });
+    }
+    if (path === "/logout") {
+      if (bySession) await env.ACCESS.delete(await sessionKey(bearer));
+      return json({ ok: true });
+    }
+
+    // signedIn — узнал ли сервер аккаунт: по нему приложение понимает, что пропуск истёк
+    if (path === "/access") return json({ ...(await accessOf(env, email, device)), signedIn: !!email });
     if (path === "/trial") {
       if (!device) return json({ error: "Не удалось определить телефон." }, 400);
       const a = await accessOf(env, email, device);
@@ -408,6 +429,12 @@ async function googleKeys(): Promise<Jwk[]> {
   const list = ((await res.json()) as { keys: Jwk[] }).keys;
   keys = { at: Date.now(), list };
   return list;
+}
+
+/** Ключ пропуска в KV: сам пропуск не храним, только его SHA-256. */
+async function sessionKey(session: string): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(session));
+  return "session:" + [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /** Почта из действующего токена Google или null. */

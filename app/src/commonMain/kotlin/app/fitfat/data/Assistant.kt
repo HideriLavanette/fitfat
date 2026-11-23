@@ -70,7 +70,7 @@ object Assistant {
         if (!available) return null to (if (Platform.supportsGoogleSignIn) "Ассистент не настроен в этой сборке." else "Ассистент на iPhone появится в следующих версиях — ему нужен вход через Google.")
         val google = GoogleAccount.get()
         if (google.account.value == null) return null to "Чтобы пользоваться ассистентом, войдите через Google в «Профиле»."
-        val t = google.idToken() ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или выйдите и снова войдите в «Профиле»."
+        val t = google.bearer() ?: return null to "Не получилось подтвердить вход Google. Проверьте интернет или выйдите и снова войдите в «Профиле»."
         return t to null
     }
 
@@ -217,13 +217,19 @@ object Assistant {
         )
     }
 
-    private suspend fun post(url: String, token: String, body: JsonObject): Pair<JsonObject?, String?> {
+    private suspend fun post(url: String, token: String, body: JsonObject, retry: Boolean = true): Pair<JsonObject?, String?> {
         val resp = Http.client.post(url) {
             header("Authorization", "Bearer $token")
             header("X-Device", app.fitfat.platform.Device.id)
             contentType(ContentType.Application.Json)
             setBody(body.toString())
             timeout { connectTimeoutMillis = 15_000; requestTimeoutMillis = 90_000; socketTimeoutMillis = 90_000 }
+        }
+        // Пропуск сервера истёк — взять новый (тихо, через Google) и повторить запрос один раз
+        if (resp.status.value == 401 && retry && GoogleAccount.isSession(token)) {
+            GoogleAccount.get().dropSession(token)
+            val fresh = GoogleAccount.get().bearer()
+            if (fresh != null) return post(url, fresh, body, retry = false)
         }
         val raw = resp.bodyAsText()
         val json = runCatching { Json.parseToJsonElement(raw).jsonObject }.getOrNull()

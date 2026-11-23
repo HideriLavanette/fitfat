@@ -95,6 +95,7 @@ import app.fitfat.ui.common.MockIcons
 import app.fitfat.ui.common.fmt0
 import app.fitfat.ui.common.strokeIcon
 import app.fitfat.ui.components.Feedback
+import app.fitfat.ui.components.dialHint
 import app.fitfat.ui.components.PillToggle
 import app.fitfat.ui.components.PopDrumChip
 import app.fitfat.ui.components.VerticalDrum
@@ -271,6 +272,7 @@ internal fun FatStep(p: Profile, onChange: (Profile) -> Unit) {
  * Кольцо процента жира (240): дорожка 18 `surfaceContainerHighest`, 30 отметок через 12° (каждая пятая — штрих),
  * вращаются вместе со значением (12° на 1 %); в центре «печенька» `primaryContainer` и число 56.
  * Вращать пальцем по кругу, с инерцией и доводкой; щелчок на каждом проценте, упор на 3 и 50.
+ * Пока кольцо не трогали — палец показывает, как его крутить (0.6.7).
  */
 @Composable
 private fun FatDial(bf: Int, onChange: (Int) -> Unit) {
@@ -317,6 +319,7 @@ private fun FatDial(bf: Int, onChange: (Int) -> Unit) {
     val k = sizeDp / 240.dp
     Box(
         Modifier.size(sizeDp)
+            .dialHint(app.fitfat.data.Hints.FAT_DIAL, ring = 106f / 240f, track = 18f / 240f)
             .semantics { contentDescription = "Процент жира"; stateDescription = "$bf%" }
             .pointerInput(Unit) {
                 val cx = size.width / 2f; val cy = size.height / 2f

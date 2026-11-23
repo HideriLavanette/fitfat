@@ -450,6 +450,7 @@ fun AppRoot(
                     onOpenProduct = { id -> focus.clearFocus(force = true); nav.navigate("product/$id") },
                     onBarcode = { code, onFound -> productsVm.resolveBarcode(code, onFound, onNew = { nav.navigate("productEdit/0?toAdd=true") }) },
                     onCreateDish = { picked ->
+                        add.dishFrom(picked)
                         productsVm.draft = picked.map { app.fitfat.data.DishIngredient(dishId = 0, productId = it.product.id, grams = it.grams) }
                         productsVm.draftMeta = null
                         nav.navigate("dish/0")

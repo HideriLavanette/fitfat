@@ -3,9 +3,14 @@ package app.fitfat.data
 import app.fitfat.BuildValues
 import app.fitfat.platform.Prefs
 import app.fitfat.time.nowMillis
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -39,6 +44,9 @@ expect class GoogleSignIn() {
  * Вход через Google. Приложение получает имя, почту и аватарку — ни пароля, ни доступа к Gmail или платежам.
  * На диске — почта, имя и адрес аватарки для карточки профиля. Токен входа (живёт час) держим в памяти: им ассистент
  * подтверждает серверу, кто спрашивает (DESIGN.md, «Ассистент»).
+ *
+ * Чтобы системное окно «Вход в аккаунт» не всплывало при каждом запуске (0.6.7): по токену Google сервер ассистента
+ * один раз выдаёт свой пропуск на 90 дней ([bearer]) — дальше в запросах идёт он, и Google не беспокоим.
  */
 class GoogleAccount private constructor() {
     private val prefs = Prefs("account")
@@ -48,6 +56,11 @@ class GoogleAccount private constructor() {
 
     private var token: String? = null
     private var tokenExp = 0L
+    /** Один тихий запрос к Google за раз: два экрана, спросившие токен одновременно, не покажут окно дважды. */
+    private val googleLock = Mutex()
+    private val sessionLock = Mutex()
+    /** Сервер ещё не умеет выдавать пропуск (старая версия) — не спрашивать чаще раза в 10 минут. */
+    private var sessionAskedAt = 0L
 
     private fun keep(g: GoogleCredential) {
         token = g.idToken
@@ -61,11 +74,36 @@ class GoogleAccount private constructor() {
      * Свежий токен входа для сервера ассистента или null (не вошли, нет сети, Google отказал).
      * Просроченный обновляется без окна выбора — тем же аккаунтом, что уже подключён.
      */
-    suspend fun idToken(): String? {
+    suspend fun idToken(): String? = googleLock.withLock {
         if (_account.value == null) return null
         token?.let { if (tokenExp - nowMillis() > 5 * 60_000L) return it }
         val clientId = BuildValues.GOOGLE_WEB_CLIENT_ID.takeIf { it.isNotBlank() } ?: return null
-        return signer.silent(clientId)?.also(::keep)?.also(::remember)?.idToken
+        signer.silent(clientId)?.also(::keep)?.also(::remember)?.idToken
+    }
+
+    /**
+     * Чем подтверждать себя серверу ассистента (заголовок Authorization): пропуск сервера, а пока его нет — токен Google
+     * (по нему же пропуск и берём). null — не вошли или Google не ответил.
+     */
+    suspend fun bearer(): String? {
+        if (_account.value == null) return null
+        prefs.getString(KEY_SESSION, null)?.let { return it }
+        val google = idToken() ?: return null
+        return sessionLock.withLock { prefs.getString(KEY_SESSION, null) ?: openSession(google) ?: google }
+    }
+
+    private suspend fun openSession(google: String): String? = runCatching {
+        if (BuildValues.ASSISTANT_URL.isBlank() || nowMillis() - sessionAskedAt < 10 * 60_000L) return null
+        sessionAskedAt = nowMillis()
+        val resp = Http.client.post("${BuildValues.ASSISTANT_URL}/session") { header("Authorization", "Bearer $google") }
+        if (resp.status.value != 200) return null
+        Json.parseToJsonElement(resp.bodyAsText()).jsonObject.optString("session").takeIf { isSession(it) }
+            ?.also { s -> prefs.edit { putString(KEY_SESSION, s) }; sessionAskedAt = 0L }
+    }.getOrNull()
+
+    /** Сервер не принял пропуск [used] (истёк или отозван) — забыть его: следующий [bearer] возьмёт новый. */
+    fun dropSession(used: String) {
+        if (used == prefs.getString(KEY_SESSION, null)) prefs.edit { remove(KEY_SESSION) }
     }
 
     /** Аватарка или имя поменялись (или вошли до того, как приложение их запоминало) — обновить карточку. */
@@ -80,9 +118,11 @@ class GoogleAccount private constructor() {
     /** Вошли раньше, а аватарки ещё нет — тихо спросить её у Google (без окна). */
     suspend fun refreshProfile() {
         val acc = _account.value ?: return
-        if (acc.photo != null) return
+        // Один раз на вход: у аккаунта может не быть аватарки вовсе — не спрашивать её при каждом открытии «Профиля»
+        if (acc.photo != null || prefs.getBoolean(KEY_PHOTO_ASKED, false)) return
         val clientId = BuildValues.GOOGLE_WEB_CLIENT_ID.takeIf { it.isNotBlank() } ?: return
-        signer.silent(clientId)?.also(::keep)?.also(::remember)
+        prefs.edit { putBoolean(KEY_PHOTO_ASKED, true) }
+        googleLock.withLock { signer.silent(clientId)?.also(::keep)?.also(::remember) }
     }
 
     private fun load(): Account? = prefs.getString("email", null)?.let { Account(it, prefs.getString("name", null), prefs.getString("photo", null)) }
@@ -101,7 +141,8 @@ class GoogleAccount private constructor() {
         return when (val r = signer.signIn(clientId)) {
             is SignInOutcome.Ok -> {
                 val acc = Account(r.credential.email, r.credential.name?.takeIf { it.isNotBlank() }, r.credential.photo)
-                prefs.edit { putString("email", acc.email); putString("name", acc.name); putString("photo", acc.photo) }
+                // Пропуск сервера выдан прежнему аккаунту — новому не годится
+                prefs.edit { putString("email", acc.email); putString("name", acc.name); putString("photo", acc.photo); remove(KEY_SESSION); remove(KEY_PHOTO_ASKED) }
                 keep(r.credential)
                 _account.value = acc
                 Result.Ok(acc)
@@ -113,6 +154,10 @@ class GoogleAccount private constructor() {
 
     /** Выйти: забываем аккаунт и просим систему не подставлять его автоматически. */
     suspend fun signOut() {
+        // Пропуск сервера отзываем — если сети нет, он сам истечёт
+        prefs.getString(KEY_SESSION, null)?.let { s ->
+            if (BuildValues.ASSISTANT_URL.isNotBlank()) runCatching { Http.client.post("${BuildValues.ASSISTANT_URL}/logout") { header("Authorization", "Bearer $s") } }
+        }
         prefs.edit { clear() }
         _account.value = null
         token = null; tokenExp = 0
@@ -120,6 +165,10 @@ class GoogleAccount private constructor() {
     }
 
     companion object {
+        private const val KEY_SESSION = "session"
+        private const val KEY_PHOTO_ASKED = "photoAsked"
+        /** Пропуск сервера ассистента (а не токен Google). */
+        fun isSession(t: String) = t.startsWith("ffs_")
         private val instance: GoogleAccount by lazy { GoogleAccount() }
         fun get(): GoogleAccount = instance
     }

@@ -50,14 +50,20 @@ object Access {
         State(st, j.optBoolean("trialUsed"), j.optLong("trialEnds"))
     }.getOrNull()
 
-    private suspend fun call(path: String): Pair<State?, String?> = runCatching {
+    private suspend fun call(path: String, retry: Boolean = true): Pair<State?, String?> = runCatching {
         if (BuildValues.ASSISTANT_URL.isBlank()) return null to "Ассистент не настроен в этой сборке."
-        val token = if (GoogleAccount.get().account.value != null) GoogleAccount.get().idToken() else null
+        val token = if (GoogleAccount.get().account.value != null) GoogleAccount.get().bearer() else null
         val resp = Http.client.post("${BuildValues.ASSISTANT_URL}$path") {
             header("X-Device", Device.id)
             if (token != null) header("Authorization", "Bearer $token")
         }
         val text = resp.bodyAsText()
+        // Сервер не узнал пропуск (истёк) — взять новый и спросить ещё раз, иначе полный доступ покажется пропавшим
+        if (retry && token != null && GoogleAccount.isSession(token) &&
+            runCatching { Json.parseToJsonElement(text).jsonObject["signedIn"]?.toString() }.getOrNull() == "false") {
+            GoogleAccount.get().dropSession(token)
+            return call(path, retry = false)
+        }
         val s = parse(text)
         if (s != null) keep(s)
         val err = runCatching { Json.parseToJsonElement(text).jsonObject.optString("error") }.getOrNull()?.takeIf { it.isNotBlank() }

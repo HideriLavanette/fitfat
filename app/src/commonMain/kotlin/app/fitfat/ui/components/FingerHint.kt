@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -31,7 +32,10 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import app.fitfat.data.Hints
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.sin
 
 /** Какой жест показывает палец. */
 enum class FingerGesture {
@@ -106,6 +110,67 @@ fun Modifier.fingerHint(key: String, gesture: FingerGesture, show: Boolean = fal
             drawCircle(colors.onPrimary.copy(alpha = fade), r - u, Offset(cx, cy), style = Stroke(2 * u))
             translate(cx - 8f * u, cy - 10f * u) {
                 scale(36f * u / 24f, Offset.Zero) {
+                    drawPath(fingerPath, colors.onPrimary.copy(alpha = fade))
+                    drawPath(fingerPath, colors.onSurface.copy(alpha = fade), style = Stroke(1.4f, cap = StrokeCap.Round))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Кольцо-регулятор (процент жира): палец ведёт по дорожке по дуге −40° → 50° и оставляет след — как у круга веса.
+ * [ring] и [track] — радиус и толщина дорожки в долях ширины элемента. Показывается до первого касания кольца
+ * и снова, если на экране давно ничего не трогали.
+ */
+fun Modifier.dialHint(key: String, ring: Float, track: Float): Modifier = composed {
+    val hints = remember { Hints.get() }
+    val learned by hints.learned.collectAsState()
+    val lastTouch by hints.lastTouch.collectAsState()
+    val known = key in learned
+    val shownAt = remember { uptimeMillis() }
+    var now by remember { mutableLongStateOf(uptimeMillis()) }
+    LaunchedEffect(known) { if (known) while (true) { delay(1000); now = uptimeMillis() } }
+    val active = !known || now - maxOf(lastTouch, shownAt) >= Hints.IDLE_MS
+
+    val touch = Modifier.pointerInput(key) {
+        awaitPointerEventScope {
+            while (true) {
+                val e = awaitPointerEvent(PointerEventPass.Initial)
+                if (e.changes.any { it.pressed }) hints.used(key)
+            }
+        }
+    }
+    if (!active) return@composed touch
+
+    val colors = MaterialTheme.colorScheme
+    val phase by rememberInfiniteTransition(label = "dial").animateFloat(0f, 1f, infiniteRepeatable(tween(2600, easing = LinearEasing), RepeatMode.Restart), label = "phase")
+    touch.drawWithContent {
+        drawContent()
+        val a0 = -40f; val a1 = 50f
+        var fade = 0f; var ang = a0
+        when {
+            phase < 0.12f -> fade = phase / 0.12f
+            phase < 0.62f -> { fade = 1f; ang = a0 + (a1 - a0) * ease((phase - 0.12f) / 0.5f) }
+            phase < 0.78f -> { fade = 1 - (phase - 0.62f) / 0.16f; ang = a1 }
+            else -> {}
+        }
+        if (fade <= 0f) return@drawWithContent
+        val u = size.width / 240f
+        val r = ring * size.width
+        val c = Offset(size.width / 2f, size.height / 2f)
+        // След пальца по дорожке
+        drawArc(
+            colors.primary.copy(alpha = 0.35f * fade), startAngle = a0 - 90f, sweepAngle = ang - a0, useCenter = false,
+            topLeft = Offset(c.x - r, c.y - r), size = Size(2 * r, 2 * r), style = Stroke(track * size.width, cap = StrokeCap.Round),
+        )
+        val rad = (ang - 90f) * (PI / 180f).toFloat()
+        val f = Offset(c.x + r * cos(rad), c.y + r * sin(rad))
+        scale(0.9f + 0.1f * fade, f) {
+            drawCircle(colors.primary.copy(alpha = 0.3f * fade), 22f * u, f)
+            drawCircle(colors.onPrimary.copy(alpha = fade), 21f * u, f, style = Stroke(2 * u))
+            translate(f.x - 8f * u, f.y - 10f * u) {
+                scale(40f * u / 24f, Offset.Zero) {
                     drawPath(fingerPath, colors.onPrimary.copy(alpha = fade))
                     drawPath(fingerPath, colors.onSurface.copy(alpha = fade), style = Stroke(1.4f, cap = StrokeCap.Round))
                 }

@@ -45,6 +45,8 @@ class Hints private constructor() {
         const val DRUM_CHIP = "drum_chip"
         /** Видимый барабан-столбик. */
         const val DRUM_COLUMN = "drum_column"
+        /** Кольцо процента жира в анкете. */
+        const val FAT_DIAL = "fat_dial"
         const val SWIPE_DIARY = "swipe_diary"
         const val SWIPE_PRODUCTS = "swipe_products"
         const val SWIPE_ADD = "swipe_add"

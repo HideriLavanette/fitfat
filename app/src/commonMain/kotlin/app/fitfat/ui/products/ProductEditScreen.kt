@@ -208,7 +208,7 @@ fun ProductEditScreen(vm: ProductsViewModel, id: Long, onClose: () -> Unit, onSa
                     VerticalDrum(f, { f = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Жиры, г", labelColor = MacroColors.fat, band = MacroColors.fatContainer, decimals = if (kotlin.math.abs(f - Math.round(f)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                     VerticalDrum(u, { u = it; touched = true }, 0.0, mx, 1.0, Modifier.weight(1f), label = "Углеводы, г", labelColor = MacroColors.carbs, band = MacroColors.carbsContainer, decimals = if (kotlin.math.abs(u - Math.round(u)) > 0.01) 1 else 0, keepFraction = true, typeable = true)
                 }
-                Text("Нажмите на число, чтобы ввести точно — например 25,3", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text("Нажмите на барабан — шаг 0,1 для дробных; ещё раз — снова целые", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth())
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Caption("Обычная порция")

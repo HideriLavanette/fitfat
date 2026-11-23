@@ -106,7 +106,7 @@ class AddFoodViewModel : ViewModel() {
     }
 
     fun start(d: LocalDate) {
-        assistant = null; asked = ""
+        assistant = null; asked = ""; dishSource = emptySet()
         val saved = draft.load()
         if (saved == null) {
             setDay(d)
@@ -262,11 +262,28 @@ class AddFoodViewModel : ViewModel() {
         text = removeFragment(text, r.fragment.raw)
     }
 
+    /** Ключи выбранных продуктов, из которых собирают блюдо («Создать блюдо»). */
+    private var dishSource: Set<Long> = emptySet()
+
+    /** «Создать блюдо» из выбранного: когда это блюдо добавят в список, его составляющие из списка уйдут. */
+    fun dishFrom(items: List<Picked>) { dishSource = items.map { it.key }.toSet() }
+
+    /** Добавили блюдо, собранное из выбранного, — продукты, вошедшие в его состав, убираем: иначе они посчитаются дважды. */
+    private fun replaceByDish(dish: Product) {
+        val src = dishSource
+        if (!dish.isDish || src.isEmpty()) return
+        viewModelScope.launch {
+            val inside = repo.ingredients(dish.id).first().map { it.productId }.toSet()
+            if (picked.removeAll { it.key in src && it.product.id in inside }) dishSource = emptySet()
+        }
+    }
+
     /** Добавить продукт с порцией; без порции — порция продукта по умолчанию. */
     fun add(p: Product, grams: Double?, pieces: Double?, override: Macros? = null) {
         val pcs = if (p.perPiece) (pieces ?: grams?.let { g -> p.pieceGrams?.takeIf { it > 0 }?.let { g / it } } ?: p.defaultGrams.coerceAtLeast(1.0)) else null
         val g = if (p.perPiece) (p.pieceGrams ?: 0.0) * (pcs ?: 1.0) else (grams ?: p.defaultGrams)
         picked += Picked(nextKey++, p, g, pcs, override)
+        replaceByDish(p)
     }
 
     fun update(item: Picked, grams: Double, pieces: Double?, override: Macros?) {

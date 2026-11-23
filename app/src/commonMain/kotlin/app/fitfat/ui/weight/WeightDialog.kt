@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,7 +66,10 @@ private fun cap(s: String) = s.replaceFirstChar { it.uppercase() }
 @Composable
 fun MorningWeightDialog(vm: WeightViewModel, ui: WeightUi, hint: Boolean, onSave: (Double) -> Unit, onSkip: () -> Unit) {
     val today = LocalDate.now()
-    var kg by remember { mutableDoubleStateOf(ui.last?.kg ?: 70.0) }
+    // Круг стартует с последней записи. Записи читаются из базы чуть позже, чем открывается окно, поэтому
+    // значение не запоминаем при первом кадре: пока круг не крутили — берём последнюю запись, как только она пришла
+    var turned by remember { mutableStateOf<Double?>(null) }
+    val kg = turned ?: ui.last?.kg ?: 70.0
     val yesterday = ui.before(today)
     val colors = MaterialTheme.colorScheme
     FfDialog(onSkip, top = 132.dp, width = 358.dp) {
@@ -81,7 +83,7 @@ fun MorningWeightDialog(vm: WeightViewModel, ui: WeightUi, hint: Boolean, onSave
                     Text("Вес натощак", fontSize = 26.sp, lineHeight = 32.sp, fontWeight = FontWeight(650))
                 }
                 WeightDial(
-                    kg, { kg = it },
+                    kg, { turned = it },
                     caption = yesterday?.let { "вчера ${formatKg(it.kg)} · ${signedKg(kg - it.kg)} кг" } ?: "крутите круг",
                     hint = hint, onTouched = vm::learned,
                 )
@@ -167,7 +169,8 @@ fun WeightEditSheet(
 ) {
     val entry = ui.byDay[date.toEpochDay()]
     val base = entry?.kg ?: ui.before(date)?.kg ?: ui.last?.kg ?: 70.0
-    var kg by remember(date) { mutableDoubleStateOf(base) }
+    var turned by remember(date) { mutableStateOf<Double?>(null) }
+    val kg = turned ?: base
     var type by remember(date) { mutableStateOf(initialType) }
     var note by remember(date) { mutableStateOf(entry?.note ?: "") }
     var confirm by remember { mutableStateOf(false) }
@@ -187,7 +190,7 @@ fun WeightEditSheet(
         }
         val caption = if (entry != null) "было ${formatKg(entry.kg)} · ${signedKg(kg - entry.kg)} кг"
         else ui.before(date)?.let { "раньше ${formatKg(it.kg)} · ${signedKg(kg - it.kg)} кг" } ?: "крутите круг"
-        WeightDial(kg, { kg = it }, caption, Modifier.align(Alignment.CenterHorizontally), hint = hint, onTouched = onLearned)
+        WeightDial(kg, { turned = it }, caption, Modifier.align(Alignment.CenterHorizontally), hint = hint, onTouched = onLearned)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MarkToggle(
                 "Тренировка", MockIcons.Dumbbell, type == DayType.Training, MacroColors.training, MacroColors.trainingContainer,
