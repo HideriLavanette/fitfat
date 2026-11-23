@@ -12,7 +12,7 @@
  *   и системное окно входа не всплывает при каждом запуске. В KV лежит только SHA-256 пропуска → почта.
  * POST /logout — отозвать пропуск (выход из аккаунта в приложении).
  * POST /report — отчёт о сбое или сообщение о проблеме из приложения (без входа) → KV REPORTS, хранится 90 дней.
- * /estimate и /chat пускают только с действующим токеном входа Google (подпись Google, aud = наш Web Client ID)
+ * /estimate и /chat пускают только с действующим токеном входа Google (подпись Google, aud = наш Web Client ID или клиент iOS)
  * и только при доступе: почта в FREE_EMAILS (полный бесплатный доступ) или идущая пробная неделя телефона.
  * Ключ Anthropic живёт только в секрете Worker'а.
  */
@@ -21,6 +21,8 @@ import Anthropic from "@anthropic-ai/sdk";
 interface Env {
   ANTHROPIC_API_KEY: string;
   GOOGLE_CLIENT_ID: string;
+  /** Клиент OAuth типа «iOS» (приложение на iPhone): его токены входа тоже принимаем. Пусто — только веб-клиент. */
+  GOOGLE_IOS_CLIENT_ID?: string;
   /** Полный бесплатный доступ (через запятую). Старое имя переменной — оставлено для совместимости. */
   ALLOWED_EMAILS?: string;
   MODEL: string;
@@ -453,7 +455,7 @@ async function verifyGoogle(auth: string | null, env: Env): Promise<string | nul
   const claims = JSON.parse(b64text(p)) as { iss?: string; aud?: string; exp?: number; email?: string; email_verified?: boolean };
   const now = Date.now() / 1000;
   if (claims.iss !== "https://accounts.google.com" && claims.iss !== "accounts.google.com") return null;
-  if (claims.aud !== env.GOOGLE_CLIENT_ID) return null;
+  if (claims.aud !== env.GOOGLE_CLIENT_ID && !(env.GOOGLE_IOS_CLIENT_ID && claims.aud === env.GOOGLE_IOS_CLIENT_ID)) return null;
   if (!claims.exp || claims.exp < now - 60) return null;
   if (!claims.email || claims.email_verified === false) return null;
   return claims.email;

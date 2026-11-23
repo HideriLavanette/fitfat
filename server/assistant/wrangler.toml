@@ -7,6 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 # Web Client ID из Google Cloud Console — тот же, что googleWebClientId в gradle.properties
 GOOGLE_CLIENT_ID = "708835430684-gcd4jakjonpkrepbjkqihc8bagpo5bqr.apps.googleusercontent.com"
+# Client ID типа «iOS» (приложение на iPhone) — тот же, что googleIosClientId в gradle.properties. Пусто — iPhone не пускаем.
+GOOGLE_IOS_CLIENT_ID = ""
 # Полный бесплатный доступ к ассистенту (почты через запятую) — секретом, не здесь: чужие почты не попадают в git.
 #   npx wrangler secret put ALLOWED_EMAILS
 # Модель Claude. Не дороже Sonnet: Opus для оценки блюд избыточен (решение 08.11.2026)

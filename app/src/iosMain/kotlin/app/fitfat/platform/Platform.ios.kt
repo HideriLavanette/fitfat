@@ -10,9 +10,10 @@ actual object Platform {
     actual val versionCode: Int = BuildValues.VERSION_CODE
     actual val supportsDynamicColor: Boolean = false
     actual val supportsSelfUpdate: Boolean = false
-    // Пока нет на iPhone (docs/IOS.md): сканер — нужен AVFoundation, вход Google — SDK или OAuth, фото — PHPicker
+    // Пока нет на iPhone (docs/IOS.md): сканер — нужен AVFoundation, фото — PHPicker
     actual val supportsBarcodeScan: Boolean = false
-    actual val supportsGoogleSignIn: Boolean = false
+    // Вход Google (OAuth в системном окне браузера) — когда в сборке задан клиент OAuth типа «iOS»: googleIosClientId
+    actual val supportsGoogleSignIn: Boolean = BuildValues.GOOGLE_IOS_CLIENT_ID.isNotBlank()
     actual val supportsPhotoPick: Boolean = false
     actual val supportsBlur: Boolean = true
     actual val supportsFiles: Boolean = true

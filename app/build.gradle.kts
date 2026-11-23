@@ -18,6 +18,8 @@ val keystorePath: String? = System.getenv("KEYSTORE_FILE")
 // Вход через Google: идентификатор веб-клиента OAuth из Google Cloud (не секрет, виден в любом APK).
 // Пусто — кнопка «Подключить» объясняет, что вход ещё не настроен.
 val googleWebClientId = (findProperty("googleWebClientId") as String?) ?: ""
+// Вход через Google на iPhone: Client ID типа «iOS» (bundle id app.fitfat) из того же проекта Google Cloud. Пусто — входа на iOS нет.
+val googleIosClientId = (findProperty("googleIosClientId") as String?) ?: ""
 // Ассистент: адрес Worker'а из server/assistant (DESIGN.md, «Ассистент»). Пусто — кнопки ассистента нет.
 val assistantUrl = (findProperty("assistantUrl") as String?)?.trimEnd('/') ?: ""
 
@@ -100,6 +102,7 @@ val generateBuildValues by tasks.registering {
     val outDir = layout.buildDirectory.dir("generated/buildValues/commonMain/kotlin")
     inputs.property("assistantUrl", assistantUrl)
     inputs.property("googleWebClientId", googleWebClientId)
+    inputs.property("googleIosClientId", googleIosClientId)
     inputs.property("updateRepo", updateRepo)
     inputs.property("versionName", appVersionName)
     inputs.property("versionCode", appVersionCode)
@@ -115,6 +118,7 @@ val generateBuildValues by tasks.registering {
             |object BuildValues {
             |    const val ASSISTANT_URL = "$assistantUrl"
             |    const val GOOGLE_WEB_CLIENT_ID = "$googleWebClientId"
+            |    const val GOOGLE_IOS_CLIENT_ID = "$googleIosClientId"
             |    const val UPDATE_REPO = "$updateRepo"
             |    const val VERSION_NAME = "$appVersionName"
             |    const val VERSION_CODE = $appVersionCode

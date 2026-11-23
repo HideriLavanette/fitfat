@@ -15,10 +15,15 @@ fun documentDirectory(): String {
     return requireNotNull(url?.path) { "Нет каталога документов" }
 }
 
+/** Окно приложения — к нему привязываются системные окна (вход Google). */
+fun keyWindow(): UIWindow? {
+    val windows = UIApplication.sharedApplication.windows.filterIsInstance<UIWindow>()
+    return windows.firstOrNull { it.isKeyWindow() } ?: windows.firstOrNull()
+}
+
 /** Контроллер, поверх которого показывать системные окна (лист «Поделиться», выбор файла). */
 fun topViewController(): UIViewController? {
-    val windows = UIApplication.sharedApplication.windows.filterIsInstance<UIWindow>()
-    var vc = (windows.firstOrNull { it.isKeyWindow() } ?: windows.firstOrNull())?.rootViewController
+    var vc = keyWindow()?.rootViewController
     while (vc?.presentedViewController != null) vc = vc.presentedViewController
     return vc
 }
