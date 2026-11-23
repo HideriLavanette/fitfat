@@ -1,6 +1,7 @@
 package app.fitfat.update
 
 import app.fitfat.data.Http
+import app.fitfat.platform.Platform
 import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -29,6 +30,7 @@ data class AppUpdate(
     val versionName: String,
     val versionCode: Int,
     val notes: String,
+    /** Адрес файла в релизе: APK на Android, IPA на iOS. */
     val apkUrl: String,
     val sizeBytes: Long,
     val prerelease: Boolean,
@@ -37,8 +39,11 @@ data class AppUpdate(
 /** Сбой проверки обновлений с понятным текстом для окна. */
 class UpdateException(message: String) : Exception(message)
 
-/** CI кладёт в релиз файл вида fitfat-0.3.0-beta1-117.apk: имя версии и versionCode. */
-private val APK_NAME = Regex("""fitfat-(.+)-(\d+)\.apk""")
+/**
+ * CI кладёт в релиз файлы вида fitfat-0.3.0-beta1-117.apk (Android) и .ipa (iOS): имя версии и versionCode.
+ * Каждая платформа ищет свой файл — релиз без него для неё не обновление.
+ */
+private val APK_NAME = Regex("""fitfat-(.+)-(\d+)\.""" + if (Platform.isAndroid) "apk" else "ipa")
 
 class UpdateRepository(private val repo: String) {
     private val json = Json { ignoreUnknownKeys = true }

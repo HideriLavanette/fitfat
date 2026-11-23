@@ -16,6 +16,7 @@ import java.net.URL
 
 actual class UpdateInstaller actual constructor() {
     private val context get() = AndroidApp.context
+    actual val installsItself: Boolean = true
 
     actual fun download(update: AppUpdate): Flow<DownloadEvent> = flow {
         val dir = File(context.cacheDir, "updates").apply { mkdirs(); listFiles()?.forEach { it.delete() } }

@@ -72,6 +72,8 @@ class UpdateViewModel : ViewModel() {
     }
 
     fun download(update: AppUpdate) {
+        // iOS: установку ведёт AltStore — открываем его с адресом файла, окно закрываем
+        if (!installer.installsItself) { installer.install(update.apkUrl); _state.value = UpdateState.Idle; return }
         downloadJob?.cancel()
         downloadJob = viewModelScope.launch {
             _state.value = UpdateState.Downloading(update, 0f)

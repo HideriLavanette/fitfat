@@ -35,7 +35,7 @@
   (см. «Вход через Google на iPhone» ниже); без него кнопки скрыты.
 - **Сканер штрихкодов** — на Android это ML Kit; на iOS нужен `AVCaptureSession`.
 - **Фото продуктов** с камеры и из галереи — нужен `PHPickerViewController`; уже сохранённые фото показываются.
-- **Самообновление** — на iOS его нет по правилам платформы: обновления через TestFlight / App Store.
+- **Самообновление** — iOS не даёт приложению поставить само себя; обновление идёт через AltStore (см. «Обновления на iPhone»).
 - **Цвета системы** (Material You) — только Android 12+.
 - Напоминания на iOS — локальные уведомления `UNUserNotificationCenter`; проверка «уже взвесился — не напоминать»
   невозможна в момент срабатывания, напоминание приходит всегда.
@@ -53,6 +53,18 @@
 2. Вписать его в `gradle.properties` → `googleIosClientId=` и в `server/assistant/wrangler.toml` → `GOOGLE_IOS_CLIENT_ID`.
 3. Развернуть сервер: `npx wrangler deploy` в `server/assistant` — иначе он не примет токены входа с iPhone.
 4. Запушить — workflow «iOS» соберёт новый IPA; поставить его поверх старого (данные сохранятся).
+
+## Обновления на iPhone
+Тег `vX.Y.Z` → `release.yml` (job `ios`) кладёт в тот же релиз GitHub неподписанный `fitfat-<версия>-<код>.ipa`
+и `altstore.json` — источник для AltStore (делает `iosApp/altstore_source.py`). Дальше как на Android, но ставит AltStore:
+- Приложение из релиза само проверяет релизы (тот же `UpdateRepository`, ищет `.ipa`) и показывает окно «Доступна версия».
+  Кнопка «Открыть AltStore» ведёт на `altstore://install?url=<IPA>`; AltStore скачивает, подписывает Apple ID владельца
+  и ставит поверх. Нет AltStore — открывается страница релиза.
+- Источник можно добавить в AltStore один раз (Sources → «+»), тогда обновления видны и в нём:
+  `https://github.com/HideriLavanette/fitfat/releases/latest/download/altstore.json`. Бета-релизы туда не попадают.
+- AltStore ставит только при AltServer в той же сети Wi‑Fi (или по USB). Телефон, подписанный чужим Apple ID,
+  обновляется только рядом с компьютером владельца этого Apple ID.
+- Сборки из ветки `main` (артефакт workflow «iOS», номер сборки 1) обновление не предлагают — только сборки из релиза.
 
 ## Сборка и проверка
 - Локально (Windows): `./gradlew assembleDebug` собирает Android и компилирует весь `commonMain`.

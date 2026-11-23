@@ -49,7 +49,7 @@ fun UpdateDialog(vm: UpdateViewModel) {
             icon = { Icon(app.fitfat.ui.common.MockIcons.ArrowUp, contentDescription = null) },
             title = { Text("Доступна версия ${s.update.versionName}") },
             text = { ReleaseNotes(s.update) },
-            confirmButton = { Button(onClick = { vm.download(s.update) }) { Text("Обновить · ${formatSize(s.update.sizeBytes)}") } },
+            confirmButton = { Button(onClick = { vm.download(s.update) }) { Text(if (app.fitfat.platform.Platform.isAndroid) "Обновить · ${formatSize(s.update.sizeBytes)}" else "Открыть AltStore") } },
             dismissButton = { TextButton(onClick = { vm.skip(s.update) }) { Text("Позже") } },
         )
 
@@ -95,6 +95,11 @@ private fun ReleaseNotes(update: AppUpdate) {
     ) {
         if (update.prerelease) Text("Бета-версия", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.tertiary)
         Text(update.notes.ifBlank { "Без описания изменений." }, style = MaterialTheme.typography.bodyMedium)
+        // iOS: ставит AltStore, а ему нужен AltServer рядом
+        if (!app.fitfat.platform.Platform.isAndroid) Text(
+            "Обновление поставит AltStore. Компьютер с AltServer должен быть включён и в той же сети Wi‑Fi.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

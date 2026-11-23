@@ -59,3 +59,62 @@ jobs:
           body_path: notes.md
           files: out/*
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  # iOS: неподписанный IPA и источник AltStore — в тот же релиз. Ставится через AltStore с обычным Apple ID
+  # (docs/IOS.md); приложение на iPhone находит IPA в релизе и предлагает обновиться через AltStore.
+  ios:
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-
+      - name: Версия — та же, что у APK
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          VERSION_CODE=$((100 + GITHUB_RUN_NUMBER))
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          # В Info.plist версия без суффикса беты: 0.7.0-beta1 → 0.7.0
+          echo "PLIST_VERSION=${VERSION_NAME%%-*}" >> "$GITHUB_ENV"
+          # Gradle читает их как -PversionName / -PversionCode и при запуске из скрипта Xcode
+          echo "ORG_GRADLE_PROJECT_versionName=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_versionCode=$VERSION_CODE" >> "$GITHUB_ENV"
+      - name: Фреймворк Kotlin для iPhone (release)
+        run: gradle :app:linkReleaseFrameworkIosArm64
+      - name: Проект Xcode из iosApp/project.yml
+        run: |
+          HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install xcodegen
+          xcodegen generate --spec iosApp/project.yml
+      - name: IPA без подписи
+        run: |
+          set -o pipefail
+          mkdir -p build out
+          xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -configuration Release             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios-device             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""             MARKETING_VERSION="$PLIST_VERSION" CURRENT_PROJECT_VERSION="$VERSION_CODE" build 2>&1 | tee build/xcodebuild-device.log | tail -100
+          APP=build/ios-device/Build/Products/Release-iphoneos/FitFat.app
+          test -f "$APP/FitFat"
+          rm -rf build/Payload && mkdir -p build/Payload && cp -R "$APP" build/Payload/
+          (cd build && zip -qry "$GITHUB_WORKSPACE/out/fitfat-${VERSION_NAME}-${VERSION_CODE}.ipa" Payload)
+      - name: Источник AltStore
+        run: |
+          awk -v v="$VERSION_NAME" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            /^## \[/ { found = 0 }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "Исправления и улучшения." > notes.md; fi
+          python3 iosApp/altstore_source.py "out/fitfat-${VERSION_NAME}-${VERSION_CODE}.ipa" "$PLIST_VERSION" "$VERSION_CODE"             "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" notes.md out/altstore.json
+      - name: Файлы — в релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" out/* --clobber
